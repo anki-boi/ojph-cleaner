@@ -13,7 +13,7 @@
   let settings = { ...DEFAULTS };
 
   // ── DOM helpers ──────────────────────────────────────────────────────────
-  const LIST_RE = /\/jobseekers\/(jobsearch|search)\//; // keyword search + category list pages
+  const LIST_RE = /\/jobseekers\/(jobsearch|search)(\/|$)/; // keyword search (with or without /offset/) + category list pages
   const cards = () => [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
   const cardSalary = (c) => {
     const d = c.querySelector('dd.col'); // confirmed list-card salary element

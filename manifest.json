@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "OJ.ph Cleaner",
+  "version": "0.1.0",
+  "description": "Hides no-salary jobs and keyword-matching jobs on OnlineJobs.ph (deep scan of full descriptions, current page only)",
+  "host_permissions": ["https://www.onlinejobs.ph/*", "https://onlinejobs.ph/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.onlinejobs.ph/*", "https://onlinejobs.ph/*"],
+      "js": ["rules.js", "content.js"],
+      "css": "content.css",
+      "run_at": "document_idle"
+    }
+  ],
+  "options_page": "options.html",
+  "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" }
+}

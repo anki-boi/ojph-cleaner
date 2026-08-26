@@ -1,6 +1,6 @@
 # Plan: OJ.ph Cleaner — browser extension (no-salary hide + current-page deep scan with highlight/hide)
 
-> **Status:** DRAFT — rev 3 (2026-08-26): own **public** GitHub repo `anki-boi/ojph-cleaner` (code at repo root); confirmed **positive = highlight-only**; confirmed **deep scan covers only the jobs on the current page**. Rev 2 added the deep scan; rev 1 was card-text-only.
+> **Status:** APPROVED (2026-08-26) — implementing. Rev 3: own **public** GitHub repo `anki-boi/ojph-cleaner` (code at repo root); confirmed **positive = highlight-only**; confirmed **deep scan covers only the jobs on the current page**. Rev 2 added the deep scan; rev 1 was card-text-only.
 
 **Goal:** On OnlineJobs.ph in Edge/Chrome: (1) instantly hide cards with no salary; (2) on a "Deep scan" button click, fetch detail pages **for the jobs on the current page only** to get full descriptions, then **hide** negative-keyword matches and **highlight** positive-keyword matches — with progress, stop button, and a local 7-day cache.
 
@@ -14,15 +14,28 @@
 - **Detail page (user already on it):** full description is on the page — instant banner, no fetch: red "⚠ No salary listed / Matches your hide rules: …", green "✓ Matches: …".
 - **Repo layout:** own public GitHub repo `anki-boi/ojph-cleaner` (`C:/Users/PC/Desktop/ojph-cleaner`); all files at the **repo root** — Chrome requires the manifest at the root of an unpacked extension.
 
-**Selector baseline (from 2026-08-26 site survey — Task 1 re-verifies live):** list cards `.jobpost-cat-box.latest-job-post` (job link `a[href*="/jobseekers/job/"]`, salary text, skill tags); detail `h1.job__title`, `p#job-description`, WAGE/SALARY field.
+**Selectors — CONFIRMED against the live site 2026-08-26 (Task 1 done, via CDP in user's Edge):**
+
+*List pages* — both keyword search `/jobseekers/jobsearch/{offset}?jobkeyword=…` and category `/jobseekers/search/c/{slug}/{offset}` share identical card markup, 30 cards/page:
+- Card: `.jobpost-cat-box.latest-job-post`
+- Job link: `a[href*='/jobseekers/job/']` → `/jobseekers/job/<slug>-<id>`
+- Title: `h4` (+ `.badge` work-type)
+- **Salary: `dd.col`** — present on 30/30 cards; values like `$5.50 /hr starting pay`, `970`, `$4-$10/hour` → card-level no-salary hiding works without any fetch
+- Company/date: `p[data-temp]` · description preview: `.desc a:not([target])` · category tag: `.job-tag a`
+
+*Detail page* (`/jobseekers/job/<slug>-<id>`):
+- Title: `h1.job__title` (+ `data-jobid`)
+- **Full description: `p#job-description`** (~2.9k chars on a typical job)
+- **Salary field: label `h3.fs-12` whose text matches `/WAGE\s*\/\s*SALARY/i`; value = that h3's NEXT SIBLING `p`** (`<dd><h3 class='fs-12'>WAGE / SALARY</h3><p class='fs-18'> $5.50 /hr </p></dd>`). Same label/value pattern for TYPE OF WORK / HOURS PER WEEK / DATE UPDATED.
+- NOTE: `h3.job__logo` no longer exists on this layout (company name not needed by the rules anyway); closed-marker `h3.text-warning` absent on open jobs (out of scope v1). The suite parser's `h3.find_parent('dt')` path fails on this layout — it survives via its `find_next_sibling('p')` fallback, which is exactly the shape confirmed here.
 
 ---
 
-## Task 1: Verify selectors against the live site (via CDP, port 9222)
+## Task 1: Verify selectors against the live site (via CDP, port 9222) — ✅ DONE 2026-08-26
 
-**Files:** none (investigation; record confirmed selectors in this plan)
+**Files:** none (investigation; confirmed selectors recorded in the "Selectors — CONFIRMED" block above)
 
-Via CDP: open a search page (`/jobseekers/jobsearch/0?jobkeyword=virtual+assistant`) and one detail page in the user's Edge; dump outerHTML of one card + detail title/description/salary field. Pin exact selectors (card link, card salary element, detail description, detail salary field) into this plan. **Expected:** confirmed selectors; adjust any that drifted.
+**Result:** keyword-search, category, and detail pages all match the suite parser's markup (detail fields via the h3→next-sibling-p fallback). No drift found. One correction adopted: detail salary = `h3.fs-12`[WAGE / SALARY] → next sibling `p`.
 
 ---
 
@@ -100,7 +113,7 @@ node test-rules.js        # Expected: "rules: all assertions passed"
 
 **Files:** Modify: `content.js`, `content.css`
 
-- On search/list pages: for each card, read the card-level salary element (Task 1 selector); if `settings.noSalary && !hasSalary(salaryText)` → `card.hidden = true; card.dataset.why = 'no-salary'`.
+- On search/list pages (URLs matching `/jobseekers/jobsearch/` or `/jobseekers/search/`): for each card, read the confirmed `dd.col` salary element; if `settings.noSalary && !hasSalary(salaryText)` → `card.hidden = true; card.dataset.why = 'no-salary'`.
 - Chip (bottom-right, fixed): `<b>N hidden</b> (x no salary, y keywords) [Show all]` — count updates on any DOM mutation (MutationObserver) and settings change.
 
 **Verify (live via CDP):** search page with mixed results → TBD/Negotiable cards gone, chip count correct, "Show all" reveals.
@@ -123,11 +136,22 @@ const cache = {
 };
 
 // ── Parse a detail page's HTML in-browser (DOMParser, no execution) ──
+function fieldText(doc, labelRe) {
+  for (const h3 of doc.querySelectorAll('h3.fs-12')) {
+    if (!labelRe.test(h3.textContent.trim())) continue;
+    const p = h3.nextElementSibling;
+    if (p && p.tagName === 'P') return p.textContent.trim();
+    const dt = h3.closest('dt');                     // legacy layout fallback
+    const dd = dt && dt.nextElementSibling && dt.nextElementSibling.tagName === 'DD' ? dt.nextElementSibling : null;
+    return dd ? dd.textContent.trim() : null;
+  }
+  return null;
+}
 function parseDetail(html, url) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  const title = doc.querySelector('h1.job__title')?.textContent?.trim();      // Task 1 selector
-  const desc = doc.querySelector('p#job-description')?.textContent?.trim();   // ditto
-  const salary = doc.querySelector('/* Task 1 WAGE/SALARY field selector */')?.textContent?.trim();
+  const title = doc.querySelector('h1.job__title')?.textContent?.trim();
+  const desc = doc.querySelector('p#job-description')?.textContent?.trim();
+  const salary = fieldText(doc, /WAGE\s*\/\s*SALARY/i);
   if (!desc && !salary) return null;  // unparseable/closed — treat as unscanned
   return { title, description: desc, salary };
 }

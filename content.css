@@ -1,1 +1,52 @@
-/* content.css — OJ.ph Cleaner styles (chip, badges, banners). Grows with each phase. */
+/* content.css — OJ.ph Cleaner styles */
+
+/* Bottom-right status chip */
+#ojc-chip {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2147483000;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: #1f2933;
+  color: #fff;
+  font: 13px/1.4 system-ui, -apple-system, sans-serif;
+  padding: 8px 12px;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+}
+#ojc-chip button {
+  background: #3a4a5a;
+  border: 0;
+  color: #fff;
+  font: 600 12px system-ui, sans-serif;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+#ojc-chip button:hover { background: #4d617a; }
+
+/* Positive match: green highlight (highlight-only — never hidden) */
+.ojc-pos {
+  outline: 2px solid #7d9b6d !important;
+  outline-offset: 2px;
+}
+.ojc-pos-badge {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  z-index: 1;
+  background: rgba(125, 155, 109, .2);
+  color: #4e6b41;
+  font: 600 12px system-ui, sans-serif;
+  padding: 2px 10px;
+  border-radius: 10px;
+  pointer-events: none;
+}
+
+/* Negative match: visible only when the user chose "Show all" */
+.ojc-neg {
+  outline: 2px dashed #c0392b !important;
+  outline-offset: 2px;
+}

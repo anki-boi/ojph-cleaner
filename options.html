@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>OJ.ph Cleaner — Options</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; color: #1f2933; }
+  h1 { font-size: 18px; }
+  label.block { display: block; margin: 14px 0 4px; font-weight: 600; }
+  textarea { width: 100%; min-height: 72px; font: 13px/1.4 monospace; padding: 8px; box-sizing: border-box; border: 1px solid #cbd2d9; border-radius: 6px; }
+  .hint { color: #616e7c; font-size: 12px; }
+  .toggles { margin-top: 16px; }
+  .toggles label { display: block; margin: 6px 0; font-weight: 400; }
+  button { margin-top: 16px; background: #1f2933; color: #fff; border: 0; padding: 8px 18px; border-radius: 6px; font-size: 14px; cursor: pointer; }
+  button:hover { background: #34424f; }
+  #saved { color: #4e6b41; margin-left: 10px; display: none; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>OJ.ph Cleaner</h1>
+<p class="hint">Applies only on onlinejobs.ph. No data leaves your machine.</p>
+
+<label class="block" for="neg">Hide jobs mentioning… (negative keywords, one per line)</label>
+<textarea id="neg" placeholder="crypto&#10;insurance&#10;pay day loan"></textarea>
+
+<label class="block" for="pos">Highlight jobs mentioning… (positive keywords, one per line)</label>
+<textarea id="pos" placeholder="remote&#10;US client&#10;full stack"></textarea>
+
+<div class="toggles">
+  <label><input type="checkbox" id="noSalary"> Hide jobs with no salary listed (default: on)</label>
+  <label><input type="checkbox" id="showHidden"> Show hidden jobs (red dashed marker)</label>
+  <label><input type="checkbox" id="autoScan"> Auto deep-scan each search page (fetches full descriptions of the jobs on that page only)</label>
+</div>
+
+<button id="save">Save</button><span id="saved">Saved ✓</span>
+<script src="options.js"></script>
+</body>
+</html>

@@ -242,3 +242,37 @@
   border-radius: 4px;
 }
 #ojc-detail-bar .ojc-bar-counts { color: #5a6b7a; font-weight: 500; }
+
+/* ── Closed listings (W9) ────────────────────────────────────────────────────
+   A remembered closure is a fact, not a judgement call, so it is grey rather than the
+   yellow reconsider outline: nothing about this listing is worth a second look. The badge
+   mirrors the keyword badges' geometry; only one of the three can be on a card, because
+   the closed branch is decided first. */
+.ojc-closed {
+  opacity: .55;
+  outline: 2px dashed #7a8794 !important;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.ojc-closed-badge {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  z-index: 1;
+  background: rgba(122, 135, 148, .18);
+  color: #4a5560;
+  font: 600 12px system-ui, sans-serif;
+  padding: 2px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+/* The saved-jobs table row keeps its place: deleting it is the only way to clear it, and a row
+   you cannot see is a row you cannot delete. */
+tr.ojc-closed-row { opacity: .6; }
+tr.ojc-closed-row .ojc-closed-badge { position: static; margin-left: 8px; }
+#ojc-detail-bar .ojc-bar-closed {
+  color: #fff;
+  background: #7a8794;
+  padding: 2px 8px;
+  border-radius: 4px;
+}

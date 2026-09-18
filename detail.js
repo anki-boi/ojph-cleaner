@@ -120,6 +120,12 @@
     const bar = document.createElement('div');
     bar.id = BAR_ID;
 
+    // A dead listing is the one fact that outranks every other number on this bar.
+    if (self.OJCClosed?.pageSaysClosed()) {
+      bar.appendChild(item('ojc-bar-closed', '⊘ this job has been closed',
+        'remembered: it will be hidden on the board from now on'));
+    }
+
     if (f.hours !== null) bar.appendChild(item('ojc-bar-hours', `⏱ ${f.hours} h/week`, 'as stated in the listing'));
     else bar.appendChild(item('ojc-bar-hours ojc-bar-unknown', `⏱ hours ${f.hoursRaw ? clean(f.hoursRaw) : 'not stated'}`,
       f.partTime ? 'part-time and no stated hours — a month cannot be computed honestly'

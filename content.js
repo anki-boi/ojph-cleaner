@@ -78,7 +78,7 @@
   let chip = null;
   let chipNote = '';
   const setNote = (text) => { chipNote = text; renderChip(); };
-  let chipCounts = { stale: 0, noSal: 0, kw: 0, pos: 0, recon: 0 };
+  let chipCounts = { closed: 0, stale: 0, noSal: 0, kw: 0, pos: 0, recon: 0 };
   function ensureChip() {
     if (!chip || !chip.isConnected) {
       chip = document.createElement('div');
@@ -96,11 +96,12 @@
     const el = ensureChip();
     el.style.display = '';
     el.innerHTML = '';
-    const total = chipCounts.stale + chipCounts.noSal + chipCounts.kw;
+    const total = chipCounts.closed + chipCounts.stale + chipCounts.noSal + chipCounts.kw;
     const b = document.createElement('b');
     b.textContent = settings.showHidden ? `${total} would be hidden` : `${total} hidden`;
     const s = document.createElement('span');
     s.textContent = ` (${chipCounts.stale} stale, ${chipCounts.noSal} no salary, ${chipCounts.kw} keywords` +
+      (chipCounts.closed ? `, ${chipCounts.closed} closed` : '') +
       (chipCounts.pos ? `, ${chipCounts.pos} highlighted` : '') +
       (chipCounts.recon ? `, ${chipCounts.recon} to reconsider` : '') + ')';
     const gear = document.createElement('button');
@@ -142,7 +143,7 @@
   function refreshRules() {
     if (!LIST_RE.test(location.pathname)) return;
     const now = Date.now();   // one instant for the whole pass, so two cards cannot disagree
-    let stale = 0, noSal = 0, kw = 0, pos = 0, recon = 0;
+    let stale = 0, noSal = 0, kw = 0, pos = 0, recon = 0, closed = 0;
     for (const c of cards()) {
       const text = fullText(c);
       const neg = rules.matchKeywords(text, settings.negative);
@@ -156,10 +157,16 @@
       // Ours, so it is cleared before re-deciding — and only while our own class is still on the card,
       // so an attribute the site set is never removed.
       if (c.classList.contains('ojc-recon')) c.removeAttribute('title');
-      c.classList.remove('ojc-neg', 'ojc-pos', 'ojc-recon');
-      for (const b of c.querySelectorAll('.ojc-pos-badge, .ojc-neg-badge')) b.remove();
+      c.classList.remove('ojc-neg', 'ojc-pos', 'ojc-recon', 'ojc-closed');
+      for (const b of c.querySelectorAll('.ojc-pos-badge, .ojc-neg-badge, .ojc-closed-badge')) b.remove();
 
-      if (old) {
+      if (self.OJCClosed?.isHeld(c)) {
+        // First, before staleness and before every keyword: a closed listing is not a judgement call, and
+        // nothing else about it can change that (W9). Only a listing you already opened can be in here.
+        c.hidden = !settings.showHidden;
+        self.OJCClosed.mark(c);
+        closed++;
+      } else if (old) {
         c.hidden = !settings.showHidden;
         stale++;
       } else if (ns) {
@@ -190,7 +197,7 @@
         c.hidden = false;
       }
     }
-    chipCounts = { stale, noSal, kw, pos, recon };
+    chipCounts = { closed, stale, noSal, kw, pos, recon };
     self.OJCLoader?.arm();        // pagination.js watches for the end of the list (W6)
     self.OJCSalaryUI?.annotate(); // salary.js adds the monthly figure per card (W7)
     renderChip();
@@ -238,7 +245,8 @@
   // schedule the next one, forever (spec.md §2.2).
   // Classes are listed explicitly rather than matched by "ojc-*": .ojc-pos/.ojc-neg/.ojc-goal sit on
   // the *site's* cards, and a mutation inside a highlighted card is a real change worth re-running for.
-  const OUR_CLASSES = ['ojc-pos-badge', 'ojc-neg-badge', 'ojc-salary-note', 'ojc-salary-warn',
+  const OUR_CLASSES = ['ojc-pos-badge', 'ojc-neg-badge', 'ojc-closed-badge', 'ojc-closed-row',
+    'ojc-salary-note', 'ojc-salary-warn',
     // W4's detail-page marks. Not because the board's rules read them — a detail page has no cards to
     // hide — but because a mutation we cannot recognise schedules a rule pass, and a listing's own page
     // can carry related-job cards that those rules *do* read.

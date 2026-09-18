@@ -8,7 +8,7 @@
   "content_scripts": [
     {
       "matches": ["https://www.onlinejobs.ph/*", "https://onlinejobs.ph/*"],
-      "js": ["rules.js", "detail-text.js", "content.js", "salary.js", "salary-cards.js", "pagination.js", "panel.js", "detail.js"],
+      "js": ["rules.js", "detail-text.js", "closed.js", "content.js", "salary.js", "salary-cards.js", "closed-cards.js", "pagination.js", "panel.js", "detail.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
     }

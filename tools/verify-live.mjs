@@ -64,9 +64,10 @@ const res = JSON.parse(await withTab(PORT, URL_, async (tab) => {
     // the same rule order content.js uses, recomputed from the DOM
     const expectHide = c => { const ns = !hasSalary(c); const nm = neg.some(k => text(c).includes(k));
       return { ns, nm, pm: pos.some(k => text(c).includes(k)) }; };
-    let noSalExpected = 0, negExpected = 0, posExpected = 0;
+    let noSalExpected = 0, negExpected = 0, posExpected = 0, negAnyExpected = 0;
     for (const c of cards) {
       const e = expectHide(c);
+      if (neg.some(k => text(c).includes(k))) negAnyExpected++; // the only hide rule left when noSalary is off
       if (e.ns) noSalExpected++;
       else if (e.nm) negExpected++;
       else if (e.pm) posExpected++;
@@ -78,9 +79,11 @@ const res = JSON.parse(await withTab(PORT, URL_, async (tab) => {
       chip: !!document.getElementById('ojc-chip'),
       chipText: (document.getElementById('ojc-chip') || {}).textContent || null,
       hidden: document.querySelectorAll('.jobpost-cat-box.latest-job-post[hidden]').length,
+      invisible: [...document.querySelectorAll('.jobpost-cat-box.latest-job-post[hidden]')]
+        .filter(c => getComputedStyle(c).display === 'none').length,
       negatives: document.querySelectorAll('.jobpost-cat-box.ojc-neg').length,
       highlights: document.querySelectorAll('.ojc-pos-badge').length,
-      noSalExpected, negExpected, posExpected
+      noSalExpected, negExpected, posExpected, negAnyExpected
     });
   })()`);
 }, 500));
@@ -96,6 +99,9 @@ if (res.cards && !res.salaries) await fail('no dd.col salary elements — list m
 if (res.hidden !== res.noSalExpected + res.negExpected) {
   await fail(`hidden ${res.hidden}, rule says ${res.noSalExpected + res.negExpected} (no-salary ${res.noSalExpected} + keyword ${res.negExpected})`);
 }
+if (res.hidden !== res.invisible) {
+  await fail(`${res.hidden} cards carry [hidden] but only ${res.invisible} are actually display:none — the site CSS is winning`);
+}
 if (res.negatives !== res.negExpected) await fail(`keyword hides ${res.negatives}, expected ${res.negExpected}`);
 if (res.highlights !== res.posExpected) await fail(`highlights ${res.highlights}, expected ${res.posExpected}`);
 
@@ -104,7 +110,7 @@ const expected = res.noSalExpected + res.negExpected;
 if (expected > 0) {
   const toggled = async () => withTab(PORT, URL_, async (tab) => {
     await settle(3000);
-    await tab.evaluate(`document.querySelector('#ojc-chip button').click()`);
+    await tab.evaluate(`document.querySelector('#ojc-toggle').click()`);
     await settle(400);
     return tab.evaluate(`JSON.stringify({
       hidden: document.querySelectorAll('.jobpost-cat-box.latest-job-post[hidden]').length,
@@ -118,6 +124,57 @@ if (expected > 0) {
   const hiddenAgain = JSON.parse(await toggled());
   if (hiddenAgain.hidden !== expected) await fail(`after re-hiding, ${hiddenAgain.hidden} hidden vs ${expected}`);
   console.log(`toggle    : Show all revealed ${expected}, re-hide restored ${hiddenAgain.hidden}`);
+}
+
+// ── 5. in-page options panel: edit here, listing reacts on Save, no reload ──
+// The panel must open from the chip, load the saved settings, and re-run the
+// rules the instant Save is clicked. Every snapshot below is read from the SAME
+// tab session, so any change in hidden-count is proof no reload was involved.
+if (res.noSalExpected > 0) {
+  const r = JSON.parse(await withTab(PORT, URL_, async (tab) => {
+    await settle(3500);
+    const snap = async () => JSON.parse(await tab.evaluate(`(()=>{const cs=[...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
+      return JSON.stringify({hidden:cs.filter(c=>c.hidden).length,
+        saved:(document.querySelector('#ojc-saved')||{}).style?.display,
+        panelVisible:!!document.querySelector('#ojc-panel') && !document.querySelector('#ojc-panel').hidden});})()`));
+    const before = await snap();
+    await tab.evaluate(`document.querySelector('#ojc-gear').click()`);    await settle(200);
+    const opened = JSON.parse(await tab.evaluate(`(()=>{const p=document.getElementById('ojc-panel');
+      if (!p) return JSON.stringify({exists:false});
+      const fields=['#ojc-neg','#ojc-pos','#ojc-noSalary','#ojc-showHidden','#ojc-autoScan','#ojc-save'];
+      return JSON.stringify({exists:true, visible:!p.hidden, inChip:!!document.querySelector('#ojc-chip #ojc-panel'),
+        fields:fields.every(s=>!!p.querySelector(s)),
+        neg:p.querySelector('#ojc-neg').value, noSalary:p.querySelector('#ojc-noSalary').checked,
+        showHidden:p.querySelector('#ojc-showHidden').checked});})()`));
+    // change a setting in the panel and Save — no reload between these reads
+    await tab.evaluate(`(()=>{document.querySelector('#ojc-noSalary').checked=false;
+      document.querySelector('#ojc-save').click()})()`);
+    await settle(300);
+    const noSalaryOff = await snap();
+    await tab.evaluate(`(()=>{document.querySelector('#ojc-noSalary').checked=true;
+      document.querySelector('#ojc-save').click()})()`);
+    await settle(300);
+    return JSON.stringify({ before, opened, noSalaryOff, noSalaryOn: await snap() });
+  }, 500));
+
+  if (!r.opened.exists) await fail('the chip gear does not open an in-page options panel');
+  if (!r.opened.visible) await fail('the panel exists but is hidden after clicking the gear');
+  if (r.opened.inChip) await fail('the panel is nested inside #ojc-chip — the chip rebuild will wipe it');
+  if (!r.opened.fields) await fail('the in-page panel is missing option fields');
+  if (r.opened.neg !== neg.join('\n') || r.opened.noSalary !== true || r.opened.showHidden !== false) {
+    await fail(`panel did not load the saved settings: ${JSON.stringify(r.opened)}`);
+  }
+  if (!r.noSalaryOff.panelVisible) await fail('the panel was destroyed by the rule pass triggered by Save');
+  if (r.noSalaryOff.saved !== 'inline') await fail('Save did not confirm with "Saved"');
+  // With noSalary off, every card that matches a negative keyword hides — including
+  // the no-salary cards that the noSalary rule was shadowing (it is checked first).
+  if (r.noSalaryOff.hidden !== res.negAnyExpected) {
+    await fail(`after unchecking "no salary" in the panel, ${r.noSalaryOff.hidden} hidden — expected ${res.negAnyExpected} keyword hides, no reload`);
+  }
+  if (r.noSalaryOn.hidden !== expected) {
+    await fail(`after re-checking "no salary" in the panel, ${r.noSalaryOn.hidden} hidden vs ${expected}, no reload`);
+  }
+  console.log(`panel     : opened from chip, loaded settings; Save 30→${r.noSalaryOff.hidden}→${r.noSalaryOn.hidden} hidden with no reload`);
 }
 
 console.log('verify-live: PASS');

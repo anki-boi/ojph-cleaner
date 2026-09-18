@@ -27,6 +27,76 @@
     return (c.textContent || '') + (ctx ? ' ' + (ctx.description || '') : '');
   };
 
+  // ── In-page options panel ────────────────────────────────────────────────
+  // A sibling of the chip, NOT a child: renderChip() wipes the chip's contents
+  // on every rule pass, so a child panel would be destroyed while you type.
+  const toLines = (arr) => (arr || []).join('\n');
+  const fromLines = (s) => [...new Set(s.split('\n').map(x => x.trim()).filter(Boolean))];
+  let panel = null;
+  const $p = (sel) => ensurePanel().querySelector(sel);
+
+  function ensurePanel() {
+    if (panel?.isConnected) return panel;
+    panel = document.createElement('div');
+    panel.id = 'ojc-panel';
+    panel.hidden = true;
+    panel.innerHTML = `
+      <label for="ojc-neg">Hide jobs mentioning… (one per line)</label>
+      <textarea id="ojc-neg" rows="3" placeholder="crypto&#10;insurance"></textarea>
+      <label for="ojc-pos">Highlight jobs mentioning… (one per line)</label>
+      <textarea id="ojc-pos" rows="3" placeholder="quickbooks"></textarea>
+      <label class="ojc-check"><input type="checkbox" id="ojc-noSalary"> Hide jobs with no salary listed</label>
+      <label class="ojc-check"><input type="checkbox" id="ojc-showHidden"> Show hidden jobs</label>
+      <label class="ojc-check"><input type="checkbox" id="ojc-autoScan"> Auto deep-scan this page</label>
+      <div class="ojc-row">
+        <button id="ojc-save">Save</button>
+        <span id="ojc-saved">Saved ✓</span>
+        <a href="${chrome.runtime.getURL('options.html')}" target="_blank">full options ↗</a>
+      </div>`;
+    panel.querySelector('#ojc-save').onclick = savePanel;
+    document.body.appendChild(panel);
+    return panel;
+  }
+
+  function fillPanel() {
+    $p('#ojc-neg').value = toLines(settings.negative);
+    $p('#ojc-pos').value = toLines(settings.positive);
+    $p('#ojc-noSalary').checked = settings.noSalary;
+    $p('#ojc-showHidden').checked = settings.showHidden;
+    $p('#ojc-autoScan').checked = settings.autoScan;
+  }
+
+  // Mirror settings into an open panel without clobbering a field being typed in.
+  function syncPanel() {
+    if (!panel || panel.hidden) return;
+    if (panel.contains(document.activeElement)) $p('#ojc-showHidden').checked = settings.showHidden;
+    else fillPanel();
+  }
+
+  function openPanel(open) {
+    const p = ensurePanel();
+    p.hidden = !(open ?? p.hidden);
+    if (!p.hidden) fillPanel();
+  }
+
+  // Save applies the rules immediately — the storage write is only durability,
+  // so the listing reacts on click instead of waiting for a round trip.
+  function savePanel() {
+    settings = {
+      negative: fromLines($p('#ojc-neg').value),
+      positive: fromLines($p('#ojc-pos').value),
+      noSalary: $p('#ojc-noSalary').checked,
+      showHidden: $p('#ojc-showHidden').checked,
+      autoScan: $p('#ojc-autoScan').checked,
+    };
+    refreshRules();
+    persist();
+    const el = $p('#ojc-saved');
+    el.style.display = 'inline';
+    clearTimeout(savePanel.timer);
+    savePanel.timer = setTimeout(() => { el.style.display = 'none'; }, 1500);
+  }
+
   // ── Chip (bottom-right status bar) ───────────────────────────────────────
   let chip = null;
   let chipCounts = { noSal: 0, kw: 0, pos: 0 };
@@ -41,6 +111,7 @@
   function renderChip() {
     if (!LIST_RE.test(location.pathname)) {
       if (chip?.isConnected) chip.style.display = 'none';
+      if (panel?.isConnected) panel.hidden = true;
       return;
     }
     const el = ensureChip();
@@ -52,10 +123,20 @@
     const s = document.createElement('span');
     s.textContent = ` (${chipCounts.noSal} no salary, ${chipCounts.kw} keywords` +
       (chipCounts.pos ? `, ${chipCounts.pos} highlighted` : '') + ')';
+    const gear = document.createElement('button');
+    gear.id = 'ojc-gear';
+    gear.title = 'Options';
+    gear.textContent = '⚙';
+    gear.onclick = () => openPanel();
     const btn = document.createElement('button');
+    btn.id = 'ojc-toggle';
     btn.textContent = settings.showHidden ? 'Hide them' : 'Show all';
-    btn.onclick = () => { settings.showHidden = !settings.showHidden; persist(); };
-    el.append(b, s, btn);
+    btn.onclick = () => {
+      settings.showHidden = !settings.showHidden;
+      refreshRules();
+      persist();
+    };
+    el.append(gear, b, s, btn);
   }
 
   // ── Rules pass ───────────────────────────────────────────────────────────
@@ -103,6 +184,7 @@
   function applySettings(next) {
     settings = { ...DEFAULTS, ...(next || {}) };
     refreshRules();
+    syncPanel();
   }
 
   // ── Live re-run on DOM changes (new cards, container swap) ──────────────
@@ -110,7 +192,7 @@
   function isOurs(node) {
     let n = node;
     while (n) {
-      if (n.id === 'ojc-chip' ||
+      if (n.id === 'ojc-chip' || n.id === 'ojc-panel' ||
           (n.classList && (n.classList.contains('ojc-pos-badge') ||
                           n.classList.contains('ojc-neg') ||
                           n.classList.contains('ojc-pos')))) return true;

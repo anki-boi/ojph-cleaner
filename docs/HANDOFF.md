@@ -1,6 +1,6 @@
 # HANDOFF — OJ.ph Cleaner (Chrome MV3 extension)
 
-**Date:** 2026-09-18 · **Extension version:** 0.2.0 · **Branch:** `main`
+**Date:** 2026-09-18 · **Extension version:** 0.3.0 · **Branch:** `main`
 **Repo:** `C:\Users\PC\Desktop\ojph-cleaner` → https://github.com/anki-boi/ojph-cleaner (public)
 **Author identity in this repo's history:** `Jeyson <jeyson@local>`
 
@@ -33,7 +33,10 @@ A content-script extension that cleans up OnlineJobs.ph job-search pages:
    (green outline + `✓ kw` badge), never hide. Case-insensitive substring match.
 3. **Chip** (bottom-right): live counts plus a `Show all` / `Hide them` toggle that reveals what
    was hidden and re-hides it.
-4. **Options page:** keyword lists and toggles, persisted in `chrome.storage.local`.
+4. **Options:** keyword lists and toggles in an in-page panel opened by the chip's ⚙ button. Save
+   applies to the listing **immediately, with no reload**; the same fields also live on the
+   standalone `options.html` page, and either surface updates the other live through
+   `chrome.storage.onChanged`.
 
 Everything is local: the extension talks only to onlinejobs.ph, keeps state on the device, and
 makes **zero extra network requests while no keywords are configured**.
@@ -151,7 +154,33 @@ of bug non-recurring and the extension provable:
 cards 30 (30 with a salary field) · chip "2 hidden (2 no salary, 0 keywords)" · hidden 2, rule says 2
 toggle: Show all revealed 2, re-hide restored 2 · verify-live: PASS
 --neg=bookkeeper --pos=quickbooks → 21 hidden (5 no-salary + 16 keyword), 1 highlighted · PASS
+panel: opened from the chip, loaded the saved settings; Save 30→20→21 hidden with no reload · PASS
 ```
+
+### 4b. ✅ In-page options panel (0.3.0)
+
+The user does not want to right-click the extension and edit options on a separate tab, and does not
+want to reload to see a settings change. Both were addressed in **0.3.0**:
+
+- **The panel lives in the page.** `#ojc-panel` is a **sibling** of `#ojc-chip`, never a child:
+  `renderChip()` does `el.innerHTML = ''` on every rule pass, so a child panel would be wiped while
+  the user types. `tools/verify-live.mjs` asserts `inChip === false` for exactly this reason.
+- **Save applies synchronously.** `savePanel()` assigns `settings`, calls `refreshRules()` (instant),
+  then `persist()`. The storage write is durability only — the listing never waits for the round
+  trip. The chip's `Show all` does the same.
+- **Live-apply was already working** — the user believed a reload was needed, but the cause was the
+  same dead extension as §4 (`chrome.storage` was `undefined`). Measured before touching the panel:
+  settings saved from `options.html` while a search page sat open re-hid it 5 → 0 → 21 with no
+  reload. `verify-live` now pins this inside a single tab session, so it cannot silently regress.
+- **Trap found while writing the check:** the rule order is `noSalary → negative → positive`, so
+  turning `noSalary` off re-files the no-salary cards through the keyword rule (4 extra hides in the
+  `bookkeeper` run: 16 → 20). The harness computes that expectation separately
+  (`negAnyExpected`); do not "fix" the code to match a naively-added count.
+- **Also asserted:** every card carrying `[hidden]` is really `display: none` (the site CSS could
+  win the cascade — it does not today), and the panel survives a Save (it is not rebuilt by
+  `refreshRules()`).
+- `⚙` opens the panel; `full options ↗` in it opens the standalone page, which is kept as a fallback
+  and is what `verify-live` seeds test settings through.
 
 ---
 
@@ -164,6 +193,7 @@ toggle: Show all revealed 2, re-hide restored 2 · verify-live: PASS
 | 3. Instant no-salary hiding + chip | ✅ verified live |
 | 5. Keyword pass (hide negative / highlight positive) | ✅ at card level — only becomes useful once Task 4 lands |
 | 7. Options page | ✅ (works now that storage is granted) |
+| 7b. In-page options panel + live re-apply on Save | ✅ 0.3.0, asserted live |
 | **4. Deep scan engine** | ⬜ **next** |
 | 6. Detail-page banner | ⬜ |
 | 8. README + screenshots + push | ⬜ |
@@ -221,6 +251,10 @@ paths out of tracked source (the gate enforces this).
 - Positive keywords **highlight only**; they never hide.
 - The deep scan stays **bounded to the current page** — no crawling, no pagination.
 - With no keywords configured, the extension issues **zero extra requests**.
+- The options panel stays a **sibling** of the chip — putting it back inside `#ojc-chip` means
+  `renderChip()` destroys it mid-edit.
+- Saving options (panel or page) **applies to the open listing immediately**; no reload is ever
+  required now that `storage` is declared. `verify-live` asserts it in one tab session.
 - Everything stays local: no server, no analytics, no third-party calls.
 - The chip's counts stay truthful — asserted live by `tools/verify-live.mjs`.
 

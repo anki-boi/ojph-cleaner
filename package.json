@@ -1,6 +1,6 @@
 {
   "name": "ojph-cleaner",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Chrome MV3 extension that hides no-salary jobs and keyword-matching jobs on OnlineJobs.ph",
   "scripts": {

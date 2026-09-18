@@ -26,6 +26,49 @@
   cursor: pointer;
 }
 #ojc-chip button:hover { background: #4d617a; }
+#ojc-chip #ojc-gear { font-size: 13px; padding: 3px 8px; }
+
+/* In-page options panel — sibling of the chip, anchored just above it */
+#ojc-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 60px;
+  z-index: 2147483000;
+  width: 320px;
+  max-height: 70vh;
+  overflow: auto;
+  background: #1f2933;
+  color: #fff;
+  font: 12px/1.5 system-ui, -apple-system, sans-serif;
+  padding: 12px;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+}
+#ojc-panel label { display: block; margin: 8px 0 4px; }
+#ojc-panel label.ojc-check { margin: 6px 0; }
+#ojc-panel textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: 12px/1.4 monospace;
+  padding: 6px;
+  border: 1px solid #4d617a;
+  border-radius: 6px;
+  background: #2b3844;
+  color: #fff;
+}
+#ojc-panel .ojc-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+#ojc-panel button {
+  background: #3a4a5a;
+  border: 0;
+  color: #fff;
+  font: 600 12px system-ui, sans-serif;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+#ojc-panel button:hover { background: #4d617a; }
+#ojc-panel #ojc-saved { display: none; color: #9ed38a; font-weight: 600; }
+#ojc-panel a { margin-left: auto; color: #9fb3c8; }
 
 /* Positive match: green highlight (highlight-only — never hidden) */
 .ojc-pos {

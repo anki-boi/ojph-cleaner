@@ -16,16 +16,19 @@
   }
 
   /**
-   * Case-insensitive keyword match. Returns the keywords that matched (empty array = no match).
+   * Case-insensitive keyword match, **exact by default**: every keyword is a whole word or a whole
+   * phrase. `ai` matches "AI tools" and "AI-powered" but never `email` or `daily`; `video editor`
+   * matches that phrase and not `video editors` — add the forms you want to the list instead of
+   * relying on a substring to catch them. Returns the keywords that matched, as written (empty array
+   * = no match).
    *
-   * A keyword is a plain substring, except that a leading `=` makes it a **whole word**: `=ai` matches
-   * "AI tools" and "AI-powered" but not `email` or `daily`. The marker is not part of the returned
-   * keyword, so a badge reads `✓ ai`.
+   * Exact-not-substring is not a preference, it is the fix for a real defect: `AI` as a substring
+   * matched 30 of 30 cards on the live board, through `daily`, `email`, `main`, `paid`, `thumbnail`
+   * and `management` — and because the yellow reconsider rule rescues every negative match, that
+   * silently turned the user's entire negative-keyword list into a no-op.
    *
-   * Whole-word is opt-in because substring is the documented behaviour and the useful one for most
-   * keywords; the marker exists because a *short* keyword explodes as a substring — on the live board
-   * `AI` matched 30 of 30 cards, and combined with the yellow reconsider rule that quietly turned the
-   * user's entire negative-keyword list into a no-op.
+   * A leading `=` is accepted and ignored, so a keyword saved as `=ai` by the one release that made
+   * whole-word opt-in keeps working rather than quietly matching nothing.
    */
   function matchKeywords(text, keywords) {
     const t = (text || '').toLowerCase();
@@ -33,15 +36,13 @@
     for (const k of keywords || []) {
       if (!k || !String(k).trim()) continue;
       const raw = String(k).trim();
-      const whole = raw.startsWith('=');
-      const needle = (whole ? raw.slice(1) : raw).trim().toLowerCase();
+      const needle = (raw.startsWith('=') ? raw.slice(1) : raw).trim().toLowerCase();
       if (!needle) continue;
       // Lookarounds rather than \b: a boundary is "no word character either side", which is also right
-      // for a needle that starts or ends with punctuation (`=$5`), where \b would refuse to match.
-      const found = whole
-        ? new RegExp('(?<!\\w)' + needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?!\\w)').test(t)
-        : t.includes(needle);
-      if (found) hits.push(whole ? raw.slice(1).trim() : raw);
+      // for a needle that starts or ends with punctuation (`$5`, `c++`), where \b refuses to match.
+      // The needle is escaped — a keyword is data, so a `.` in one is a literal dot.
+      const re = new RegExp('(?<!\\w)' + needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?!\\w)');
+      if (re.test(t)) hits.push(needle === raw.toLowerCase() ? raw : raw.slice(1).trim());
     }
     return hits;
   }

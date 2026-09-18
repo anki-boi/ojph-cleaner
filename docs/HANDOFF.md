@@ -33,7 +33,8 @@ A content-script extension that cleans up OnlineJobs.ph job-search pages:
 1. **Instant, card-level:** hide every listing whose salary field contains no digit
    (`TBD` / `N/A` / `Negotiable` / `DOE` / empty all fail).
 2. **Keyword rules:** negative keywords → hide; positive keywords → **highlight only**
-   (green outline + `✓ kw` badge), never hide. Case-insensitive substring match.
+   (green outline + `✓ kw` badge), never hide. Keywords match as case-insensitive **exact words or
+   phrases** — `ai` never matches `email`.
 3. **Chip** (bottom-right): live counts plus a `Show all` / `Hide them` toggle that reveals what
    was hidden and re-hides it.
 4. **Options:** keyword lists and toggles in an in-page panel opened by the chip's ⚙ button. Save
@@ -311,11 +312,14 @@ everything"), and a yellow outline for a listing that matches a hide keyword but
 - **`✗ keyword` badges**, mirroring the green `✓` ones, on every negative match: the yellow cards and
   the hidden ones when *Show all* is on. Any new badge class **must also be added to `OUR_CLASSES` in
   `content.js`**, or its insertion schedules the next rule pass forever (§2.2).
-- **Keywords gained an opt-in whole-word marker** (D24). The user's positive keyword `AI` matched **30 of
+- **Keywords are exact words or phrases** (D24), case-insensitive, and the user's rule is explicit:
+  "if I put AI, it only ever means AI and nothing else". No substring matching, no `=` marker to
+  remember — a leading `=` is still accepted and ignored so a saved `=ai` keeps working. This came from a
+  measured defect, and the measurement is the argument for it: their positive keyword `AI` matched **30 of
   30** cards as a substring (`daily`, `email`, `main`, `paid`, `thumbnail`, `management`), which — with
   the reconsider rule rescuing every negative match — silently turned their entire negative list into a
-  no-op: 17 yellow, 0 hidden. `=ai` matches the whole word only. Nothing changes for keywords without
-  the marker.
+  no-op: 17 yellow, 0 hidden. Making every keyword exact turned that into 10 yellow and 7 hidden, without
+  touching a single keyword in the list.
 
 ### 4e. ✅ W7 — salary figures and the goals (0.6.0)
 

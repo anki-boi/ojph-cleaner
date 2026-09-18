@@ -72,23 +72,35 @@ assert.strictEqual(isStale(dayAgo(40), NOW, '7'), true, 'a numeric string still 
 
 assert.deepStrictEqual(matchKeywords('anything', ['', '   ', null]), []);
 
-// ── matchKeywords: the `=` marker means "this word, not this string of letters" ──────────────
-// Plain substring matching is the documented default and stays it. The marker exists because a short
-// keyword explodes: the user's positive keyword "AI" matched 30 of 30 cards on the live board through
-// `daily`, `email`, `main`, `paid`, `thumbnail` and `management`, which — combined with the yellow
-// reconsider rule — silently turned their whole negative-keyword list into a no-op.
-assert.deepStrictEqual(matchKeywords('Check your email daily', ['ai']), ['ai'], 'substring is still the default');
-assert.deepStrictEqual(matchKeywords('Check your email daily', ['=ai']), []);
-assert.deepStrictEqual(matchKeywords('AI tools wanted', ['=ai']), ['ai'], 'the marker is not part of the keyword');
-assert.deepStrictEqual(matchKeywords('Use AI-powered tooling', ['=ai']), ['ai'], 'a hyphen is a boundary');
-assert.deepStrictEqual(matchKeywords('Daily AI digest', ['=AI']), ['AI'], 'case does not matter to the marker');
-assert.deepStrictEqual(matchKeywords('daily', ['=ai']), []);
-assert.deepStrictEqual(matchKeywords('paid ads run', ['=ads']), ['ads']);
-assert.deepStrictEqual(matchKeywords('advertisements', ['=ads']), [], 'the point: no match inside a longer word');
-assert.deepStrictEqual(matchKeywords('video editor needed', ['=editor']), ['editor'], 'whole words inside a phrase still match');
-assert.deepStrictEqual(matchKeywords('editors wanted', ['=editor']), [], 'plural is a different word');
-assert.deepStrictEqual(matchKeywords('cost is $5 (approx)', ['=$5']), ['$5'], 'a needle with punctuation is not a regex');
-assert.deepStrictEqual(matchKeywords('x', ['=    ']), [], 'a marker with nothing after it matches nothing');
-assert.deepStrictEqual(matchKeywords('email', ['=ai', 'email']), ['email'], 'the two forms mix in one list');
+// ── matchKeywords: EVERY keyword is an exact word (or exact phrase) ──────────────────────────
+// The user's rule: "if I put AI, it only ever means AI and nothing else". Substring matching is not a
+// feature here — it is the bug that made their positive keyword `AI` match 30 of 30 live cards through
+// `daily`, `email`, `main`, `paid`, `thumbnail` and `management`, which (with the yellow reconsider
+// rule) silently turned their whole negative list into a no-op. Word boundaries both sides:
+assert.deepStrictEqual(matchKeywords('AI tools wanted', ['ai']), ['ai'], 'case-insensitive');
+assert.deepStrictEqual(matchKeywords('Use AI-powered tooling', ['ai']), ['ai'], 'a hyphen is a boundary');
+assert.deepStrictEqual(matchKeywords('Daily AI digest', ['AI']), ['AI'], 'the keyword is returned as written');
+assert.deepStrictEqual(matchKeywords('Check your email daily', ['ai']), [], 'the whole point: never inside a word');
+assert.deepStrictEqual(matchKeywords('daily', ['ai']), []);
+assert.deepStrictEqual(matchKeywords('RemoteWorker', ['remote']), [], 'no boundary, no match');
+assert.deepStrictEqual(matchKeywords('  REMOTE  work ', ['remote']), ['remote']);
+assert.deepStrictEqual(matchKeywords('paid ads run', ['ads']), ['ads']);
+assert.deepStrictEqual(matchKeywords('advertisements', ['ads']), []);
+assert.deepStrictEqual(matchKeywords('editors wanted', ['editor']), [], 'plural is a different word — add it to the list');
+// Phrases are exact too, and still match inside a sentence.
+assert.deepStrictEqual(matchKeywords('we need a video editor now', ['video editor']), ['video editor']);
+assert.deepStrictEqual(matchKeywords('we need video editors now', ['video editor']), []);
+// A needle is data, never a pattern.
+assert.deepStrictEqual(matchKeywords('a c++ developer', ['c++']), ['c++']);
+assert.deepStrictEqual(matchKeywords('axb', ['a.b']), [], 'a dot in a keyword is a dot');
+assert.deepStrictEqual(matchKeywords('cost is $5 (approx)', ['$5']), ['$5']);
+// The leading `=` from the one release that made whole-word opt-in is accepted and ignored, so a saved
+// `=ai` keeps working instead of quietly matching nothing.
+assert.deepStrictEqual(matchKeywords('AI tools', ['=ai']), ['ai']);
+assert.deepStrictEqual(matchKeywords('email', ['=ai']), []);
+// Empties and duplicates behave.
+assert.deepStrictEqual(matchKeywords('anything', ['', '   ', null]), []);
+assert.deepStrictEqual(matchKeywords('ai and ai', ['ai', 'ai']), ['ai', 'ai']);
+assert.deepStrictEqual(matchKeywords('email', ['ai', 'email']), ['email']);
 
 console.log('rules: all assertions passed');

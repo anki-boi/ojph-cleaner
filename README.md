@@ -40,8 +40,8 @@ Four rules, applied in this order to every listing on the page:
    297-job search was measured at **40-46 days old**.
 2. **No salary → hidden.** The salary field must contain a digit. `TBD`, `N/A`, `Negotiable`, `DOE`
    and an empty field all fail.
-3. **Negative keyword → hidden.** Case-insensitive substring match against the whole card — unless the
-   listing also looks good, in which case see below.
+3. **Negative keyword → hidden.** Matched as an **exact word or phrase**, case-insensitively — unless
+   the listing also looks good, in which case see below.
 4. **Positive keyword → highlighted only.** Never hidden. The green outline and `✓ keyword` badge
    tell you why.
 
@@ -106,8 +106,8 @@ same storage, and both take effect on every open tab immediately.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `negative` | empty | One keyword per line. A listing whose text contains any of them is **hidden**. Prefix with `=` for a whole word (`=ai`). |
-| `positive` | empty | One keyword per line. A listing whose text contains any of them is **highlighted**, never hidden. Prefix with `=` for a whole word (`=ai`). |
+| `negative` | empty | One keyword per line. A listing whose text contains any of them **as an exact word or phrase** is **hidden**. |
+| `positive` | empty | One keyword per line. A listing whose text contains any of them **as an exact word or phrase** is **highlighted**, never hidden. |
 | `noSalary` | on | Hide listings whose salary field contains no digit (`TBD`, `N/A`, `Negotiable`, `DOE`, empty). |
 | `maxAgeDays` | 7 | Hide listings posted longer ago than this many days. `0` turns it off, `7` is the last week, `30` the last month. Applied **before** every other rule, and a listing whose date cannot be read is never hidden by it. |
 | `showHidden` | off | Reveal what was hidden, with a red dashed marker. The chip's `Show all` writes this. |
@@ -116,11 +116,12 @@ same storage, and both take effect on every open tab immediately.
 | `goalHourly` | 0 (off) | The same, per hour: for listings that post an hourly rate, which a monthly goal cannot judge. A card is brightened if **either** goal is met. |
 | `autoScan` | off | Deep-scan this page's listings once the described feature ships — **disabled in the UI until then** (`spec.md` W3). |
 
-Matching is plain case-insensitive substring, so `crypto` also matches `cryptocurrency`. Keep the
-list short and specific — or prefix a keyword with `=` to match it as a whole word: `=ai` matches
-`AI tools` and `AI-powered`, but not `email` or `daily`. That matters for short keywords: `AI` as a
-plain substring matched **every** listing on a live search, and because a listing that also looks
-good is shown in yellow rather than hidden, that quietly turned keyword hiding off altogether.
+Every keyword is an **exact word or phrase**, case-insensitively: `ai` matches `AI tools` and
+`AI-powered` but never `email` or `daily`, and `video editor` does not match `video editors`. Add the
+forms you want — the list is read literally, so `editor` and `editors` are two keywords. That precision
+is deliberate: `AI` as a substring matched **every** listing on a live search, and because a listing
+that also looks good is shown in yellow rather than hidden, a loose match quietly turns keyword hiding
+off altogether.
 
 ## Privacy
 

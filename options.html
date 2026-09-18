@@ -26,10 +26,11 @@
 <label class="block" for="pos">Highlight jobs mentioning… (positive keywords, one per line)</label>
 <textarea id="pos" placeholder="remote&#10;US client&#10;full stack"></textarea>
 
-<p class="hint">Matching is case-insensitive substring, so <code>crypto</code> also matches
-<code>cryptocurrency</code>. Prefix a keyword with <code>=</code> to match it as a <strong>whole word</strong>:
-<code>=ai</code> matches <em>AI tools</em> and <em>AI-powered</em>, but not <em>email</em> or <em>daily</em>.
-Worth it for any short keyword — <code>AI</code> as a plain substring matched every listing on a live search.</p>
+<p class="hint">A keyword is matched as an <strong>exact word or phrase</strong>, case-insensitively:
+<code>ai</code> matches <em>AI tools</em> and <em>AI-powered</em>, but never <em>email</em> or
+<em>daily</em>; <code>video editor</code> matches that phrase and not <em>video editors</em>. Add the
+forms you want — the list is read literally, so <code>editor</code> and <code>editors</code> are two
+different keywords.</p>
 
 <div class="toggles">
   <label for="maxAgeDays">Hide jobs posted more than this many days ago (<code>0</code> = off, <code>7</code> = last week, <code>30</code> = last month). Applied before every other rule; a listing whose date cannot be read is never hidden by it.</label>

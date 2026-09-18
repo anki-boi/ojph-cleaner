@@ -189,7 +189,7 @@ the only thing standing between a red gate and `main`. The suite treats this as 
 | **D21** | Representing last week / last month / custom | **One number**, `maxAgeDays`: `0` off, `7` last week, `30` last month, any N custom. Three settings for one threshold is the over-build | ✅ decided 2026-09-18 |
 | **D22** | The live harness and the user's settings | It must snapshot and restore `chrome.storage.local` around every run — including on SIGINT/SIGTERM — because it seeds into the user's daily browser. **This was a live data-loss bug, not a nicety** | ✅ decided 2026-09-18 |
 | **D23** | Window boundaries | Strict (`age > maxAgeDays`), so `7` means "posted within the last 7 days" — rolling, not a calendar week | ✅ decided 2026-09-18 |
-| **D24** | Keyword matching | Unchanged by default: case-insensitive substring. A leading `=` makes one keyword whole-word (`=ai`). Opt-in, because substring is both documented and right for most keywords — but a *short* keyword explodes: `AI` matched 30 of 30 live cards, which with D15 silently turned the user's entire negative list into a no-op | ✅ decided 2026-09-18 |
+| **D24** | Keyword matching | **Exact word or phrase**, case-insensitive: `ai` never matches `email`, and `video editor` never matches `video editors`. A leading `=` is accepted and ignored so a keyword saved by the opt-in release keeps working. Not a preference — a defect fix: substring `AI` matched 30 of 30 live cards, and with D15 that silently turned the user's entire negative list into a no-op | ✅ decided 2026-09-18 |
 
 ---
 
@@ -314,7 +314,7 @@ listings". Decisions D15–D24.
 | W8.6 | Live assertions: recency parity, a watchdog on the date attributes, the **computed** outline colour, badge parity, and an inserted card that must turn yellow — the only form of the seam check that can fail | `tools/verify-live.mjs` |
 | W8.7 | The harness stops clobbering the user's settings, and stops opening a tab per `chrome.storage` read | `tools/verify-live.mjs`, `tools/cdp.mjs` |
 | W8.8 | A section that seeds its own keywords and **requires each branch to fire**, so a bare run can no longer pass without exercising the negative, positive or reconsider rule | `tools/verify-live.mjs` |
-| W8.9 | The whole-word `=` marker (D24) | `rules.js`, `test-rules.js`, `panel.js`, `options.html`, `README.md` |
+| W8.9 | Keywords are matched as exact words or phrases (D24), with a leading `=` accepted and ignored for the one release that made it opt-in | `rules.js`, `test-rules.js`, `panel.js`, `options.html`, `README.md` |
 
 ### W4 — Detail-page banner (the original Task 6) → depends on W3
 
@@ -481,7 +481,7 @@ List URLs: `/jobseekers/jobsearch?jobkeyword=…`, `/jobseekers/jobsearch/{offse
 
 | Key | Type | Default | Meaning | Read by |
 |---|---|---|---|---|
-| `negative` | string[] | `[]` | Hide cards whose text contains any of these (case-insensitive substring) | rule pass |
+| `negative` | string[] | `[]` | Hide cards whose text contains any of these as an exact word or phrase (case-insensitive) | rule pass |
 | `positive` | string[] | `[]` | Highlight matching cards (never hide) | rule pass |
 | `noSalary` | boolean | `true` | Hide cards whose salary text contains no digit | rule pass |
 | `showHidden` | boolean | `false` | Reveal what was hidden (chip toggle writes this) | rule pass, chip |

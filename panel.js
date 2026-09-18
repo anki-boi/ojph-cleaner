@@ -29,10 +29,10 @@
     panel.innerHTML = `
       <label for="ojc-maxAge">Hide jobs posted more than this many days ago (0 = off · 7 = last week · 30 = last month)</label>
       <input type="number" id="ojc-maxAge" min="0" step="1" placeholder="7">
-      <label for="ojc-neg">Hide jobs mentioning… (one per line — prefix with = for a whole word)</label>
-      <textarea id="ojc-neg" rows="3" placeholder="crypto&#10;=ai"></textarea>
-      <label for="ojc-pos">Highlight jobs mentioning… (one per line — prefix with = for a whole word)</label>
-      <textarea id="ojc-pos" rows="3" placeholder="quickbooks&#10;=ai"></textarea>
+      <label for="ojc-neg">Hide jobs mentioning… (one per line · exact words, so <b>ai</b> never matches email)</label>
+      <textarea id="ojc-neg" rows="3" placeholder="crypto&#10;video editor"></textarea>
+      <label for="ojc-pos">Highlight jobs mentioning… (one per line · exact words, same rule)</label>
+      <textarea id="ojc-pos" rows="3" placeholder="quickbooks&#10;ai"></textarea>
       <label class="ojc-check"><input type="checkbox" id="ojc-noSalary"> Hide jobs with no salary listed</label>
       <label class="ojc-check"><input type="checkbox" id="ojc-showHidden"> Show hidden jobs</label>
       <label class="ojc-check"><input type="checkbox" id="ojc-autoLoad"> Load more jobs when I scroll to the bottom</label>

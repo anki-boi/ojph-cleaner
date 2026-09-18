@@ -4,8 +4,8 @@
   const rules = self.OJRules;
 
   const DEFAULTS = {
-    negative: [],    // keyword list → hide (substring, case-insensitive)
-    positive: [],    // keyword list → highlight only
+    negative: [],    // keyword list → hide (exact word/phrase, case-insensitive)
+    positive: [],    // keyword list → highlight only (exact word/phrase, case-insensitive)
     noSalary: true,  // hide cards whose salary text has no digit
     showHidden: false,
     autoScan: false, // W3: auto deep-scan on search page loads. Inert + disabled in the UI.

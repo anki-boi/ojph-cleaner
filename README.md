@@ -109,6 +109,7 @@ same storage, and both take effect on every open tab immediately.
 | `negative` | empty | One keyword per line. A listing whose text contains any of them **as an exact word or phrase** is **hidden**. |
 | `positive` | empty | One keyword per line. A listing whose text contains any of them **as an exact word or phrase** is **highlighted**, never hidden. |
 | `noSalary` | on | Hide listings whose salary field contains no digit (`TBD`, `N/A`, `Negotiable`, `DOE`, empty). |
+| `rescueNoSalary` | off | With `noSalary` on: a listing with no figure that matches a keyword you like, or pays at or above one of your goals, is **shown** instead of hidden. Off by default — a listing that states no pay at all is usually one you did not want to read. |
 | `maxAgeDays` | 7 | Hide listings posted longer ago than this many days. `0` turns it off, `7` is the last week, `30` the last month. Applied **before** every other rule, and a listing whose date cannot be read is never hidden by it. |
 | `showHidden` | off | Reveal what was hidden, with a red dashed marker. The chip's `Show all` writes this. |
 | `autoLoad` | on | Append the next page of results when you scroll to the bottom of the list. One page per real scroll, one request per page, and it stops at the end of the results. |

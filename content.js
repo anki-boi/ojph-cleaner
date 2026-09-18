@@ -7,6 +7,7 @@
     negative: [],    // keyword list → hide (exact word/phrase, case-insensitive)
     positive: [],    // keyword list → highlight only (exact word/phrase, case-insensitive)
     noSalary: true,  // hide cards whose salary text has no digit
+    rescueNoSalary: false, // W10: but show one that matches a keyword you like, or beats a goal (opt-in)
     showHidden: false,
     autoScan: false, // W3: auto deep-scan on search page loads. Inert + disabled in the UI.
     autoLoad: true,  // W6: load the next result page when you scroll to the bottom of the list
@@ -169,7 +170,10 @@
       } else if (old) {
         c.hidden = !settings.showHidden;
         stale++;
-      } else if (ns) {
+      } else if (ns && !(settings.rescueNoSalary && good)) {
+        // W10, opt-in and off by default: a no-salary listing that also looks good falls through to the
+        // keyword rules instead of being hidden, so it ends up green (or yellow) rather than gone. It is
+        // `good` — the same predicate the reconsider rule uses — so nothing new decides what "good" means.
         c.hidden = !settings.showHidden;
         noSal++;
       } else if (neg.length && good) {

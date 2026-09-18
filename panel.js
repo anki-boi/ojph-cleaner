@@ -34,6 +34,7 @@
       <label for="ojc-pos">Highlight jobs mentioning… (one per line · exact words, same rule)</label>
       <textarea id="ojc-pos" rows="3" placeholder="quickbooks&#10;ai"></textarea>
       <label class="ojc-check"><input type="checkbox" id="ojc-noSalary"> Hide jobs with no salary listed</label>
+      <label class="ojc-check"><input type="checkbox" id="ojc-rescueNoSalary"> …but keep one that matches a keyword I like, or beats my goal</label>
       <label class="ojc-check"><input type="checkbox" id="ojc-showHidden"> Show hidden jobs</label>
       <label class="ojc-check"><input type="checkbox" id="ojc-autoLoad"> Load more jobs when I scroll to the bottom</label>
       <label for="ojc-goal">Brighten jobs paying at least this much per month (₱, 0 = off)</label>
@@ -60,6 +61,7 @@
     $p('#ojc-neg').value = toLines(s.negative);
     $p('#ojc-pos').value = toLines(s.positive);
     $p('#ojc-noSalary').checked = s.noSalary;
+    $p('#ojc-rescueNoSalary').checked = s.rescueNoSalary;
     $p('#ojc-showHidden').checked = s.showHidden;
     $p('#ojc-autoLoad').checked = s.autoLoad;
     $p('#ojc-goal').value = s.goalSalary || '';
@@ -88,6 +90,7 @@
       negative: fromLines($p('#ojc-neg').value),
       positive: fromLines($p('#ojc-pos').value),
       noSalary: $p('#ojc-noSalary').checked,
+      rescueNoSalary: $p('#ojc-rescueNoSalary').checked,
       showHidden: $p('#ojc-showHidden').checked,
       autoLoad: $p('#ojc-autoLoad').checked,
       goalSalary: num($p('#ojc-goal').value),

@@ -36,6 +36,7 @@ different keywords.</p>
   <label for="maxAgeDays">Hide jobs posted more than this many days ago (<code>0</code> = off, <code>7</code> = last week, <code>30</code> = last month). Applied before every other rule; a listing whose date cannot be read is never hidden by it.</label>
   <input type="number" id="maxAgeDays" min="0" step="1" placeholder="7">
   <label><input type="checkbox" id="noSalary"> Hide jobs with no salary listed (default: on)</label>
+  <label><input type="checkbox" id="rescueNoSalary"> …but keep a no-salary job that matches a keyword I like, or pays at or above one of my goals. <em>Off by default: a listing with no figure at all is usually one you did not want to read.</em></label>
   <label><input type="checkbox" id="showHidden"> Show hidden jobs (red dashed marker)</label>
   <label><input type="checkbox" id="autoLoad"> Load the next page of jobs when I scroll to the bottom of the list (one page per scroll, stops at the end)</label>
   <label for="goalSalary">Brighten jobs paying at least this much per month (₱, 0 = off). Judged on the low end of a range, converted with live ECB rates.</label>

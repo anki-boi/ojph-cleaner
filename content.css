@@ -97,3 +97,8 @@
   outline: 2px dashed #c0392b !important;
   outline-offset: 2px;
 }
+
+/* Pagination sentinel (W6): 1px tall, sits after the last card, and is watched to
+   know when the user has reached the end of the list. */
+#ojc-sentinel { height: 1px; }
+#ojc-chip #ojc-note { color: #9fb3c8; font-style: italic; }

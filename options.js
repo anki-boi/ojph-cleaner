@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const DEFAULTS = { negative: [], positive: [], noSalary: true, showHidden: false, autoScan: false };
+  const DEFAULTS = { negative: [], positive: [], noSalary: true, showHidden: false, autoScan: false, autoLoad: true };
   const toLines = (arr) => (arr || []).join('\n');
   const fromLines = (s) => [...new Set(s.split('\n').map(x => x.trim()).filter(Boolean))];
 
@@ -12,6 +12,7 @@
     $('pos').value = toLines(s.positive);
     $('noSalary').checked = s.noSalary;
     $('showHidden').checked = s.showHidden;
+    $('autoLoad').checked = s.autoLoad;
     $('autoScan').checked = s.autoScan;
   });
 
@@ -21,6 +22,7 @@
       positive: fromLines($('pos').value),
       noSalary: $('noSalary').checked,
       showHidden: $('showHidden').checked,
+      autoLoad: $('autoLoad').checked,
       autoScan: $('autoScan').checked,
     };
     chrome.storage.local.set({ settings }, () => {

@@ -1,6 +1,6 @@
 # HANDOFF — OJ.ph Cleaner (Chrome MV3 extension)
 
-**Date:** 2026-09-18 · **Extension version:** 0.3.0 · **Branch:** `main`
+**Date:** 2026-09-18 · **Extension version:** 0.5.0 · **Branch:** `main`
 **Repo:** `C:\Users\PC\Desktop\ojph-cleaner` → https://github.com/anki-boi/ojph-cleaner (public)
 **Author identity in this repo's history:** `Jeyson <jeyson@local>`
 
@@ -53,21 +53,23 @@ Files: `manifest.json`, `content.js`, `content.css`, `rules.js` (pure rules, UMD
 
 | Endpoint | Browser | Profile | ojph-cleaner installed? |
 |---|---|---|---|
-| `127.0.0.1:9222` | **Edge** 153 | `%LOCALAPPDATA%\agent-edge` (automation clone of the real Edge) | ❌ no |
 | `127.0.0.1:9333` | **Chrome** 153 ✅ | `%LOCALAPPDATA%\agent-chrome-profile` | ✅ unpacked, ENABLED |
-| — | Chrome 153, **default** profile | `%LOCALAPPDATA%\Google\Chrome\User Data` | ✅ installed, but **not drivable** |
+| `127.0.0.1:9222` | Edge 153 | `%LOCALAPPDATA%\agent-edge` | ❌ no |
 
-Three consequences, all verified:
+**Since 2026-09-18 the automation profile is the user's daily browser** — the default profile is
+retired. Two consequences, both helpful:
 
-- **`:9222` is Edge, not Chrome.** `agent-edge` is the automation browser used by earlier
-  sessions; the selector verification recorded in `plans/2026-08-26_ojph-extension.md` was done
-  there. Same engine and DOM, but that profile does not have this extension — so it cannot be used
-  to test extension behaviour.
-- **The user's real Chrome can never expose CDP.** Since Chromium 136, `--remote-debugging-port` is
-  silently ignored when the default user-data-dir is in use. The port flag can be present on the
-  command line while nothing ever binds.
-- **Chrome's debug port therefore needs the automation profile**, where the extension is already
-  installed (and stays installed — it is a real profile directory):
+- The harness drives the browser the user is actually logged into, so pages are read as a real
+  signed-in jobseeker. It opens its own tab and closes it, so open tabs are not disturbed.
+- **No manual reload is needed any more.** `tools/verify-live.mjs` reloads the unpacked extension via
+  `chrome.developerPrivate.reload` before every run, so the code under test is always the code in the
+  repo. Outside a test run, `chrome://extensions` → Reload.
+
+Port override: `OJC_CDP_PORT` (default `9333`).
+
+**Historical note (still true, no longer limiting):** since Chromium 136, `--remote-debugging-port` is
+silently ignored when the *default* user-data-dir is in use, which is why the drivable browser has
+always been an automation profile and why the retired default profile never could be driven.
 
 ```bash
 "/c/Program Files/Google/Chrome/Application/chrome.exe" \
@@ -223,6 +225,30 @@ required files, hook wiring, no CRLF in any tracked text file — and `tools/che
 setting in `content.js`'s `DEFAULTS` must appear as a row in the README's settings table, and every
 path the README points at must exist.
 
+### 4d. ✅ W6 — perpetual pagination (0.5.0)
+
+The user asked whether infinite scrolling would be a nice touch. It is, and it is built (D8 in
+`spec.md`), but the guards *are* the feature — "load more" and "crawl" are one careless decision
+apart.
+
+- **`pagination.js` is a separate content script.** `content.js` hit 344 lines, over the gate's
+  300-line cap, and the honest split was "the extension that filters" vs "the code that fetches":
+  `content.js` now makes **no request of its own** and talks to the loader through one small API
+  (`self.OJC`). The URL/offset maths is exported (`self.OJCPager`) and pinned by `test-pager.js`.
+- **A real scroll arms it.** The sentinel sits after the last card, and hidden cards make the list
+  short enough that the sentinel can be on screen without the user doing anything — so visibility
+  alone must never be the trigger. Verified live: 0 requests while idle, exactly 1 after a scroll.
+- **It knows when it is done.** `pageOffset(url) + cards >= total` stops *before* spending a request.
+  The "Displaying N out of M" counter is a page's **size**, not its position: on the final partial
+  page (offset 290, 7 cards of 297) using it would send the loader back to page 1.
+- **A page with no new job links ends it**, whatever the counter says. No retry loop.
+
+```
+full list : idle 0 requests · one scroll → +30 cards, 1 request (/jobseekers/jobsearch/30?…)
+            · rule parity over all 60 loaded cards
+last page : 290+7=297 — idle and scrolled both spent 0 requests, nothing to load
+```
+
 ---
 
 ## 5. What is left to build
@@ -238,6 +264,7 @@ path the README points at must exist.
 | 8. README + screenshots + docs + hygiene + gates (`spec.md` W1) | ✅ 0.4.0 — README, `SECURITY.md`, `.editorconfig`, `.gitattributes`, issue templates, `docs/architecture.md`, `docs/scraping.md`, `test-repo-hygiene.js`, `tools/check-readme.js` |
 | `spec.md` audit + decision-ready wave plan | ✅ `spec.md` |
 | `spec.md` W2 — the defects the audit found | ✅ 0.4.0, see §4c |
+| `spec.md` W6 — perpetual pagination | ✅ 0.5.0, see §4d |
 | **4. Deep scan engine** (`spec.md` W3) | ⬜ **next** |
 | 6. Detail-page banner (`spec.md` W4) | ⬜ |
 | Distribution (`spec.md` W5) | ⬜ unpacked for now (D2) |
@@ -297,7 +324,12 @@ paths out of tracked source (the gate enforces this).
 - No-salary rule = "the salary text contains a digit". `TBD` / `N/A` / `Negotiable` / `DOE` must fail.
 - Positive keywords **highlight only**; they never hide.
 - The deep scan stays **bounded to the current page** — no crawling, no pagination.
-- With no keywords configured, the extension issues **zero extra requests**.
+- With no keywords configured, the extension issues **zero extra requests** — unless `autoLoad` is on
+  (the default) and you scroll to the bottom, which fetches the next *result* page: one page per real
+  scroll, 600 ms apart, one in flight, stopping at the end or when a page adds nothing new. It never
+  fetches a job detail page except in the deep scan.
+- **Nothing runs on an idle page.** No timers, no polling, no prefetch. If the user does nothing, so
+  does the extension — `verify-live` asserts 0 loader requests before any scroll.
 - **The rule pass must never schedule itself.** Judge the mutation's *target* (`isOurs`), not just the
   added/removed nodes; a detached node has no ancestors. `verify-live` asserts a bounded number of
   chip rebuilds after one external mutation.

@@ -3,8 +3,13 @@
 const rpc = (ws) => {
   let id = 0;
   const pending = new Map();
+  const handlers = new Map();
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
+    if (m.id === undefined) {                       // CDP event, not a response
+      (handlers.get(m.method) || []).forEach(fn => fn(m.params));
+      return;
+    }
     const p = pending.get(m.id);
     if (!p) return;
     pending.delete(m.id);
@@ -18,7 +23,10 @@ const rpc = (ws) => {
   const evaluate = async expression =>
     (await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }))?.result?.value;
   const ready = () => evaluate(`new Promise(r=>{document.readyState==='complete'?r(1):addEventListener('load',()=>r(1),{once:true})})`);
-  return { send, evaluate, ready };
+  /** Subscribe to a CDP event — used to count real network requests, which a page-world
+   *  fetch patch cannot see (the content script runs in an isolated world). */
+  const on = (method, fn) => handlers.set(method, [...(handlers.get(method) || []), fn]);
+  return { send, evaluate, ready, on };
 };
 
 const targetList = (port) => fetch(`http://127.0.0.1:${port}/json/list`).then(r => r.json());

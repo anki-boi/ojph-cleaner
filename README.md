@@ -47,6 +47,10 @@ The chip reports `N hidden (x no salary, y keywords, z highlighted)` and toggles
 showing. Click `⚙` to open the settings panel **in the page** — saving applies to the listings
 immediately, with no reload.
 
+**Keep scrolling.** When you reach the bottom of the list the next result page is appended, so a
+297-job search is one continuous scroll instead of eight clicks on *Next*. One page per scroll, one
+request per page, and it stops at the end of the results — or the moment a page adds nothing new.
+
 ## Settings
 
 Click `⚙` on the chip, or use the standalone options page if you prefer a full tab. Both write the
@@ -58,6 +62,7 @@ same storage, and both take effect on every open tab immediately.
 | `positive` | empty | One keyword per line. A listing whose text contains any of them is **highlighted**, never hidden. |
 | `noSalary` | on | Hide listings whose salary field contains no digit (`TBD`, `N/A`, `Negotiable`, `DOE`, empty). |
 | `showHidden` | off | Reveal what was hidden, with a red dashed marker. The chip's `Show all` writes this. |
+| `autoLoad` | on | Append the next page of results when you scroll to the bottom of the list. One page per real scroll, one request per page, and it stops at the end of the results. |
 | `autoScan` | off | Deep-scan this page's listings once the described feature ships — **disabled in the UI until then** (`spec.md` W3). |
 
 Matching is plain case-insensitive substring, so `crypto` also matches `cryptocurrency`. Keep the
@@ -65,14 +70,17 @@ list short and specific.
 
 ## Privacy
 
-- **Zero requests while nothing is configured.** With empty keyword lists and `noSalary` off, the
-  extension does not talk to anything.
+- **No request you did not ask for.** With `autoLoad` off and no keywords configured, the extension
+  talks to nothing at all. With it on, it fetches one result page only when *you* scroll to the bottom
+  of the list on the page you are already reading — never in the background, never ahead of you, and
+  never into the detail pages of jobs (that is the deep scan, `spec.md` W3, still to come).
 - **One site.** The content script is injected only on `onlinejobs.ph`; the host permission exists to
   read that page's listing DOM.
 - **Local state.** Keywords and toggles live in `chrome.storage.local` on your machine. There is no
   server, no account, no analytics, and no third-party call. See `SECURITY.md`.
-- **No crawling.** Even the planned deep scan is bounded to the cards already on the page you are
-  looking at — it never paginates (`docs/scraping.md`).
+- **No crawling.** The loader fetches *result pages* the site would have served you anyway, one per
+  scroll. It never walks into job detail pages, and the deep scan (`spec.md` W3) will stay bounded to
+  the cards already loaded — see `docs/scraping.md` for the request budget.
 
 ## Development
 
@@ -107,11 +115,13 @@ that saving settings repaints the list without a reload.
 |---|---|
 | `manifest.json` | MV3 manifest: `storage` permission, `onlinejobs.ph` host permissions, content script |
 | `rules.js` | Pure rules — `hasSalary`, `matchKeywords`. No DOM, so it is unit-tested directly |
-| `content.js` | The content script: chip, in-page settings panel, rule pass, DOM observer, storage sync |
+| `content.js` | The content script: chip, in-page settings panel, rule pass, DOM observer, storage sync. Makes no network request of its own |
+| `pagination.js` | Perpetual pagination: the scroll trigger, the fetch and the stop conditions (W6) |
 | `content.css` | Styles for the chip, the panel and the highlight badge (all `#ojc-*` scoped) |
 | `options.html` / `options.js` | Standalone options page (the in-page panel is the primary UI) |
 | `test-rules.js` / `test-manifest.js` | Node tests, zero dependencies |
-| `test-repo-hygiene.js` | Repo invariants (license stance, required files, hook wiring) |
+| `test-pager.js` | Node tests for the pagination URL/offset maths and the stop conditions |
+| `test-repo-hygiene.js` | Repo invariants (license stance, required files, hook wiring, no CRLF) |
 | `tools/gate.sh` | One command: syntax + tests + hygiene + README truth + personal-path scan |
 | `tools/check-readme.js` | Keeps this file true: every setting documented, no stale counts |
 | `tools/verify-live.mjs`, `tools/cdp.mjs` | Live end-to-end check against the real site over CDP |

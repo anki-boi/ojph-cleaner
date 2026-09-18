@@ -209,24 +209,110 @@ if (res.noSalExpected > 0) {
       mo.observe(chip, { childList: true });
       setTimeout(() => {                       // one mutation, like the site's own scripts
         const d = document.createElement('div');
-        d.id = 'ojc-probe';
+        d.id = 'not-ours-nudge';               // must NOT look like an injected #ojc-* node
         document.body.appendChild(d);
         setTimeout(() => {
           mo.disconnect();
-          document.getElementById('ojc-probe')?.remove();
+          document.getElementById('not-ours-nudge')?.remove();
           res(JSON.stringify({ chip: true, passes, windowMs: 2000, cards: document.querySelectorAll('.jobpost-cat-box.latest-job-post').length }));
         }, 2000);
       }, 300);
     })`);
   }, 500));
   if (!loop.chip) await fail('no chip to observe in the loop check');
-  // One rebuild = 2 records (the wipe, then the append). A handful is a page reacting to
-  // its own insertion; hundreds per second is the loop.
+  // One rebuild = 2 records (the wipe, then the append): fewer than 1 means the observer stopped
+  // reacting to the page altogether, which would make this check pass while the extension is dead.
+  if (loop.passes < 1) {
+    await fail('an external DOM mutation produced no rule pass at all — the observer is not reacting');
+  }
   if (loop.passes > 20) {
     await fail(`one external DOM mutation caused ${loop.passes} chip rebuilds in ${loop.windowMs} ms ` +
       `— the rule pass is re-scheduling itself (isOurs() must judge the mutation target)`);
   }
   console.log(`loop      : 1 external mutation → ${loop.passes} chip rebuilds in ${loop.windowMs} ms (bounded)`);
+}
+
+// ── 7. perpetual pagination (spec.md W6 / D8) ───────────────────────────
+// The request count comes from CDP's Network domain, not a patched window.fetch: the loader
+// runs in the content script's isolated world, where `fetch` is a different function. Only
+// Fetch-type requests are counted, so the tab's own document load (and a category page URL)
+// cannot be mistaken for a loader request. Three properties, none of them optional:
+//   idle costs nothing · one scroll = one page · the counts describe every loaded card.
+{
+  const r = JSON.parse(await withTab(PORT, URL_, async (tab) => {
+    const reqs = [];
+    await tab.send('Network.enable');
+    tab.on('Network.requestWillBeSent', p => reqs.push({ url: p.request.url, type: p.type }));
+    await settle(3500);
+
+    const snapshot = `(() => {
+      const neg = ${JSON.stringify(neg.map(k => k.toLowerCase()))};
+      const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
+      let expect = 0;
+      for (const c of cards) {
+        const d = c.querySelector('dd.col');
+        const ns = !/\\d/.test(d ? d.textContent : '');
+        const nm = neg.some(k => (c.textContent || '').toLowerCase().includes(k));
+        if (ns || nm) expect++;   // hidden either way — noSalary cannot un-hide a keyword match
+      }
+      const shown = document.body.innerText.match(/Displaying\\s+(\\d+)\\s+out of\\s+(\\d+)/i);
+      const off = (location.pathname.match(/\\/(\\d+)$/) || [])[1];
+      return JSON.stringify({ cards: cards.length, hidden: cards.filter(c => c.hidden).length, expect,
+        total: shown ? +shown[2] : null, offset: off ? +off : 0 });
+    })()`;
+    const fetches = () => reqs
+      .filter(x => x.type === 'Fetch' || x.type === 'XHR')
+      .map(x => x.url)
+      // Only the loader's own URL shape counts: a list page plus an offset segment. The site's
+      // own beacons (/cdn-cgi/rum, gtag) are Fetch requests on the same host and would
+      // otherwise make "idle costs nothing" unprovable.
+      .filter(u => /^https:\/\/www\.onlinejobs\.ph\/jobseekers\/(jobsearch|search)\/[^?]*\d/.test(u));
+
+    const idle = { ...JSON.parse(await tab.evaluate(snapshot)), requests: fetches().length };
+    const idleUrls = fetches();
+    await tab.evaluate(`window.scrollTo(0, document.body.scrollHeight)`);
+    await settle(300);
+    await tab.evaluate(`window.scrollTo(0, document.body.scrollHeight)`);   // the scroll that arms it
+    await settle(4000);
+    const afterOne = { ...JSON.parse(await tab.evaluate(snapshot)), requests: fetches().length };
+    return JSON.stringify({ idle, idleUrls, afterOne, pageUrls: fetches() });
+  }, 500));
+
+  if (!r.idle.cards) await fail('no cards on the page — cannot judge pagination');
+  if (r.idle.requests !== 0) {
+    await fail(`${r.idle.requests} result page(s) fetched while the page sat idle (${r.idle.cards} cards ` +
+      `on screen): ${r.idleUrls.join(', ')} — loading must require a real scroll`);
+  }
+  // A page whose results are already fully loaded (a final partial page, offset + cards >= total)
+  // must do the opposite: stop, spend nothing, and grow nothing.
+  const everythingLoaded = r.idle.total !== null && r.idle.offset + r.idle.cards >= r.idle.total;
+  if (everythingLoaded) {
+    if (r.afterOne.requests !== 0 || r.afterOne.cards !== r.idle.cards) {
+      await fail(`all ${r.idle.total} results are already on screen (offset ${r.idle.offset}, ` +
+        `${r.idle.cards} cards) but scrolling fetched ${r.afterOne.requests} page(s) and grew the ` +
+        `list to ${r.afterOne.cards} — the loader must know when it is done`);
+    }
+    console.log(`pagination: last page (${r.idle.offset}+${r.idle.cards}=${r.idle.total}) — idle and ` +
+      `scrolled both spent 0 requests, nothing to load`);
+  } else {
+    if (r.afterOne.cards <= r.idle.cards) {
+      await fail(`scrolling to the bottom loaded no more cards (${r.idle.cards} → ${r.afterOne.cards}) ` +
+        '— the loader is broken, or autoLoad is off');
+    }
+    if (r.pageUrls.length !== 1) {
+      await fail(`one scroll produced ${r.pageUrls.length} loader requests: ${r.pageUrls.join(', ')} ` +
+        '(expected exactly one page per scroll)');
+    }
+    if (!/\/\d+\?/.test(r.pageUrls[0])) {
+      await fail(`the next-page URL has no offset segment: ${r.pageUrls[0]}`);
+    }
+    if (r.afterOne.hidden !== r.afterOne.expect) {
+      await fail(`after growing to ${r.afterOne.cards} cards, ${r.afterOne.hidden} are hidden but the ` +
+        `rule says ${r.afterOne.expect} — the counts must be recomputed over all loaded cards`);
+    }
+    console.log(`pagination: idle ${r.idle.requests} requests · one scroll → +${r.afterOne.cards - r.idle.cards} cards, ` +
+      `1 request (${r.pageUrls[0].replace(/^https:\/\/www\.onlinejobs\.ph/, '')}) · rule parity over ${r.afterOne.cards} cards`);
+  }
 }
 
 console.log('verify-live: PASS');

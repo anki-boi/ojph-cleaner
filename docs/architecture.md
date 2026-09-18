@@ -7,11 +7,14 @@ one rule: **pure logic never touches the DOM**.
 manifest.json          ── injects on onlinejobs.ph only
    │
    ├─ rules.js         pure: hasSalary(), matchKeywords()      ← test-rules.js
-   └─ content.js       DOM + state
-        ├─ rule pass    reads settings + page DOM → hidden/classes/badges
-        ├─ chip         counts + Show all/Hide them + ⚙
-        ├─ panel        in-page settings, Save applies synchronously
-        └─ observer     re-runs the rule pass when the page changes
+   ├─ content.js       DOM + state (no network)
+   │    ├─ rule pass   reads settings + page DOM → hidden/classes/badges
+   │    ├─ chip        counts + Show all/Hide them + ⚙
+   │    ├─ panel       in-page settings, Save applies synchronously
+   │    └─ observer    re-runs the rule pass when the page changes
+   └─ pagination.js    the only code that fetches (W6)          ← test-pager.js
+        ├─ sentinel    after the last card; needs a real scroll to fire
+        └─ loader      next result page → import cards → refreshRules()
 options.html/js        standalone settings page (same storage, same effect)
 ```
 
@@ -22,9 +25,17 @@ values. No DOM, no storage, no timers — so `test-rules.js` can assert the inte
 (`TBD`, `N/A`, `DOE`, `$1,000/month (DOE)`, case-insensitivity) in milliseconds, offline. The same
 split exists upstream in the sibling project's `scraper/parsers.py`, for the same reason.
 
-**`content.js` owns every coupling to the page.** The selectors live in one `SELECTORS` object at the
-top so site drift is a one-line fix, and `tools/verify-live.mjs` replicates the same rules from the
-live DOM to check the result independently.
+**`content.js` owns every coupling to the page, and makes no request.** The selectors live in one
+`SELECTORS` object at the top so site drift is a one-line fix, and `tools/verify-live.mjs` replicates
+the same rules from the live DOM to check the result independently. All network code lives in
+`pagination.js`, which is also the only file that can grow the page's card list.
+
+**`pagination.js` is a second content script, not a module.** It needs the DOM, the settings and the
+rule pass, so it talks to `content.js` through one small API (`self.OJC`: selectors, `cards()`,
+`refreshRules()`, the note setter, the settings getter) and publishes `self.OJCLoader.arm()/stop()`.
+Its pure URL and count maths is exported separately (`self.OJCPager`) so `test-pager.js` can pin it
+without a browser — the same split as `rules.js`. The interface is deliberately tiny: it must not
+grow into a second copy of the rule pass.
 
 **Storage is the only channel between contexts.** Settings live in `chrome.storage.local.settings`;
 `chrome.storage.onChanged` is broadcast to the content script *and* the options page, so both UIs stay
@@ -80,7 +91,27 @@ trigger, so the listing repaints on click instead of after a round trip. The `on
 follows is a harmless no-op re-run. `syncPanel()` mirrors external changes into an open panel without
 clobbering a field the user is typing in.
 
-## Mutation handling
+## Live loading (W6)
+
+```
+scroll (arms) ─→ sentinel visible? ─→ one fetch of the next result page
+                                        │
+              no new job links / non-200 / everything loaded → STOP (and say why)
+              otherwise → importNode each card into the card container → refreshRules()
+```
+
+The sentinel sits after the last card. Two guards matter and both exist because of failure modes seen
+in the wild rather than in theory:
+
+- **Loading needs a real scroll since the last page** (`armed`). Hidden cards make the list short, so
+the sentinel can be on screen without the user doing anything — without this guard the extension
+would pull the entire result set on its own, which is precisely the behaviour the project refuses.
+- **A page with no new job links ends the loader**, regardless of what the "Displaying N out of M"
+  counter says. The counter is a hint, not a licence to keep fetching.
+
+Injected cards are ordinary page nodes: the mutation observer sees the insertion, `refreshRules()`
+re-runs over the larger set, and the chip's counts stay truthful because they are always recomputed
+from the DOM rather than tracked incrementally.
 
 One `MutationObserver` on `document.body`: child list + subtree + character data. Mutations produced
 by our own UI are ignored via `isOurs()`; everything else is coalesced into a single rule pass per

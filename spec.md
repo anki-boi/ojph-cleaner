@@ -7,8 +7,8 @@
 dependencies · 1 live CDP harness · Chrome 153, unpacked, enabled in the automation profile
 
 **Status after the audit:** ✅ W1 (public face, hygiene, gates) and ✅ W2 (every defect in §2) landed
-in 0.4.0 — see `docs/HANDOFF.md` §4c for the measured before/after. W3 (deep scan) is next;
-D2/D3/D4/D5 are decided.
+in 0.4.0 — see `docs/HANDOFF.md` §4c for the measured before/after. ✅ W6 (perpetual pagination) landed
+in 0.5.0. W3 (deep scan) is next; D2/D3/D4/D5/D8 are decided.
 
 ---
 
@@ -37,7 +37,8 @@ discipline, sized to a ~250-line extension.
 | Layer | Files | Notes |
 |---|---|---|
 | Manifest | `manifest.json` | MV3, `permissions: ["storage"]` (load-bearing — see §1.2), host permissions on `onlinejobs.ph` only |
-| Content script | `content.js` (234 lines) | chip, in-page options panel, rule pass, mutation observer, storage sync |
+| Content script | `content.js` (269 lines) | chip, in-page options panel, rule pass, mutation observer, storage sync — **no network code** |
+| Loader | `pagination.js` (126 lines) | perpetual pagination: sentinel, one fetch per user scroll, stop conditions (W6) |
 | Rules | `rules.js` (28 lines) | pure `hasSalary` / `matchKeywords`, UMD, no DOM |
 | Styles | `content.css` (95 lines) | chip + panel + highlight styles, all `#ojc-*` scoped |
 | Options page | `options.html` / `options.js` | standalone fallback; the panel is the primary UI |
@@ -171,6 +172,7 @@ the only thing standing between a red gate and `main`. The suite treats this as 
 | **D5** | Deep-scan politeness budget | 3 concurrent, 400 ms between waves, **current page's cards only** — never paginate. A 429 or a network error leaves that card unscanned and **stops the fleet**, never retries harder. | ⬜ **needs you** |
 | **D6** | Positive keywords | Highlight only, never hide | ✅ do not regress (§1.2) |
 | **D7** | `# ponytail:` ceilings | Keep marking deliberate shortcuts with a named ceiling | ✅ do not regress |
+| **D8** | Perpetual pagination | **Yes, but scroll-driven.** The next *result* page is fetched when the user scrolls to the bottom — one page per real scroll, one request per page, 600 ms apart, stopping on the first sign of an end. It is the same request the user would have made by clicking *Next*, so the politeness story survives; what stays rejected is the *deep scan* paginating, and any background prefetch on an idle page | ✅ decided 2026-09-18 |
 
 ---
 
@@ -181,7 +183,8 @@ the only thing standing between a red gate and `main`. The suite treats this as 
 ```
 manifest.json          MV3 entry; storage permission + onlinejobs.ph host permissions only
 rules.js               pure rules (no DOM): hasSalary, matchKeywords        ← unit-tested
-content.js             DOM + state: chip, panel, rule pass, observer, storage sync
+content.js             DOM + state: chip, panel, rule pass, observer, storage sync (no network)
+pagination.js          the only network code: scroll-triggered result loading (W6)  ← unit-tested
 content.css            #ojc-* scoped styles only
 options.html/.js       standalone fallback page (the panel is primary)
 detail-parser.js       (W3) pure detail-page parser                        ← unit-tested
@@ -274,6 +277,23 @@ a one-line fix and the harness can name the selector that broke:
 
 ---
 
+### W6 — Perpetual pagination ✅ (0.5.0)
+
+Asked for by the user as a convenience; adopted under D8 with the guards below, because "load more"
+and "crawl" are one careless decision apart.
+
+| ID | Task | Files |
+|---|---|---|
+| W6.1 | `pagination.js` with pure URL/count helpers + `test-pager.js` (four URL shapes, count parsing) | `pagination.js`, `test-pager.js` |
+| W6.2 | Sentinel after the last card; **a real scroll since the last load is required**, one page in flight, 600 ms minimum gap | `pagination.js` |
+| W6.3 | Stop conditions: no new job links, every result loaded, non-200, offline — each says why in the console and stops the loader for good | `pagination.js` |
+| W6.4 | `autoLoad` setting in the panel and the options page; README row; the request-budget table in `docs/scraping.md` | `content.js`, `options.*`, docs |
+| W6.5 | Live assertion: no requests while idle, exactly one request per scroll, card count grows, counts stay truthful, sentinel removed once stopped | `tools/verify-live.mjs` |
+
+Splitting the file also settled a cap argument: `content.js` hit 344 lines (the gate caps at 300), and
+the honest split is "the extension that filters" vs "the code that fetches" — which is why
+`content.js` now makes no request of its own.
+
 ## 6. Execution plan
 
 ### 6.1 Wave plan
@@ -283,6 +303,7 @@ a one-line fix and the harness can name the selector that broke:
 | **0. Decide** | This document, §3 approved | — | D2/D3/D5 answered |
 | **1. Say what it is** | W1.1–W1.7 ‖ (W1.1/W1.2/W1.4 ‖, then W1.3 → W1.6/W1.7) | 2 agents | README exists, gate covers it, hygiene test green |
 | **2. Fix what the audit found** | W2.1 → W2.3 ‖ W2.4/W2.5, then W2.2, W2.6, W2.7 | 2 agents | the two §2 proofs flip; live PASS unchanged |
+| **2b. Perpetual pagination** | W6.1 → W6.2 → W6.3 → W6.4 → W6.5 | 1 agent | shipped in 0.5.0: zero requests while idle, one per scroll, stops at the end |
 | **3. Deep scan** | W3.1 → W3.2 → W3.3/W3.4 → W3.5 | 2 agents | fixture tests green; live scan bounded; 429 leaves cards unscanned |
 | **4. Reach** | W4.1 → W5.* | 1 agent | banner live; distribution decision executed |
 | **5. Continuous** | Keep the gate green on every push; re-run `verify-live` after any selector report | ongoing | — |
@@ -344,10 +365,12 @@ closure, and `renderChip()` wiping the chip is the trap that has already cost on
   keeps running — all must be visible or impossible.
 - **The page belongs to the site.** Injected UI is namespaced, removable, and must never alter the
   site's own DOM beyond `hidden` + our own classes.
-- **Politeness is a feature.** The deep scan spends the site's bandwidth: 3 concurrent, 400 ms
-  between waves, current page only, and it stops on 429 instead of pushing harder.
-- **Zero extra requests while nothing is configured.** With empty keyword lists and `noSalary` off,
-  the extension must make no network request at all.
+- **Politeness is a feature.** No request the user did not ask for: with `autoLoad` off and nothing
+  configured, the extension makes **zero** requests. With it on, one result page per real scroll to the
+  bottom, 600 ms apart, one in flight, stopping on the first sign of an end. The deep scan spends 3
+  concurrent / 400 ms and only for cards already loaded.
+- **Nothing runs on an idle page.** No timers, no polling, no prefetch, no background worker. If the
+  user does nothing, so does the extension.
 - **Everything stays local.** Local storage, no server, no analytics.
 
 ---
@@ -358,7 +381,8 @@ Recorded so nobody re-proposes them. Each has a trigger that would change the an
 
 | Rejected | Why | Revisit if |
 |---|---|---|
-| Paginating / crawling beyond the current page | Multiplies requests for jobs the user is not looking at; the site's search already filters | never |
+| Paginating *inside the deep scan* | The scan's job is to describe what the user is looking at; walking the site for them is a crawler | never |
+| Prefetching results the user has not scrolled to (background loading, "load all") | Requests nobody asked for, and the exact behaviour that makes an extension feel like malware. W6 loads on a real scroll only | a user-facing "load all pages" then becomes their stated intent — and even then, bounded and visible |
 | A background service worker | Killed by MV3 semantics and unnecessary — storage changes already broadcast to every context | a task must outlive a tab |
 | A build step / bundler / framework | 560 lines with no imports; a build step costs the "load unpacked and read the source" property | the extension passes ~5 000 lines or gains real modules |
 | Hiding on positive keywords | See §1.2 | never |
@@ -377,6 +401,7 @@ Recorded so nobody re-proposes them. Each has a trigger that would change the an
 |---|---|
 | W1 (new) | `README.md`, `SECURITY.md`, `.editorconfig`, `.gitattributes`, `.github/ISSUE_TEMPLATE/*`, `docs/architecture.md`, `docs/scraping.md`, `test-repo-hygiene.js`, `tools/check-readme.js` |
 | W2 | `content.js`, `tools/verify-live.mjs`, `tools/gate.sh`, `test-manifest.js`, `options.html`, `options.js` |
+| W6 | `pagination.js` (new), `test-pager.js` (new), `content.js`, `content.css`, `options.*`, `tools/verify-live.mjs` |
 | W3 (new) | `detail-parser.js`, `test-detail-parser.js` |
 | Existing, unchanged | `manifest.json`, `rules.js`, `test-rules.js`, `content.css`, `options.html` |
 | Reference | `spec.md` (this file), `docs/HANDOFF.md`, `plans/*` |
@@ -397,6 +422,7 @@ List URLs: `/jobseekers/jobsearch?jobkeyword=…`, `/jobseekers/jobsearch/{offse
 | `noSalary` | boolean | `true` | Hide cards whose salary text contains no digit | rule pass |
 | `showHidden` | boolean | `false` | Reveal what was hidden (chip toggle writes this) | rule pass, chip |
 | `autoScan` | boolean | `false` | Deep-scan this page's cards (W3). Disabled in the UI until then (D4) | nothing yet |
+| `autoLoad` | boolean | `true` | Append the next result page when the user scrolls to the bottom (W6) | `pagination.js` |
 
 `tools/check-readme.js` fails the gate if a key here is missing from the README's table.
 
@@ -405,11 +431,12 @@ List URLs: `/jobseekers/jobsearch?jobkeyword=…`, `/jobseekers/jobsearch/{offse
 | Check | Offline? | Covers | Command |
 |---|---|---|---|
 | `test-rules.js` | ✅ | salary parsing, keyword matching, case, duplicates | `node test-rules.js` |
+| `test-pager.js` | ✅ | next-page URL for all four list-URL shapes; "Displaying N out of M" parsing and its nulls | `node test-pager.js` |
 | `test-manifest.js` | ✅ | every `chrome.*` namespace granted; referenced files exist; no orphan source | `node test-manifest.js` |
 | `test-repo-hygiene.js` | ✅ | no LICENSE, README stance, SECURITY, templates, hook wiring | `node test-repo-hygiene.js` |
 | `tools/check-readme.js` | ✅ | settings documented, no stale counts | `node tools/check-readme.js` |
 | `tools/gate.sh` | ✅ | all of the above + syntax + path scan + size cap | `sh tools/gate.sh` |
-| `tools/verify-live.mjs` | ❌ live site + browser | injection, selector drift, rule parity, `[hidden]`⇒`display:none`, chip toggle, panel open/save with no reload, bounded re-passes | `node tools/verify-live.mjs` |
+| `tools/verify-live.mjs` | ❌ live site + browser | injection, selector drift, rule parity, `[hidden]`⇒`display:none`, chip toggle, panel open/save with no reload, bounded re-passes, pagination (idle = no requests, one per scroll, stops at the end) | `node tools/verify-live.mjs` |
 | CI (Node 20) | ✅ | `npm test` + package integrity | `.github/workflows/ci.yml` |
 
 ## 9. What "done" looks like

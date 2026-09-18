@@ -9,6 +9,7 @@
     noSalary: true,  // hide cards whose salary text has no digit
     showHidden: false,
     autoScan: false, // W3: auto deep-scan on search page loads. Inert + disabled in the UI.
+    autoLoad: true,  // W6: load the next result page when you scroll to the bottom of the list
   };
   let settings = { ...DEFAULTS };
 
@@ -60,6 +61,7 @@
       <textarea id="ojc-pos" rows="3" placeholder="quickbooks"></textarea>
       <label class="ojc-check"><input type="checkbox" id="ojc-noSalary"> Hide jobs with no salary listed</label>
       <label class="ojc-check"><input type="checkbox" id="ojc-showHidden"> Show hidden jobs</label>
+      <label class="ojc-check"><input type="checkbox" id="ojc-autoLoad"> Load more jobs when I scroll to the bottom</label>
       <label class="ojc-check" title="Saved now, acted on once the deep scan ships (spec.md W3)">
         <input type="checkbox" id="ojc-autoScan" disabled> Auto deep-scan this page
         <em class="ojc-soon">— not built yet</em>
@@ -79,6 +81,7 @@
     $p('#ojc-pos').value = toLines(settings.positive);
     $p('#ojc-noSalary').checked = settings.noSalary;
     $p('#ojc-showHidden').checked = settings.showHidden;
+    $p('#ojc-autoLoad').checked = settings.autoLoad;
     $p('#ojc-autoScan').checked = settings.autoScan;
   }
 
@@ -103,6 +106,7 @@
       positive: fromLines($p('#ojc-pos').value),
       noSalary: $p('#ojc-noSalary').checked,
       showHidden: $p('#ojc-showHidden').checked,
+      autoLoad: $p('#ojc-autoLoad').checked,
       // Read from settings, not the input: the control is disabled until W3, and a
       // disabled checkbox would otherwise silently reset a stored value to false.
       autoScan: settings.autoScan,
@@ -117,6 +121,8 @@
 
   // ── Chip (bottom-right status bar) ───────────────────────────────────────
   let chip = null;
+  let chipNote = '';
+  const setNote = (text) => { chipNote = text; renderChip(); };
   let chipCounts = { noSal: 0, kw: 0, pos: 0 };
   function ensureChip() {
     if (!chip || !chip.isConnected) {
@@ -154,7 +160,14 @@
       refreshRules();
       persist();
     };
-    el.append(gear, b, s, btn);
+    el.append(gear, b, s);
+    if (chipNote) {
+      const note = document.createElement('i');
+      note.id = 'ojc-note';
+      note.textContent = chipNote;
+      el.appendChild(note);
+    }
+    el.appendChild(btn);
   }
 
   // ── Rules pass ───────────────────────────────────────────────────────────
@@ -190,6 +203,7 @@
       }
     }
     chipCounts = { noSal, kw, pos };
+    self.OJCLoader?.arm();   // pagination.js watches for the end of the list (W6)
     renderChip();
   }
 
@@ -197,9 +211,14 @@
   function persist() { chrome.storage.local.set({ settings }); }
   function applySettings(next) {
     settings = { ...DEFAULTS, ...(next || {}) };
+    if (!settings.autoLoad) self.OJCLoader?.stop();
     refreshRules();
     syncPanel();
   }
+
+  // The API pagination.js uses (W6). Small on purpose: it must not grow into a second
+  // copy of the rule pass.
+  self.OJC = { SELECTORS, LIST_RE, cards, refreshRules, setNote, getSettings: () => settings };
 
   // ── Live re-run on DOM changes (new cards, container swap) ──────────────
   // Recognise the UI this script injected, and nothing else. The target check is the
@@ -209,7 +228,7 @@
   function isOurs(node) {
     let n = node;
     while (n) {
-      if (n.id === 'ojc-chip' || n.id === 'ojc-panel') return true;
+      if (typeof n.id === 'string' && n.id.startsWith('ojc-')) return true; // chip, panel, sentinel, note
       if (n.classList && n.classList.contains('ojc-pos-badge')) return true;
       n = n.parentNode;
     }

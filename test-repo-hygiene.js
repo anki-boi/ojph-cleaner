@@ -25,9 +25,27 @@ for (const f of ['README.md', 'SECURITY.md', '.editorconfig', '.gitattributes', 
 // ── the gate must be wired, and must survive a Windows checkout ──────────
 const hook = read('.githooks/pre-push');
 assert.ok(hook.includes('tools/gate.sh'), '.githooks/pre-push no longer runs tools/gate.sh');
-assert.ok(!hook.includes('\r') && !read('tools/gate.sh').includes('\r'),
-  'gate.sh or the pre-push hook contains CRLF — `sh` will fail on a Windows checkout (see .gitattributes)');
 assert.ok(read('.gitattributes').includes('eol=lf'),
   '.gitattributes no longer pins line endings; a Windows clone will get CRLF in the shell scripts');
 
-console.log('hygiene: ok (license stance, required files, gate wiring, line endings)');
+// ── no CRLF anywhere in a tracked text file ──────────────────────────────
+// core.autocrlf=true is the default on Windows, and git will NOT re-normalize a file
+// it considers unchanged, so a CRLF working copy survives every checkout while
+// `git status` calls the tree clean. (It happened here: 8 files, twice.)
+const TEXT = /(\.js|\.mjs|\.json|\.css|\.html|\.md|\.sh|\.yml|\.yaml|\.editorconfig|\.gitattributes|\.gitignore)$/;
+const SKIP = /(^|[\\/])(\.git|node_modules|icons|img)([\\/]|$)/;
+const offenders = [];
+(function walk(dir) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const abs = path.join(dir, e.name);
+    const rel = path.relative(ROOT, abs);
+    if (SKIP.test(rel)) continue;
+    if (e.isDirectory()) { walk(abs); continue; }
+    if (!TEXT.test(e.name)) continue;
+    if (fs.readFileSync(abs, 'utf8').includes('\r')) offenders.push(rel.replace(/\\/g, '/'));
+  }
+})(ROOT);
+assert.deepStrictEqual(offenders, [],
+  `CRLF in ${offenders.join(', ')} — normalize with: git add -A && git checkout-index -f -a`);
+
+console.log('hygiene: ok (license stance, required files, gate wiring, no CRLF)');

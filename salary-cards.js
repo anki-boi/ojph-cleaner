@@ -96,6 +96,12 @@
       const currencyLine = (p) => (p.explicit ? fxBit(p)
         : `${fxBit(p)} — the listing states no currency, so the figure was read as ${p.currency} from its size`);
 
+      // Set when a goal mark changes, because the rule pass reads those marks to decide the reconsider
+      // state — and this pass runs *after* it. The marks are async (they wait on the live ECB rates), so
+      // on a page's first pass nothing is marked yet, and a listing that is good only because it pays
+      // well would be hidden instead of yellow. Measured live before the fix: 11 cards owed a yellow
+      // outline, 9 got one.
+      let goalMarksChanged = false;
       for (const [card, p, basis] of parsed) {
         const php = toPhp(p, liveRates);        // a month's pay, only when the hours are known
         const rate = php ? null : ratePhp(p, liveRates);   // the posted rate itself
@@ -155,11 +161,17 @@
         const judgedMonthly = basis.basis === 'full-time' || !hourlyPhp;
         const aboveMonthly = judgedMonthly && meetsGoal(php, goalMonthly);
         const aboveHourly = !judgedMonthly && meetsGoal(hourlyPhp, goalHourly);
+        const wasGoal = card.classList.contains('ojc-goal');
         card.classList.toggle('ojc-goal', aboveMonthly || aboveHourly);
+        if (wasGoal !== card.classList.contains('ojc-goal')) goalMarksChanged = true;
         if (aboveMonthly) note.dataset.goal = 'monthly';
         else if (aboveHourly) note.dataset.goal = 'hourly';
         else delete note.dataset.goal;
       }
+      // One extra rule pass, and only when a mark actually moved. The `annotate()` this re-enters
+      // returns immediately on the `running` guard above, so it cannot loop — and by then the marks
+      // match the data, so the pass after it finds nothing changed and stops there.
+      if (goalMarksChanged) api.refreshRules();
     } finally {
       running = false;
     }

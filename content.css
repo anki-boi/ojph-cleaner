@@ -98,6 +98,57 @@
   outline-offset: 2px;
 }
 
+/* Salary annotation (W7): sits ABOVE the site's posted figures on its own line (width: fit-content keeps
+   it shrink-wrapped) and is deliberately louder than them. No background: a price should read like a
+   price, not like a highlighter. The left rule ties it to the posted figure underneath. The posted
+   wording is never replaced — it just stops being the first thing you have to convert in your head.
+   Cards with no honest monthly equivalent get no figure at all (:empty hides the rule and all). */
+.ojc-salary-note {
+  display: block;
+  width: fit-content;
+  margin: 2px 0 6px;
+  padding: 0 0 0 9px;
+  border-left: 3px solid #5d8a46;
+  color: #1b6b31;
+  font: 700 20px/1.35 system-ui, -apple-system, sans-serif;
+  letter-spacing: .2px;
+}
+.ojc-salary-note:empty { display: none; }
+
+/* The 40 h/week assumption behind a full-time monthly figure: on the card, not only in a tooltip. */
+.ojc-salary-warn {
+  display: block;
+  width: fit-content;
+  margin: -2px 0 6px;
+  padding-left: 12px;
+  color: #8a6d3b;
+  font: 600 11px/1.5 system-ui, -apple-system, sans-serif;
+}
+
+/* At or above the user's monthly goal: the listing brightens up and the figure states why. Specificity
+   beats .ojc-pos so the goal treatment wins on a card that is also a positive-keyword match. */
+.card-hover-default.ojc-goal, .ojc-goal {
+  background: rgba(125, 155, 109, .10) !important;
+  outline: 2px solid #5d8a46 !important;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+.ojc-goal .ojc-salary-note { color: #14571f; }
+.ojc-goal .ojc-salary-note[data-goal='monthly']::after {
+  content: '★ at or above your monthly goal';
+  display: block;
+  color: #2f5a1c;
+  font: 600 12px/1.5 system-ui, sans-serif;
+  letter-spacing: .3px;
+}
+.ojc-goal .ojc-salary-note[data-goal='hourly']::after {
+  content: '★ at or above your hourly goal';
+  display: block;
+  color: #2f5a1c;
+  font: 600 12px/1.5 system-ui, sans-serif;
+  letter-spacing: .3px;
+}
+
 /* Pagination sentinel (W6): 1px tall, sits after the last card, and is watched to
    know when the user has reached the end of the list. */
 #ojc-sentinel { height: 1px; }

@@ -1,6 +1,6 @@
 # HANDOFF — OJ.ph Cleaner (Chrome MV3 extension)
 
-**Date:** 2026-09-18 · **Extension version:** 0.5.0 · **Branch:** `main`
+**Date:** 2026-09-18 · **Extension version:** 0.6.0 · **Branch:** `main`
 **Repo:** `C:\Users\PC\Desktop\ojph-cleaner` → https://github.com/anki-boi/ojph-cleaner (public)
 **Author identity in this repo's history:** `Jeyson <jeyson@local>`
 
@@ -122,7 +122,19 @@ occluded it fails loudly with that hint rather than reporting a false PASS.
    `/jobseekers/jobsearch/{offset}?jobkeyword=…`; category pages use
    `/jobseekers/search/c/{slug}/{offset}`. Both list variants tested. Search pages are readable
    **without login** in the automation profile.
-10. **A removed node has no parent.** `isOurs()` used to walk `parentNode` to decide whether a
+10. **The ECB rate API deprecated v1.** `api.frankfurter.dev/v1/latest` still answers today but carries
+    `deprecation: @1779103800` and a `link: …/v2/rates; rel="successor-version"` header — use **v2**
+    (`?base=USD&quotes=PHP`), whose response shape is an array: `[{date, base, quote, rate}]`.
+11. **The rate API is callable from the page without a host permission** because it sends
+    `access-control-allow-origin: *`. That is why `host_permissions` is still `onlinejobs.ph` only. If
+    that header ever disappears, the fix is to add `https://api.frankfurter.dev/*` to
+    `host_permissions` (and to say so in `SECURITY.md`).
+12. **`\busd\b` does not match `400USD/mo`** — no word boundary exists between a digit and a letter. A
+    live card (`400USD/mo`) was shown as ₱400/mo, 62× wrong. Currency codes now match with a
+    `(?<![a-z])` lookbehind, so a digit may precede them and "plus" still cannot read as USD.
+13. **`3/Hours` broke the piece-rate guard:** `\bhr\b`/`\bour\b` fail on the plural, so an hourly rate
+    was classified as a piece rate and lost its figure. The unit alternatives now allow a trailing `s`.
+14. **A removed node has no parent.** `isOurs()` used to walk `parentNode` to decide whether a
     mutation was ours. A child removed from the chip is *already detached*, so the walk never reached
     `#ojc-chip` and every chip rebuild scheduled the next one — one external DOM mutation produced
     1 614 rebuilds in 4 s, forever. Judge the mutation's **target** (still attached); `verify-live`
@@ -268,6 +280,51 @@ full list : idle 0 requests · one scroll → +30 cards, 1 request (/jobseekers/
 last page : 290+7=297 — idle and scrolled both spent 0 requests, nothing to load
 ```
 
+### 4e. ✅ W7 — salary figures and the goals (0.6.0)
+
+Asked for as "the salary estimator"; built as a **normalizer** that refuses to invent numbers (D9–D14
+in `spec.md`). A monthly figure requires a stated period amount, or an hourly rate with stated hours, or
+a Full Time badge. `$5/hour` on a Part Time card keeps its rate (`≈ ₱314/hr`).
+
+- **Measured before building it:** of 60 live cards, 12 quoted an hourly rate and **7 of those were
+  part-time**, while only 2 stated hours/week. Assuming 40 h/week inflated a part-timer's month ~85%
+  (`$5/hour` → ₱50,184 vs ₱27,160 at 20 h/week).
+- **Bare numbers are read by size** (D12), because size is the tell on this board: `1000` on a listing
+  whose own text said "$1,000 per month" was shown as ₱1,000/mo; it is now ₱62,732/mo. 1-2 digits →
+  hourly, 3-4 → monthly, 5+ → monthly pesos. A stated marker or unit always wins (`140-175/per hour`
+  stays pesos; `Php 1000/day` is never a piece rate).
+- **Two goals, one per card** (D13): Full Time is judged monthly, Part Time/other by the hour, and a
+  listing quoting only a month is judged monthly. Neither is derived from the other — that would assume
+  a work week.
+- **The 40 h/week assumption is on the card** (D14): `assumes 40 h/week (full time) — verify with the
+  employer`, under the figure. A month from a stated period or stated hours carries no warning.
+- **Piece rates are left alone** — `$5 per entry` was being shown as ₱50,186/mo by the tiny-number
+  heuristic — and a per-day rate never becomes a month (days/week is never stated).
+- The figure sits **above** the posted salary on its own line as a large green figure with a left rule.
+  A first pass drew a pale pill *inline* with the posted text and looked like a highlighter blob; the
+  `docs/img/` screenshots are re-shot from the live site, so the look stays reviewable.
+
+The money code is split: `salary.js` is the pure parser (unit-tested), `salary-cards.js` the applier
+(there is a 300-line-per-file cap in the gate, and it has now forced three splits: pagination, the panel,
+and this one).
+
+**Three bugs this stretch found, all in the product (the harness and one screenshot caught them):**
+
+1. **A part-time card whose prose said "full time availability" got a 40-hour month** (`$6/hour` →
+   ₱60,223/mo). Part Time is now checked *before* Full Time.
+2. **`400USD/mo` parsed as pesos** — `\busd\b` cannot match after a digit, so a $400/mo job showed
+   ₱400/mo (62× wrong). Currency codes now use a `(?<![a-z])` lookbehind. A sibling case: `$5+/- per hour`
+   was read as a piece rate because of the `/-`, so a slash only marks one when a unit word follows.
+3. **The panel's Save silently did nothing** — `fillPanel` read `#ojc-goal-hourly`, which the panel
+   markup never defined, so opening the panel threw and Save aborted before applying anything. Only the
+   live harness caught it; `test-manifest.js` now asserts that every `$p('#id')` in `content.js` exists
+   in the panel template.
+
+```
+salary    : 23 monthly figure(s), 3 posted-rate figure(s), 1 with no figure
+            · 4 live rate request(s) for USD/AUD/CAD/GBP · 11 above ₱40000/mo, 3 above ₱300/hr
+```
+
 ---
 
 ## 5. What is left to build
@@ -284,6 +341,7 @@ last page : 290+7=297 — idle and scrolled both spent 0 requests, nothing to lo
 | `spec.md` audit + decision-ready wave plan | ✅ `spec.md` |
 | `spec.md` W2 — the defects the audit found | ✅ 0.4.0, see §4c |
 | `spec.md` W6 — perpetual pagination | ✅ 0.5.0, see §4d |
+| `spec.md` W7 — salary figures + both goals | ✅ 0.6.0, see §4e |
 | **4. Deep scan engine** (`spec.md` W3) | ⬜ **next** |
 | 6. Detail-page banner (`spec.md` W4) | ⬜ |
 | Distribution (`spec.md` W5) | ⬜ unpacked for now (D2) |
@@ -347,6 +405,14 @@ paths out of tracked source (the gate enforces this).
   (the default) and you scroll to the bottom, which fetches the next *result* page: one page per real
   scroll, 600 ms apart, one in flight, stopping at the end or when a page adds nothing new. It never
   fetches a job detail page except in the deep scan.
+- **Money is never approximate.** A monthly figure needs a stated period amount, or an hourly rate with
+  stated hours (a Full Time badge counts; "Part Time" does not, because it states no number). No fallback
+  exists for unstated hours. A piece rate gets no figure (D11). A bare number is read by its size only
+  when the listing states no currency or unit (D12). A conversion uses a live rate or none at all.
+  **A month that rests on the 40 h/week assumption is labelled on the card** (D14). Where a figure cannot
+  be honest, the card shows the posted rate or nothing and the tooltip says why.
+- **One goal judges each card** (D13): Full Time monthly, Part Time/other hourly. Never derive one from
+  the other — that needs an assumed work week.
 - **Nothing runs on an idle page.** No timers, no polling, no prefetch. If the user does nothing, so
   does the extension — `verify-live` asserts 0 loader requests before any scroll.
 - **The rule pass must never schedule itself.** Judge the mutation's *target* (`isOurs`), not just the

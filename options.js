@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const DEFAULTS = { negative: [], positive: [], noSalary: true, showHidden: false, autoScan: false, autoLoad: true };
+  const DEFAULTS = { negative: [], positive: [], noSalary: true, showHidden: false, autoScan: false, autoLoad: true, goalSalary: 0, goalHourly: 0 };
   const toLines = (arr) => (arr || []).join('\n');
   const fromLines = (s) => [...new Set(s.split('\n').map(x => x.trim()).filter(Boolean))];
 
@@ -13,6 +13,8 @@
     $('noSalary').checked = s.noSalary;
     $('showHidden').checked = s.showHidden;
     $('autoLoad').checked = s.autoLoad;
+    $('goalSalary').value = s.goalSalary || '';
+    $('goalHourly').value = s.goalHourly || '';
     $('autoScan').checked = s.autoScan;
   });
 
@@ -23,6 +25,8 @@
       noSalary: $('noSalary').checked,
       showHidden: $('showHidden').checked,
       autoLoad: $('autoLoad').checked,
+      goalSalary: Math.max(0, Math.round(Number($('goalSalary').value) || 0)),
+      goalHourly: Math.max(0, Math.round(Number($('goalHourly').value) || 0)),
       autoScan: $('autoScan').checked,
     };
     chrome.storage.local.set({ settings }, () => {

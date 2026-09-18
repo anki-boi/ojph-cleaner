@@ -8,7 +8,7 @@ dependencies · 1 live CDP harness · Chrome 153, unpacked, enabled in the autom
 
 **Status after the audit:** ✅ W1 (public face, hygiene, gates) and ✅ W2 (every defect in §2) landed
 in 0.4.0 — see `docs/HANDOFF.md` §4c for the measured before/after. ✅ W6 (perpetual pagination) landed
-in 0.5.0. W3 (deep scan) is next; D2/D3/D4/D5/D8 are decided.
+in 0.5.0. ✅ W7 (salary figures + goal) landed in 0.6.0. W3 (deep scan) is next; D2–D11 are decided.
 
 ---
 
@@ -172,7 +172,13 @@ the only thing standing between a red gate and `main`. The suite treats this as 
 | **D5** | Deep-scan politeness budget | 3 concurrent, 400 ms between waves, **current page's cards only** — never paginate. A 429 or a network error leaves that card unscanned and **stops the fleet**, never retries harder. | ⬜ **needs you** |
 | **D6** | Positive keywords | Highlight only, never hide | ✅ do not regress (§1.2) |
 | **D7** | `# ponytail:` ceilings | Keep marking deliberate shortcuts with a named ceiling | ✅ do not regress |
-| **D8** | Perpetual pagination | **Yes, but scroll-driven.** The next *result* page is fetched when the user scrolls to the bottom — one page per real scroll, one request per page, 600 ms apart, stopping on the first sign of an end. It is the same request the user would have made by clicking *Next*, so the politeness story survives; what stays rejected is the *deep scan* paginating, and any background prefetch on an idle page | ✅ decided 2026-09-18 |
+| **D8** | Perpetual pagination | **Yes, but scroll-driven.** The next *result* page is fetched when the user scrolls to the bottom — one page per real scroll gesture, one request per page, 600 ms apart, stopping on the first sign of an end. It is the same request the user would have made by clicking *Next*, so the politeness story survives; what stays rejected is the *deep scan* paginating, and any background prefetch on an idle page | ✅ decided 2026-09-18 |
+| **D9** | Salary figures | Show the listing's own salary converted to a monthly ₱ figure above the posted text, using the ECB's live reference rate (one request per currency per 24 h; no rate → no figure). Ported from the suite's `scraper/salary.py`, with currency detection fixed for the formats this board actually uses | ✅ decided 2026-09-18 |
+| **D10** | Hours policy | **A monthly figure is only shown when the listing states a period amount (month/week/year), or an hourly rate with stated hours, or a "Full Time" badge (40 h/week).** No fallback exists: not 40 h/week, and not 20 for "Part Time", which states no number at all. Otherwise the card keeps its rate (`≈ ₱314/hr`) or gets nothing, and the tooltip says which | ✅ decided 2026-09-18 |
+| **D11** | Piece rates | A rate tied to a non-time unit (`$5 per entry`, `$2/article`) gets **no** figure — there is no monthly equivalent to compute, and the tiny-number hourly heuristic must never be applied to it | ✅ decided 2026-09-18 |
+| **D12** | Bare numbers | When a listing states **neither a currency nor a unit**, its size is the tell: **1-2 digits → an hourly rate, 3-4 digits → a monthly rate, 5+ digits → a monthly peso figure**, and the currency follows the same reading. Sampled live: the 1-2 digit cards were foreign writing roles at $4-7/hr, the 3-4 digit ones monthly USD rates (`1000` on a listing whose own text said "$1,000 per month"), the 5+ digit ones pesos. A stated marker or unit always wins — `Php 1000/day` stays pesos, `140-175/per hour` stays pesos | ✅ decided 2026-09-18 |
+| **D13** | Which goal judges a card | **One goal per card**: Full Time → the monthly goal (40 h/week is what full time means, so a month exists); Part Time or other → the hourly goal, using the posted rate; a listing quoting only a month → the monthly goal, as there is no rate to compare. Neither goal is ever derived from the other — deriving one would assume someone else's work week | ✅ decided 2026-09-18 |
+| **D14** | The 40 h/week disclaimer | A month computed from an hourly rate under the full-time definition **says so on the card**: `assumes 40 h/week (full time) — verify with the employer`. Do not trust the monthly figure blindly | ✅ decided 2026-09-18 |
 
 ---
 
@@ -261,6 +267,22 @@ a one-line fix and the harness can name the selector that broke:
 | W3.3 | IndexedDB cache: job-URL key, 7-day TTL, 1 000-entry cap, oldest evicted (D3) | `content.js` |
 | W3.4 | Progress + stop button, rendered **only** when keywords are configured; enable `autoScan` (D4/D5) | `content.js`, `content.css` |
 | W3.5 | Live assertion: a detail page parses to non-empty description + a salary field | `tools/verify-live.mjs` |
+
+### W7 — Salary figures and the goal ✅ (0.6.0)
+
+Asked for as "the salary estimator". It is a **normalizer**, not an estimator: it converts what the
+listing states and refuses to invent the rest. Every rule below came from a live card.
+
+| ID | Task | Files |
+|---|---|---|
+| W7.1 | `salary.js` pure part: currency detection (a 3-letter code beats a `$`), unit heuristics, piece-rate detection, the `monthly` honesty flag + `test-salary.js` (the suite's real-data corpus plus formats sampled live) | `salary.js`, `test-salary.js` |
+| W7.2 | Hours policy (D10): stated hours → a month; Full Time → 40 h/week; Part Time or unstated → the rate only. Part Time is checked *before* Full Time, because a part-time card whose prose said "full time availability" was being handed a 40-hour month | `salary.js` |
+| W7.3 | Live ECB rates (v2 endpoint — v1 is deprecated), cached per currency with a 24 h horizon in `chrome.storage.local.fx`, failure-stamped so the API is not hammered, never served stale | `salary.js` |
+| W7.4 | Card annotation above the posted figures (`.ojc-salary-note`), stripped by `cardSalary()` so it can never affect the no-salary verdict; `:empty` hides itself | `salary.js`, `content.js`, `content.css` |
+| W7.5 | `goalSalary` setting + the "at or above your goal" brighten, judged on the low end of a range | `content.js`, `options.*`, `content.css` |
+| W7.6 | Live assertions: every readable card's figure recomputed with the same parser, the no-month-without-hours policy, piece rates left alone, one rate request per foreign currency, posted text intact, goal marks exactly matching | `tools/verify-live.mjs` |
+| W7.7 | Bare numbers read by magnitude (D12): 1-2 digits hourly, 3-4 monthly, 5+ monthly pesos, with the currency inferred only when no marker exists and disclosed in the tooltip | `salary.js`, `test-salary.js` |
+| W7.8 | The hourly goal and the one-goal-per-card rule (D13), plus the 40 h/week disclaimer on the card (D14) | `salary.js`, `content.js`, `content.css`, `options.*` |
 
 ### W4 — Detail-page banner (the original Task 6) → depends on W3
 
@@ -362,8 +384,13 @@ closure, and `renderChip()` wiping the chip is the trap that has already cost on
 - **A gate that cannot fail is worse than no gate.** Every check must be provably able to go red.
 - **Never hide a listing by accident.** No-salary and negative keywords hide; positives only
   highlight. A false positive costs the user money.
+- **Money is never approximate.** A monthly figure requires the listing to state a period amount, or an
+  hourly rate with stated hours (D10). No fallback exists for unstated hours. A piece rate gets no figure
+  (D11). A conversion uses a live rate or none at all. Where a figure cannot be honest, the card shows
+  the posted rate or nothing and says why.
 - **Silence is a bug.** A setting that does nothing, a scan that stopped early, a mutation loop that
-  keeps running — all must be visible or impossible.
+  keeps running — all must be visible or impossible. A figure that cannot be computed explains itself in
+  its tooltip rather than disappearing.
 - **The page belongs to the site.** Injected UI is namespaced, removable, and must never alter the
   site's own DOM beyond `hidden` + our own classes.
 - **Politeness is a feature.** No request the user did not ask for: with `autoLoad` off and nothing
@@ -383,7 +410,9 @@ Recorded so nobody re-proposes them. Each has a trigger that would change the an
 | Rejected | Why | Revisit if |
 |---|---|---|
 | Paginating *inside the deep scan* | The scan's job is to describe what the user is looking at; walking the site for them is a crawler | never |
-| Prefetching results the user has not scrolled to (background loading, "load all") | Requests nobody asked for, and the exact behaviour that makes an extension feel like malware. W6 loads on a real scroll only | a user-facing "load all pages" then becomes their stated intent — and even then, bounded and visible |
+| Assuming a 40-hour week for a listing that does not state one | It turns part-time jobs into full-time money — measured live at ~2× on 7 of 12 hourly cards | never (D10) |
+| Inferring a monthly figure from a piece rate (`$5 per entry`) | There is no honest monthly equivalent; the tiny-number heuristic produced ₱50,186/mo for a per-entry gig | never (D11) |
+| A default or fallback FX rate when the live one fails | A stale ₱ number is a wrong number, and money decisions get made on it | the ECB feed disappears entirely |
 | A background service worker | Killed by MV3 semantics and unnecessary — storage changes already broadcast to every context | a task must outlive a tab |
 | A build step / bundler / framework | 560 lines with no imports; a build step costs the "load unpacked and read the source" property | the extension passes ~5 000 lines or gains real modules |
 | Hiding on positive keywords | See §1.2 | never |
@@ -403,6 +432,7 @@ Recorded so nobody re-proposes them. Each has a trigger that would change the an
 | W1 (new) | `README.md`, `SECURITY.md`, `.editorconfig`, `.gitattributes`, `.github/ISSUE_TEMPLATE/*`, `docs/architecture.md`, `docs/scraping.md`, `test-repo-hygiene.js`, `tools/check-readme.js` |
 | W2 | `content.js`, `tools/verify-live.mjs`, `tools/gate.sh`, `test-manifest.js`, `options.html`, `options.js` |
 | W6 | `pagination.js` (new), `test-pager.js` (new), `content.js`, `content.css`, `options.*`, `tools/verify-live.mjs` |
+| W7 | `salary.js` + `salary-cards.js` (new), `test-salary.js` (new), `panel.js` (new, split from `content.js`), `content.js`, `content.css`, `options.*`, `manifest.json`, `tools/verify-live.mjs` |
 | W3 (new) | `detail-parser.js`, `test-detail-parser.js` |
 | Existing, unchanged | `manifest.json`, `rules.js`, `test-rules.js`, `content.css`, `options.html` |
 | Reference | `spec.md` (this file), `docs/HANDOFF.md`, `plans/*` |
@@ -424,6 +454,7 @@ List URLs: `/jobseekers/jobsearch?jobkeyword=…`, `/jobseekers/jobsearch/{offse
 | `showHidden` | boolean | `false` | Reveal what was hidden (chip toggle writes this) | rule pass, chip |
 | `autoScan` | boolean | `false` | Deep-scan this page's cards (W3). Disabled in the UI until then (D4) | nothing yet |
 | `autoLoad` | boolean | `true` | Append the next result page when the user scrolls to the bottom (W6) | `pagination.js` |
+| `goalSalary` | number | `0` (off) | Monthly PHP goal; cards at or above it brighten (W7) | `salary.js` |
 
 `tools/check-readme.js` fails the gate if a key here is missing from the README's table.
 
@@ -433,11 +464,12 @@ List URLs: `/jobseekers/jobsearch?jobkeyword=…`, `/jobseekers/jobsearch/{offse
 |---|---|---|---|
 | `test-rules.js` | ✅ | salary parsing, keyword matching, case, duplicates | `node test-rules.js` |
 | `test-pager.js` | ✅ | next-page URL for all four list-URL shapes; "Displaying N out of M" parsing and its nulls | `node test-pager.js` |
+| `test-salary.js` | ✅ | the suite's real-data corpus plus live formats; the hours policy (no month without stated hours), piece rates, day rates, currency codes after digits | `node test-salary.js` |
 | `test-manifest.js` | ✅ | every `chrome.*` namespace granted; referenced files exist; no orphan source | `node test-manifest.js` |
 | `test-repo-hygiene.js` | ✅ | no LICENSE, README stance, SECURITY, templates, hook wiring | `node test-repo-hygiene.js` |
 | `tools/check-readme.js` | ✅ | settings documented, no stale counts | `node tools/check-readme.js` |
 | `tools/gate.sh` | ✅ | all of the above + syntax + path scan + size cap | `sh tools/gate.sh` |
-| `tools/verify-live.mjs` | ❌ live site + browser | injection, selector drift, rule parity, `[hidden]`⇒`display:none`, chip toggle, panel open/save with no reload, an inserted card filtered on arrival + bounded rebuilds, pagination (idle = no requests, one per scroll, stops at the end) | `node tools/verify-live.mjs` |
+| `tools/verify-live.mjs` | ❌ live site + browser | injection, selector drift, rule parity, `[hidden]`⇒`display:none`, chip toggle, panel open/save with no reload, an inserted card filtered on arrival + bounded rebuilds, pagination (idle = no requests, one per scroll, stops at the end), salary figures (recomputed with the same parser, the hours policy, piece rates left alone, one rate request per currency, goal marks exact) | `node tools/verify-live.mjs` |
 | CI (Node 20) | ✅ | `npm test` + package integrity | `.github/workflows/ci.yml` |
 
 ## 9. What "done" looks like

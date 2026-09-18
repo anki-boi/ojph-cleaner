@@ -10,6 +10,8 @@
     showHidden: false,
     autoScan: false, // W3: auto deep-scan on search page loads. Inert + disabled in the UI.
     autoLoad: true,  // W6: load the next result page when you scroll to the bottom of the list
+    goalSalary: 0,   // W7: monthly PHP goal — listings at or above it brighten up (0 = off)
+    goalHourly: 0,   // W7: hourly PHP goal — for listings that post a rate, which no month can judge
   };
   let settings = { ...DEFAULTS };
 
@@ -29,7 +31,13 @@
   const cards = () => [...document.querySelectorAll(SELECTORS.card)];
   const cardSalary = (c) => {
     const d = c.querySelector(SELECTORS.cardSalary);
-    return d ? d.textContent.trim() : '';
+    if (!d) return '';
+    // The site's own text only: our salary annotation (W7) lives in the same cell, and it must
+    // never be able to change the no-salary verdict.
+    const own = d.cloneNode(true);
+    // Everything this extension injected into the cell, by namespace — never the site's own text.
+    for (const injected of own.querySelectorAll('[class^="ojc-"]')) injected.remove();
+    return own.textContent.trim();
   };
 
   // Full context = card text + (after a deep scan) the fetched detail description.
@@ -40,84 +48,6 @@
     const ctx = ctxMap.get(c);
     return (c.textContent || '') + (ctx ? ' ' + (ctx.description || '') : '');
   };
-
-  // ── In-page options panel ────────────────────────────────────────────────
-  // A sibling of the chip, NOT a child: renderChip() wipes the chip's contents
-  // on every rule pass, so a child panel would be destroyed while you type.
-  const toLines = (arr) => (arr || []).join('\n');
-  const fromLines = (s) => [...new Set(s.split('\n').map(x => x.trim()).filter(Boolean))];
-  let panel = null;
-  const $p = (sel) => ensurePanel().querySelector(sel);
-
-  function ensurePanel() {
-    if (panel?.isConnected) return panel;
-    panel = document.createElement('div');
-    panel.id = 'ojc-panel';
-    panel.hidden = true;
-    panel.innerHTML = `
-      <label for="ojc-neg">Hide jobs mentioning… (one per line)</label>
-      <textarea id="ojc-neg" rows="3" placeholder="crypto&#10;insurance"></textarea>
-      <label for="ojc-pos">Highlight jobs mentioning… (one per line)</label>
-      <textarea id="ojc-pos" rows="3" placeholder="quickbooks"></textarea>
-      <label class="ojc-check"><input type="checkbox" id="ojc-noSalary"> Hide jobs with no salary listed</label>
-      <label class="ojc-check"><input type="checkbox" id="ojc-showHidden"> Show hidden jobs</label>
-      <label class="ojc-check"><input type="checkbox" id="ojc-autoLoad"> Load more jobs when I scroll to the bottom</label>
-      <label class="ojc-check" title="Saved now, acted on once the deep scan ships (spec.md W3)">
-        <input type="checkbox" id="ojc-autoScan" disabled> Auto deep-scan this page
-        <em class="ojc-soon">— not built yet</em>
-      </label>
-      <div class="ojc-row">
-        <button id="ojc-save">Save</button>
-        <span id="ojc-saved">Saved ✓</span>
-        <a href="${chrome.runtime.getURL('options.html')}" target="_blank">full options ↗</a>
-      </div>`;
-    panel.querySelector('#ojc-save').onclick = savePanel;
-    document.body.appendChild(panel);
-    return panel;
-  }
-
-  function fillPanel() {
-    $p('#ojc-neg').value = toLines(settings.negative);
-    $p('#ojc-pos').value = toLines(settings.positive);
-    $p('#ojc-noSalary').checked = settings.noSalary;
-    $p('#ojc-showHidden').checked = settings.showHidden;
-    $p('#ojc-autoLoad').checked = settings.autoLoad;
-    $p('#ojc-autoScan').checked = settings.autoScan;
-  }
-
-  // Mirror settings into an open panel without clobbering a field being typed in.
-  function syncPanel() {
-    if (!panel || panel.hidden) return;
-    if (panel.contains(document.activeElement)) $p('#ojc-showHidden').checked = settings.showHidden;
-    else fillPanel();
-  }
-
-  function openPanel(open) {
-    const p = ensurePanel();
-    p.hidden = !(open ?? p.hidden);
-    if (!p.hidden) fillPanel();
-  }
-
-  // Save applies the rules immediately — the storage write is only durability,
-  // so the listing reacts on click instead of waiting for a round trip.
-  function savePanel() {
-    settings = {
-      negative: fromLines($p('#ojc-neg').value),
-      positive: fromLines($p('#ojc-pos').value),
-      noSalary: $p('#ojc-noSalary').checked,
-      showHidden: $p('#ojc-showHidden').checked,
-      autoLoad: $p('#ojc-autoLoad').checked,
-      // Read from settings, not the input: the control is disabled until W3, and a
-      // disabled checkbox would otherwise silently reset a stored value to false.
-      autoScan: settings.autoScan,
-    };
-    refreshRules();
-    persist();
-    const el = $p('#ojc-saved');
-    el.style.display = 'inline';
-    clearTimeout(savePanel.timer);
-    savePanel.timer = setTimeout(() => { el.style.display = 'none'; }, 1500);
-  }
 
   // ── Chip (bottom-right status bar) ───────────────────────────────────────
   let chip = null;
@@ -135,7 +65,7 @@
   function renderChip() {
     if (!LIST_RE.test(location.pathname)) {
       if (chip?.isConnected) chip.style.display = 'none';
-      if (panel?.isConnected) panel.hidden = true;
+      self.OJCPanel?.open(false);   // the panel belongs to panel.js; closing is the same call
       return;
     }
     const el = ensureChip();
@@ -151,14 +81,14 @@
     gear.id = 'ojc-gear';
     gear.title = 'Options';
     gear.textContent = '⚙';
-    gear.onclick = () => openPanel();
+    gear.onclick = () => self.OJCPanel?.open();   // panel.js owns the panel (W1: 300-line cap)
     const btn = document.createElement('button');
     btn.id = 'ojc-toggle';
     btn.textContent = settings.showHidden ? 'Hide them' : 'Show all';
     btn.onclick = () => {
       settings.showHidden = !settings.showHidden;
       refreshRules();
-      persist();
+      persistField('showHidden', settings.showHidden);
     };
     el.append(gear, b, s);
     if (chipNote) {
@@ -203,33 +133,54 @@
       }
     }
     chipCounts = { noSal, kw, pos };
-    self.OJCLoader?.arm();   // pagination.js watches for the end of the list (W6)
+    self.OJCLoader?.arm();        // pagination.js watches for the end of the list (W6)
+    self.OJCSalaryUI?.annotate(); // salary.js adds the monthly figure per card (W7)
     renderChip();
   }
 
   // ── Settings ─────────────────────────────────────────────────────────────
+  // The panel's Save is a form: it writes the whole object.
   function persist() { chrome.storage.local.set({ settings }); }
+  // A chip toggle changes one field, so it writes one field — by reading the stored object and merging,
+  // which is the part that matters: every tab holds a copy loaded when it booted, so a full-object write
+  // from here reverts settings a user changed in another tab (found by a red verify-live run, where the
+  // panel's "no salary" setting came back after another tab's delayed write landed).
+  //
+  // NOT `chrome.storage.local.set({ 'settings.showHidden': v })`: dotted paths work for get/remove but
+  // `set` silently drops them — the chip's label flipped while storage kept the old value.
+  async function persistField(key, value) {
+    const { settings: stored } = await chrome.storage.local.get('settings');
+    await chrome.storage.local.set({ settings: { ...DEFAULTS, ...(stored || {}), [key]: value } });
+  }
   function applySettings(next) {
     settings = { ...DEFAULTS, ...(next || {}) };
     if (!settings.autoLoad) self.OJCLoader?.stop();
     refreshRules();
-    syncPanel();
+    self.OJCPanel?.sync();
   }
 
   // The API pagination.js uses (W6). Small on purpose: it must not grow into a second
   // copy of the rule pass.
-  self.OJC = { SELECTORS, LIST_RE, cards, refreshRules, setNote, getSettings: () => settings };
+  self.OJC = {
+    SELECTORS, LIST_RE, cards, refreshRules, setNote, persist,
+    getSettings: () => settings,
+    // panel.js writes a whole form; assigning (not merging) is the point of a Save button.
+    setSettings: (next) => { settings = { ...DEFAULTS, ...next }; },
+  };
 
   // ── Live re-run on DOM changes (new cards, container swap) ──────────────
   // Recognise the UI this script injected, and nothing else. The target check is the
   // load-bearing part: a node we removed from the chip is already detached, so walking
   // parentNode from it never reaches #ojc-chip — which used to make every chip rebuild
   // schedule the next one, forever (spec.md §2.2).
+  // Classes are listed explicitly rather than matched by "ojc-*": .ojc-pos/.ojc-neg/.ojc-goal sit on
+  // the *site's* cards, and a mutation inside a highlighted card is a real change worth re-running for.
+  const OUR_CLASSES = ['ojc-pos-badge', 'ojc-salary-note', 'ojc-salary-warn'];
   function isOurs(node) {
     let n = node;
     while (n) {
       if (typeof n.id === 'string' && n.id.startsWith('ojc-')) return true; // chip, panel, sentinel, note
-      if (n.classList && n.classList.contains('ojc-pos-badge')) return true;
+      if (n.classList && OUR_CLASSES.some(c => n.classList.contains(c))) return true;
       n = n.parentNode;
     }
     return false;

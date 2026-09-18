@@ -9,7 +9,8 @@ makes it safe to leave installed, and it is the property every change here must 
 | Trigger | Requests | Notes |
 |---|---|---|
 | Nothing configured, `autoLoad` off | **zero** | the site's own page load is the only traffic |
-| Nothing configured, `autoLoad` on (default) | one per *scroll to the bottom* | the next result page, after a real scroll — never on an idle page |
+| Nothing configured, `autoLoad` on (default) | one per *scroll to the bottom* | the next result page, after a real wheel/keyboard gesture — never on an idle page, and never from a programmatic scroll |
+| A foreign-currency salary on screen | one per currency per 24 h | European Central Bank reference rates via `api.frankfurter.dev` — a public exchange rate, no data about the user, and never a stale one (no rate → no converted figure) |
 | Deep scan (`spec.md` W3, not built) | one per loaded card, only when keywords are configured | 3 concurrent, 400 ms between waves, current view only |
 
 Perpetual pagination (W6) is deliberately conservative: it needs a real scroll since the last page

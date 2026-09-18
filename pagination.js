@@ -60,7 +60,10 @@
   const { nextPageUrl, parseShown, pageOffset, jobKeyOf } = self.OJCPager;
 
   const MIN_GAP_MS = 600;
-  const pag = { armed: false, busy: false, done: false, pages: 0, lastAt: 0 };
+  // `gesture` counts scroll events; `spent` is the last gesture that bought a page. One scroll buys
+  // ONE page: without this the flag survived across a load, and a sentinel still inside the 400px
+  // margin spent the same gesture over and over — one nudge pulled /30, /60, /90 in a row.
+  const pag = { busy: false, done: false, pages: 0, lastAt: 0, gesture: 0, spent: -1 };
   let sentinel = null, io = null, scrollHooked = false, visible = false;
 
   function stop(reason) {
@@ -131,9 +134,27 @@
    * order (the IntersectionObserver callback is not guaranteed to run after the scroll event for the
    * same gesture), so both paths call this instead of one setting the flag the other is waiting for.
    */
+  /**
+   * Arm on real user input only — a wheel, a touch drag, a scroll key or a mousedown (scrollbar drag).
+   * A bare `scroll` event is not proof of intent: the page itself can scroll programmatically, and
+   * counting that would let the site pull pages the user never asked for.
+   */
+  const SCROLL_KEYS = new Set(['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' ']);
+  function hookGestures() {
+    if (scrollHooked) return;
+    const bump = () => { pag.gesture++; maybeLoad(); };
+    for (const ev of ['wheel', 'touchmove', 'mousedown']) {
+      window.addEventListener(ev, bump, { passive: true });
+    }
+    window.addEventListener('keydown', (e) => { if (SCROLL_KEYS.has(e.key)) bump(); }, { passive: true });
+    window.addEventListener('scroll', maybeLoad, { passive: true });
+    scrollHooked = true;
+  }
+
   function maybeLoad() {
-    if (!visible || !pag.armed || pag.busy || pag.done) return;
-    pag.armed = false;
+    if (!visible || pag.busy || pag.done) return;
+    if (pag.gesture <= pag.spent) return; // this gesture has already bought its page
+    pag.spent = pag.gesture;
     loadNextPage();
   }
 
@@ -157,10 +178,7 @@
     }, { rootMargin: '400px' });
     io.observe(sentinel);
     placeSentinel();
-    if (!scrollHooked) {
-      window.addEventListener('scroll', () => { pag.armed = true; maybeLoad(); }, { passive: true });
-      scrollHooked = true;
-    }
+    hookGestures();
   }
 
   self.OJCLoader = { arm, stop: () => stop('turned off') };

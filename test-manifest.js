@@ -99,8 +99,22 @@ for (const rel of referenced) {
   assert.ok(fs.existsSync(path.join(root, rel)), `manifest references missing file: ${rel}`);
 }
 
+// ── the in-page panel's field references must exist in its own markup ────
+// This exact bug cost real time: fillPanel() read `#ojc-goal-hourly` before the field was added to
+// the template, so opening the panel threw and Save silently did nothing (the only check that caught
+// it was the live harness). A static check makes the class impossible. The panel lives in panel.js.
+const panelSrc = fs.readFileSync(path.join(root, 'panel.js'), 'utf8');
+const template = panelSrc.match(/panel\.innerHTML = `([\s\S]*?)`;/);
+assert.ok(template, 'could not find the panel markup in panel.js');
+const panelFields = [...new Set([...panelSrc.matchAll(/\$p\('#([\w-]+)'\)/g)].map(m => m[1]))];
+assert.ok(panelFields.length, 'no panel field references found in panel.js');
+const undefinedFields = panelFields.filter(id => !template[1].includes(`id="${id}"`));
+assert.deepStrictEqual(undefinedFields, [],
+  `panel.js reads field(s) its markup does not define: ${undefinedFields.join(', ')}`);
+
 // ── no stale workaround left behind ──────────────────────────────────────
 assert.ok(!fs.existsSync(path.join(root, 'background.js')),
   'background.js exists but the manifest no longer registers it — the storage proxy is dead code');
 
-console.log(`manifest: ok (${used.size} chrome APIs checked, ${sourceFiles.length} source files wired, ${referenced.length} files verified)`);
+console.log(`manifest: ok (${used.size} chrome APIs checked, ${sourceFiles.length} source files wired, ` +
+  `${referenced.length} files verified, ${panelFields.length} panel fields declared)`);

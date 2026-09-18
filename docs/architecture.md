@@ -7,14 +7,11 @@ one rule: **pure logic never touches the DOM**.
 manifest.json          ── injects on onlinejobs.ph only
    │
    ├─ rules.js         pure: hasSalary(), matchKeywords()      ← test-rules.js
-   ├─ content.js       DOM + state (no network)
-   │    ├─ rule pass   reads settings + page DOM → hidden/classes/badges
-   │    ├─ chip        counts + Show all/Hide them + ⚙
-   │    ├─ panel       in-page settings, Save applies synchronously
-   │    └─ observer    re-runs the rule pass when the page changes
-   └─ pagination.js    the only code that fetches (W6)          ← test-pager.js
-        ├─ sentinel    after the last card; needs a real scroll to fire
-        └─ loader      next result page → import cards → refreshRules()
+   ├─ content.js       the hub: settings, rule pass, chip, observer (no network)
+   ├─ salary.js        money: the parser and formatters (pure)    ← test-salary.js
+   ├─ salary-cards.js  applies it: ECB rate, card figures, goals
+   ├─ pagination.js    loading: sentinel + next result page (W6)  ← test-pager.js
+   └─ panel.js         the in-page options form (no rule logic at all)
 options.html/js        standalone settings page (same storage, same effect)
 ```
 
@@ -29,6 +26,13 @@ split exists upstream in the sibling project's `scraper/parsers.py`, for the sam
 `SELECTORS` object at the top so site drift is a one-line fix, and `tools/verify-live.mjs` replicates
 the same rules from the live DOM to check the result independently. All network code lives in
 `pagination.js`, which is also the only file that can grow the page's card list.
+
+**Four content scripts, one job each.** `content.js` is the hub — it owns the settings, the rule pass
+and the chip — and publishes a small API (`self.OJC`). The other three are loaded after it and talk to it
+only through that API: `salary.js` + `salary-cards.js` (money), `pagination.js` (loading) and `panel.js` (the options form).
+Each was split out when `content.js` reached the gate's 300-line ceiling, and each split has a second
+justification: the money maths is unit-testable, the loader is the only network code, and the panel owns
+no rule logic — so a change to the form cannot alter which listings are hidden.
 
 **`pagination.js` is a second content script, not a module.** It needs the DOM, the settings and the
 rule pass, so it talks to `content.js` through one small API (`self.OJC`: selectors, `cards()`,
@@ -116,6 +120,72 @@ from the DOM rather than tracked incrementally.
 One `MutationObserver` on `document.body`: child list + subtree + character data. Mutations produced
 by our own UI are ignored via `isOurs()`; everything else is coalesced into a single rule pass per
 animation frame (`ticking` guard) so a burst of insertions costs one pass, not one per node.
+
+## Money figures (W7)
+
+`salary.js` answers one question — *what does this listing actually pay per month?* — and its most
+important output is an admission of when it cannot answer.
+
+```
+page DOM ─→ rawSalary()  (the site's text only: our own note is stripped from the clone)
+              │
+              ├─ parseSalary()          pure · test-salary.js
+              │     currency (a 3-letter code beats a symbol) · unit · piece rate? · monthly?
+              │
+              └─ hoursPerWeekFrom(card text)   "20 hours per week" → 20 · "Full Time" → 40 · else null
+                        │
+                 toPhp() ── monthly figure      (only when parsed.monthly)
+                 ratePhp() ─ the posted rate    (per hour / per day, when no month may be claimed)
+                        │
+                 ECB rate once per currency per 24 h → chrome.storage.local.fx
+```
+
+**The honesty flags are the design.** `parseSalary` returns `{ min, max, currency, unit, hours,
+perUnit, monthly }`, and `monthly` is false whenever a month would have to be invented:
+
+| Listing says | Result |
+|---|---|
+| `PHP 30,000`, `$800-$1200/mo`, `$150 weekly`, `US$6000 annual` | monthly figure — a period amount converts by arithmetic alone |
+| `$5/hour` + "20 hours per week", or a Full Time badge | monthly figure — the hours are the listing's own |
+| `$5/hour` on a Part Time card, or with hours unstated | **`≈ ₱314/hr`** — the rate, no month claimed |
+| `Php 1000/day` | `≈ ₱1,000/day` — days per week is never stated |
+| `$5 per entry`, `$2/article` | **nothing** — a piece rate has no monthly equivalent |
+
+Two rules are load-bearing, and each was found by a live card rather than by reasoning:
+
+- **"Part Time" states no number, so it must not become one** — and it is checked *before* "full time*,
+  because a part-time card whose prose said "full time availability" was handed a 40-hour month
+  (`$6/hour` → ₱60,223/mo, truly ₱376/hr).
+- **No fallbacks.** There is no 40 h/week default anywhere in the module. `toPhp` returns `null` when
+  `monthly` is false, and the caller shows the posted rate instead of a month.
+
+Rates are cached per currency with their ECB date and a 24-hour horizon; an older rate is never used,
+and a failed fetch writes a failure timestamp so the API is not hammered per card. No rate means **no
+converted figure** — the tooltip says why.
+
+Rendering: the figure is inserted as the first child of the site's own salary cell (above the posted
+figures), is namespaced `.ojc-salary-note`, and is stripped by `cardSalary()` before the hide rule reads
+the salary text — the annotation must never be able to change the no-salary verdict. An empty note
+hides itself (`:empty`), which is how piece rates and rate-less cards read as "nothing added".
+
+## Goal brighten (W7 / D13)
+
+Two goals, and **one of them judges each card** — never a derived mix:
+
+| Card | Judged by | Why |
+|---|---|---|
+| Full Time | the monthly goal, against the month | 40 h/week is what full time means, so a month exists |
+| Part Time / Any / Gig | the hourly goal, against the posted rate | no hours are stated, so no month exists to compare |
+| quotes only a month | the monthly goal | there is no rate to compare against |
+
+Deriving one goal from the other is forbidden: turning a monthly figure into an hourly one needs an
+assumed work week, which is the thing this module refuses to do. `ratePhp()` therefore returns the
+posted per-unit amount from the parse result's `raw` figures even when a month was computed — the
+comparison needs the number the listing actually printed.
+
+When the month came from the full-time 40 h/week reading of an hourly rate, the card carries
+`assumes 40 h/week (full time) — verify with the employer` (`.ojc-salary-warn`), and the tooltip repeats
+it. A month from a stated period, or from stated hours, carries no warning — neither is an assumption.
 
 ## Deliberate ceilings
 

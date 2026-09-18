@@ -35,6 +35,10 @@ const salarySrc = fs.readFileSync(new URL('../salary.js', import.meta.url), 'utf
 // UMD, and the page has no `module`, so it lands on the page's own `self.OJRules` — a different world
 // from the content script's copy, so nothing collides.
 const RULES_SRC = fs.readFileSync(new URL('../rules.js', import.meta.url), 'utf8');
+// And closed.js, for the same reason: the memory's job-id extraction has to agree with the extension's
+// (`-1733463` at the end of two different slug spellings), and the closed rule now runs FIRST, so a
+// predicted total that ignores it is wrong by exactly the number of remembered listings.
+const CLOSED_SRC = fs.readFileSync(new URL('../closed.js', import.meta.url), 'utf8');
 
 const fail = async msg => {
   console.error('verify-live: FAIL — ' + msg);
@@ -111,6 +115,20 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
   });
 }
 
+// And neither must a BUG IN THIS HARNESS. `fail()` restores, but a thrown error does not go through it,
+// and the comment above used to claim "every exit path" while a crash was not one. That is exactly how
+// the user's keywords and salary goals were lost: a JSON.parse bug in a new section threw, the process
+// died at once, the seed settings stayed, and every later run then snapshotted that seeded state and
+// dutifully "restored" it — the damage quietly becoming the baseline. These two handlers are the
+// difference between a gate that is safe to run and one that eats the profile it checks.
+const crash = (what) => (err) => {
+  console.error(`verify-live: ${what} — ${err && err.stack ? err.stack.split('\n')[0] : err}`);
+  console.error('verify-live: the run died outside fail(); putting the storage back before exiting');
+  restoreStorage().then(() => STORE?.close()).finally(() => process.exit(1));
+};
+process.on('uncaughtException', crash('uncaught exception'));
+process.on('unhandledRejection', crash('unhandled rejection'));
+
 /**
  * The rule pass is scheduled with requestAnimationFrame and the loader's fetch resolves on the tab's
  * own time. Chrome pauses both in a hidden tab — and because the debug profile is now the user's
@@ -180,7 +198,13 @@ console.log(`extension : ${EXT_NAME} v${EXT_VERSION} ${state} (${EXT_PATH})`);
 // The user's own storage, taken before the first write below, so every exit path can put it back.
 SNAPSHOT = await readStorage();
 fs.writeFileSync(SNAP_FILE, JSON.stringify(SNAPSHOT, null, 1));   // survives a hard kill
-console.log(`storage   : snapshot taken (${Object.keys(SNAPSHOT).join(', ') || 'empty'}) — restored when this run ends`);
+// Print what the snapshot actually CONTAINS, not just its keys: a snapshot of a profile a previous run
+// had already seeded is indistinguishable from a good one by key name, and the run that discovered this
+// reported "snapshot taken (closedJobs, fx, settings)" while holding the harness's own fixtures.
+console.log(`storage   : snapshot taken (${Object.keys(SNAPSHOT).join(', ') || 'empty'}` +
+  `${SNAPSHOT.settings ? `; settings: ${(SNAPSHOT.settings.negative || []).length} negative / ` +
+    `${(SNAPSHOT.settings.positive || []).length} positive keyword(s), goal ${SNAPSHOT.settings.goalSalary || 0})` : ''}` +
+  ' — restored when this run ends');
 
 // ── 2. seed the settings this run asserts against ────────────────────────
 // Seeded rather than inherited from whatever the browser had, so a run's outcome depends on the code
@@ -215,12 +239,14 @@ console.log(`settings  : ${JSON.stringify(settings)}`);
  * computed by adding the buckets up. `reconExpected` is the yellow state: a hide keyword on a listing
  * that also looks good (a positive match, or a goal mark the salary pass put on it).
  */
-const ruleEval = (tab, { neg = [], pos = [], maxAgeDays = 0, noSalary = true } = {}) => tab.evaluate(`${RULES_SRC}
+const ruleEval = (tab, { neg = [], pos = [], maxAgeDays = 0, noSalary = true, closedIds = [] } = {}) => tab.evaluate(`${RULES_SRC}
+${CLOSED_SRC}
 (() => {
   const neg = ${JSON.stringify(neg.map((k) => k.toLowerCase()))};
   const pos = ${JSON.stringify(pos.map((k) => k.toLowerCase()))};
   const maxAgeDays = ${JSON.stringify(Number(maxAgeDays) || 0)};
   const noSalary = ${JSON.stringify(noSalary !== false)};
+  const closedIds = new Set(${JSON.stringify(closedIds.map(String))});
   const now = Date.now();
   const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
   // Our own injected nodes are removed before any text is matched — the 40 h/week disclaimer says
@@ -246,6 +272,7 @@ const ruleEval = (tab, { neg = [], pos = [], maxAgeDays = 0, noSalary = true } =
       OJRules.parsePosted(p.getAttribute('data-temp'), OJRules.MANILA_OFFSET_MINUTES);
   };
   let staleExpected = 0, noSalExpected = 0, negExpected = 0, posExpected = 0, reconExpected = 0;
+  let closedExpected = 0;
   let noDate = 0, noUtc = 0, negAnyExpected = 0;
   for (const c of cards) {
     const text = ownText(c);
@@ -253,6 +280,10 @@ const ruleEval = (tab, { neg = [], pos = [], maxAgeDays = 0, noSalary = true } =
     if (!p || !p.getAttribute('data-temp-2')) noUtc++;
     const at = postedAt(c);
     if (at == null) noDate++;
+    // The closed rule is first in the real pass, so a remembered card is counted here and NOWHERE else —
+    // the else-if chain is the whole point: the buckets can never be added up to predict the total.
+    const link = c.querySelector('a[href*="/job/"]');
+    const closed = !!(link && closedIds.has(String(OJClosed.jobIdFrom(link.getAttribute('href')))));
     const ns = noSalary && !/\\d/.test(ownSal(c));
     // Through the extension's own matcher, not .includes: the keyword syntax lives in rules.js, and a
     // harness that re-implements it diverges the moment the syntax grows (a leading = now means
@@ -261,21 +292,25 @@ const ruleEval = (tab, { neg = [], pos = [], maxAgeDays = 0, noSalary = true } =
     const pm = OJRules.matchKeywords(text, pos).length > 0;
     const good = pm || c.classList.contains('ojc-goal');
     if (nm) negAnyExpected++;
-    if (OJRules.isStale(at, now, maxAgeDays)) staleExpected++;
+    if (closed) closedExpected++;
+    else if (OJRules.isStale(at, now, maxAgeDays)) staleExpected++;
     else if (ns) noSalExpected++;
     else if (nm && good) reconExpected++;
     else if (nm) negExpected++;
     else if (pm) posExpected++;
   }
   return JSON.stringify({ cards: cards.length, staleExpected, noSalExpected, negExpected, posExpected,
-    reconExpected, negAnyExpected, noDate, noUtc,
-    hiddenExpected: staleExpected + noSalExpected + negExpected });
+    reconExpected, closedExpected, negAnyExpected, noDate, noUtc,
+    hiddenExpected: closedExpected + staleExpected + noSalExpected + negExpected });
 })()`);
+
+/** The ids the memory is holding, for the rule parity above. One read, one shape. */
+const readClosedIds = async () => Object.keys((await readStorage()).closedJobs || {});
 
 // ── 3. live page ─────────────────────────────────────────────────────────
 const res = JSON.parse(await withTab(PORT, URL_, async (tab) => {
   await settle(3500);
-  const counts = JSON.parse(await ruleEval(tab, { neg, pos, maxAgeDays: MAX_AGE }));
+  const counts = JSON.parse(await ruleEval(tab, { neg, pos, maxAgeDays: MAX_AGE, closedIds: await readClosedIds() }));
   return tab.evaluate(`(() => {
     const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
     return JSON.stringify({
@@ -307,7 +342,8 @@ console.log(`  cards   : ${res.cards}${res.claimed ? ` (site claims ${res.claime
 console.log(`  chip    : ${res.chip ? res.chipText : 'MISSING — content script did not run'}`);
 console.log(`  hidden  : ${res.hidden}   (expected by rule: ${res.hiddenExpected})`);
 console.log(`  stale ${res.staleExpected} / no-salary ${res.noSalExpected} / keyword ${res.negExpected} → hidden, ` +
-  `positive ${res.posExpected} → highlighted, ${res.reconExpected} → yellow (reconsider) · ` +
+  `positive ${res.posExpected} → highlighted, ${res.reconExpected} → yellow (reconsider)` +
+  `${res.closedExpected ? `, ${res.closedExpected} closed` : ''} · ` +
   `${res.negBadges} ✗ badge(s)`);
 
 if (!res.chip) await fail('content script did not inject — check manifest permissions/host_permissions');
@@ -426,7 +462,7 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
         pos: document.querySelectorAll('.ojc-pos-badge').length })`;
       let counts, dom;
       for (let i = 0; i < 40; i++) {
-        counts = JSON.parse(await ruleEval(tab, { neg: next.negative, pos: next.positive, maxAgeDays: 0 }));
+        counts = JSON.parse(await ruleEval(tab, { neg: next.negative, pos: next.positive, maxAgeDays: 0, closedIds: await readClosedIds() }));
         dom = JSON.parse(await tab.evaluate(read));
         const agreed = dom.hidden === counts.hiddenExpected && dom.neg === counts.negExpected &&
           dom.recon === counts.reconExpected && dom.pos === counts.posExpected && counts.cards > 0;
@@ -622,11 +658,16 @@ if (res.noSalExpected > 0) {
       probe.id = 'probe-card-not-ours';   // must not look like an injected #ojc-* node
       probe.innerHTML = '<div><dd class="col">Negotiable</dd></div>';
       container.appendChild(probe);
-      await new Promise(r => setTimeout(r, 1500));
+      // Poll for the effect rather than sleeping a fixed 1500 ms. A fixed window is what this file's own
+      // waitFor() exists to avoid, and it duly produced a false alarm once: the card was simply not
+      // processed yet, and the run reported the observer as broken.
+      const t0 = Date.now();
+      while (!probe.hidden && Date.now() - t0 < 4000) await new Promise(r => setTimeout(r, 100));
       const hidden = probe.hidden;
+      const windowMs = Date.now() - t0;
       mo.disconnect();
       probe.remove();
-      return JSON.stringify({ card: true, chip: !!chip, hidden, passes, windowMs: 1500 });
+      return JSON.stringify({ card: true, chip: !!chip, hidden, passes, windowMs });
     })()`);
   }, 500));
 
@@ -657,23 +698,21 @@ if (res.noSalExpected > 0) {
     if (!await activate(tab)) await fail(`the pagination check cannot run: ${HIDDEN_HINT}`);
     await settle(3500);
 
-    const snapshot = `(() => {
-      const neg = ${JSON.stringify(neg.map(k => k.toLowerCase()))};
-      const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
-      let expect = 0;
-      for (const c of cards) {
-        const d = c.querySelector('dd.col');
-        const own = d ? d.cloneNode(true) : null;
-        for (const injected of (own ? own.querySelectorAll('[class^="ojc-"]') : [])) injected.remove();
-        const ns = !/\\d/.test(own ? own.textContent : '');
-        const nm = neg.some(k => (c.textContent || '').toLowerCase().includes(k));
-        if (ns || nm) expect++;   // hidden either way — noSalary cannot un-hide a keyword match
-      }
-      const shown = document.body.innerText.match(/Displaying\\s+(\\d+)\\s+out of\\s+(\\d+)/i);
-      const off = (location.pathname.match(/\\/(\\d+)$/) || [])[1];
-      return JSON.stringify({ cards: cards.length, hidden: cards.filter(c => c.hidden).length, expect,
-        total: shown ? +shown[2] : null, offset: off ? +off : 0 });
-    })()`;
+    // The page facts this section needs, and NOT a fourth opinion on what the rules will do: the
+    // prediction comes from `ruleEval` above, the one copy that injects rules.js and closed.js. The
+    // version that used to live here re-implemented the match with `.includes()` and knew nothing about
+    // the closed rule, so it reported "11 hidden but the rule says 10" the moment the memory held a
+    // listing on this page — a phantom failure invented by the harness, not by the extension.
+    const snapshot = async () => ({
+      ...JSON.parse(await tab.evaluate(`(() => {
+        const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
+        const shown = document.body.innerText.match(/Displaying\\s+(\\d+)\\s+out of\\s+(\\d+)/i);
+        const off = (location.pathname.match(/\\/(\\d+)$/) || [])[1];
+        return JSON.stringify({ cards: cards.length, hidden: cards.filter(c => c.hidden).length,
+          total: shown ? +shown[2] : null, offset: off ? +off : 0 });
+      })()`)),
+      expect: JSON.parse(await ruleEval(tab, { neg, pos, maxAgeDays: MAX_AGE, closedIds: await readClosedIds() })).hiddenExpected,
+    });
     const fetches = () => reqs
       .filter(x => x.type === 'Fetch' || x.type === 'XHR')
       .map(x => x.url)
@@ -682,7 +721,7 @@ if (res.noSalExpected > 0) {
       // otherwise make "idle costs nothing" unprovable.
       .filter(u => /^https:\/\/www\.onlinejobs\.ph\/jobseekers\/(jobsearch|search)\/[^?]*\d/.test(u));
 
-    const idle = { ...JSON.parse(await tab.evaluate(snapshot)), requests: fetches().length };
+    const idle = { ...await snapshot(), requests: fetches().length };
     const idleUrls = fetches();
     // Scroll with REAL wheel gestures (a programmatic scroll is not proof of intent and must not
     // buy a page), and keep going until the bottom: a list with few hidden cards is ~10,000 px tall,
@@ -699,7 +738,7 @@ if (res.noSalExpected > 0) {
       await settle(220);
     }
     await settle(4000);
-    const afterOne = { ...JSON.parse(await tab.evaluate(snapshot)), requests: fetches().length, wheels };
+    const afterOne = { ...await snapshot(), requests: fetches().length, wheels };
     return JSON.stringify({ idle, idleUrls, afterOne, pageUrls: fetches() });
   }, 500));
 
@@ -999,6 +1038,189 @@ if (res.noSalExpected > 0) {
   }
   console.log(`own text  : keyword ${JSON.stringify(r.before.word)} (in ${r.before.warned} disclaimer(s), ` +
     `0 listings) highlighted 0 card(s) — our annotation stays out of the rules`);
+}
+
+// ── 10. the listing's own page (spec.md W4) ─────────────────────────────
+// Two things can make this section pass without testing anything, so both are ruled out by design:
+// the ambient page may have nothing to highlight, and the pay figure may be one this board cannot
+// compute. It therefore walks real listings until it finds one that shows a monthly figure, and it
+// inserts its own off-platform paragraph (the same trick section 6 uses for a card) to force every
+// detector to fire on a page that may contain none of them.
+{
+  const links = JSON.parse(await withTab(PORT, URL_, async (tab) => {
+    await activate(tab);
+    await waitFor(tab, `document.querySelectorAll('.jobpost-cat-box').length`, { timeout: 12000 });
+    return JSON.stringify(await tab.evaluate(`[...document.querySelectorAll('.jobpost-cat-box a[href*="/job/"]')].map(a => a.getAttribute('href')).slice(0, 3)`));
+  }, 400));
+  if (!links.length) await fail('no job link on the board page — cannot test the detail page at all');
+
+  const fxStore = JSON.parse(await storeEval(`chrome.storage.local.get('fx').then(r => JSON.stringify((r.fx || {}).rates || {}))`));
+  const RATES = {};
+  for (const [cur, row] of Object.entries(fxStore)) RATES[cur] = row.rate;
+
+  let checked = 0, parity = null;
+  for (const href of links) {
+    const r = JSON.parse(await withTab(PORT, 'https://www.onlinejobs.ph' + href, async (tab) => {
+      await activate(tab);
+      if (!await waitFor(tab, `!!document.getElementById('ojc-detail-bar')`, { timeout: 12000 })) {
+        return JSON.stringify({ missing: true });
+      }
+      await tab.evaluate(`${salarySrc}\nwindow.__salary = window.OJCSalary; 1`);
+      const read = () => tab.evaluate(`(() => {
+        const clean = s => (s || '').replace(/\\s+/g, ' ').trim();
+        const dd = [...document.querySelectorAll('dl.row.no-gutters dd')];
+        const val = (re) => { for (const d of dd) { const h = d.querySelector('h3'); if (h && re.test(clean(h.textContent))) return clean(d.querySelector('p')?.textContent || ''); } return null; };
+        const bar = document.getElementById('ojc-detail-bar');
+        const marks = [...document.querySelectorAll('#job-description [class^="ojc-hl-"]')].map(e => ({ kind: e.className.replace('ojc-hl-', ''), text: clean(e.textContent) }));
+        const desc = document.getElementById('job-description');
+        return JSON.stringify({
+          bar: bar ? [...bar.children].map(c => clean(c.textContent)) : null,
+          payItem: bar ? clean(([...bar.children].find(c => /\u20b1|rate only/.test(c.textContent)) || {}).textContent || '') : '',
+          hours: val(/hours/i), pay: val(/wage|salary/i), type: val(/type of work/i),
+          descText: desc ? clean(desc.textContent) : '',
+          marks,
+        });
+      })()`);
+      const before = JSON.parse(await read());
+
+      const expected = await tab.evaluate(`(() => {
+        const { parseSalary, toPhp, formatNote, FULL_TIME_HOURS } = window.__salary;
+        const hours = /^\\d+$/.test(${JSON.stringify(before.hours || '')}) ? Number(${JSON.stringify(before.hours || '')}) : null;
+        const partTime = /part[\\s-]?time|gig/i.test(${JSON.stringify(before.type || '')});
+        const basis = hours !== null ? hours : (partTime ? null : FULL_TIME_HOURS);
+        const parsed = parseSalary(${JSON.stringify(before.pay || '')}, basis);
+        if (!parsed) return '';
+        const php = toPhp(parsed, ${JSON.stringify(RATES)});
+        return php ? formatNote(php) : '';
+      })()`);
+
+      // Force every detector: an ask, a bare link, an email, and the site's redaction, in one paragraph.
+      const FIXTURE = 'To apply, please complete this short application form in English: forms.gle/Fixture123, ' +
+        'or email your resume to hiring@example.com — last resort: ----------';
+      await tab.evaluate(`(() => {
+        const p = document.createElement('p');
+        p.textContent = ${JSON.stringify(FIXTURE)};
+        document.getElementById('job-description').appendChild(p);
+        return 1; })()`);
+      // A settings write re-runs the page's pass — but only a write that CHANGES something: Chrome fires
+      // storage.onChanged for a real change, not for `set` with an identical object. Writing the settings
+      // back unchanged looked like a re-run and was not one (the first version of this section asserted
+      // nothing and reported an empty mark list). So toggle a field that cannot affect this page.
+      const seeded = (await readSettings()).showHidden;
+      const poke = async (on) => {
+        await storeEval(`chrome.storage.local.get('settings').then(r => chrome.storage.local.set({ settings: Object.assign({}, r.settings, { showHidden: ${on} }) }))`);
+        await settle(500);
+      };
+      await poke(!seeded);
+      const after = JSON.parse(await read());
+      const fixtureMarks = after.marks.filter(m => FIXTURE.includes(m.text));
+      const marked = fixtureMarks.map(m => m.kind + ':' + m.text);
+      // Three more real re-runs: a highlighter that re-wraps its own spans fragments the text, and the
+      // mark count would climb on every pass.
+      for (const on of [seeded, !seeded, seeded]) await poke(on);
+      const again = JSON.parse(await read());
+      return JSON.stringify({ before, marked, spansAfter: after.marks.length, spansAgain: again.marks.length,
+        expected, fixture: FIXTURE });
+    }, 400));
+    if (r.missing) continue;
+    checked++;
+    if (r.expected && !parity) parity = r;
+    if (parity && r.marked.length >= 5) break;
+  }
+  if (!checked) await fail('no listing page rendered the detail bar — the W4 files are not being injected');
+  if (!parity) await fail(`none of ${checked} listing(s) showed a monthly figure — cannot check the detail ` +
+    'page\'s arithmetic (run with a board page that has listings with hours and a rate)');
+
+  const wanted = [['forms.gle/Fixture123', 'url'], ['hiring@example.com', 'email'], ['----------', 'redacted'], ['To apply', 'ask']];
+  const missing = wanted.filter(([t]) => !parity.marked.some(m => m === 'warn:' + t));
+  if (missing.length) {
+    await fail('the off-platform detectors did not fire on a paragraph that contains all of them: ' +
+      `missing ${missing.map(m => m[1]).join(', ')} (got ${JSON.stringify(parity.marked)})`);
+  }
+  if (parity.before.marks.some(m => !parity.before.descText.includes(m.text))) {
+    await fail('a highlight contains text that is not in the description — the highlighter is inventing text');
+  }
+  if (parity.spansAfter !== parity.spansAgain) {
+    await fail(`the highlighter is not idempotent: ${parity.spansAfter} marks became ${parity.spansAgain} ` +
+      'after extra passes, so the description is being re-wrapped and fragmenting');
+  }
+  if (parity.before.payItem && !parity.before.payItem.includes(parity.expected)) {
+    await fail(`the detail bar shows ${JSON.stringify(parity.before.payItem)} but recomputing the same ` +
+      `figures with the same parser and the same cached rate gives ${JSON.stringify(parity.expected)}`);
+  }
+  console.log(`detail    : ${checked} listing(s) — bar shows ${JSON.stringify(parity.before.payItem)} ` +
+    `(hours ${JSON.stringify(parity.before.hours)}), recomputed identically; off-platform paragraph fired ` +
+    `${parity.marked.length} mark(s) incl. ${missing.length ? 'MISSING' : 'link, email, redaction and ask'}; ` +
+    `${parity.before.marks.length} mark(s) on the page's own text`);
+}
+
+// ── 11. the closed-listing memory (spec.md W9) ────────────────────────────
+// The learning path cannot be faked from storage — `learn()` reads the page's own words — so the
+// closure notice is injected before the extension boots, and the run then checks that it was recorded
+// AND that the board acts on the record. A listing that is already closed on the live board would make
+// this flaky; a notice injected into a real listing cannot.
+{
+  const jobHref = JSON.parse(await withTab(PORT, URL_, async (tab) => {
+    await activate(tab);
+    await waitFor(tab, `document.querySelectorAll('.jobpost-cat-box').length`, { timeout: 12000 });
+    return JSON.stringify(await tab.evaluate(`(document.querySelector('.jobpost-cat-box a[href*="/job/"]') || {}).getAttribute?.('href') || ''`));
+  }, 400));
+  if (!jobHref) await fail('no job link to teach the closure memory with');
+  const jobId = (/-\d+(?:[?#]|$)/.exec(jobHref) || [''])[0].replace(/\D/g, '');
+
+  const tab = await openTab(PORT, 'about:blank', 300);
+  // `Page.enable` is not optional: without it the injected script is registered and never run, which
+  // looks exactly like a listing that is not closed (three attempts were spent on that distinction).
+  await tab.send('Page.enable');
+  // Runs before every page script in this tab, so the notice is part of the page the extension sees.
+  await tab.send('Page.addScriptToEvaluateOnNewDocument', { source: [
+    'setInterval(function () {',
+    '  if (!document.body || document.getElementById("ojc-fixture-closed")) return;',
+    '  var d = document.createElement("div");',
+    '  d.id = "ojc-fixture-closed";',
+    '  d.textContent = "This job has been closed";',
+    '  document.body.prepend(d);',
+    '}, 40);',
+  ].join('\n') });
+  await tab.send('Page.navigate', { url: 'https://www.onlinejobs.ph' + jobHref });
+  await activate(tab);
+  const barSaysClosed = await waitFor(tab, `!!document.getElementById('ojc-detail-bar')`, { timeout: 12000 });
+  const banner = await tab.evaluate(`(() => { const b = document.getElementById('ojc-detail-bar');
+    return b ? [...b.children].map(c => c.textContent.trim()).join(' | ') : ''; })()`);
+  const learned = await waitFor(STORE, `chrome.storage.local.get('closedJobs').then(r => !!(r.closedJobs||{})[${JSON.stringify(jobId)}])`, { timeout: 8000 });
+  tab.close();
+  if (!barSaysClosed) await fail('the detail bar never appeared on a page that says the job is closed');
+  if (!learned) await fail(`opening closed listing ${jobId} did not record it in chrome.storage.local.closedJobs`);
+
+  // And the board must act on it: hidden, marked, and counted — exactly as the live setting dictates.
+  const r = JSON.parse(await withTab(PORT, URL_, async (tab) => {
+    await activate(tab);
+    await waitFor(tab, `document.querySelectorAll('.jobpost-cat-box').length`, { timeout: 12000 });
+    await settle(1200);
+    return await tab.evaluate(`(() => {
+      const clean = s => (s || '').replace(/\\s+/g, ' ').trim();
+      const card = [...document.querySelectorAll('.jobpost-cat-box')].find(c => (c.querySelector('a[href*="/job/"]') || {}).getAttribute?.('href') === ${JSON.stringify(jobHref)});
+      const chip = document.getElementById('ojc-chip');
+      return JSON.stringify({
+        found: !!card,
+        hidden: card ? card.hidden : null,
+        cls: card ? card.classList.contains('ojc-closed') : false,
+        badge: card ? clean((card.querySelector('.ojc-closed-badge') || {}).textContent || '') : '',
+        chip: chip ? clean(chip.textContent) : '',
+      });
+    })()`);
+  }, 400));
+  const showHidden = (await readSettings()).showHidden;
+  if (!r.found) await fail(`the listing we just learned as closed (${jobId}) is no longer on the board page`);
+  if (!r.cls || !r.badge) await fail(`a remembered-closed card was not marked (class ${r.cls}, badge ${JSON.stringify(r.badge)})`);
+  if (r.hidden !== !showHidden) await fail(`a remembered-closed card had hidden=${r.hidden} with showHidden=${showHidden}`);
+  if (!/closed/.test(r.chip)) await fail(`the chip does not count the closed listing: ${JSON.stringify(r.chip)}`);
+  // This run deliberately taught the memory a closure for a listing that is NOT closed. Remove it now,
+  // explicitly, as well as through the storage snapshot at the end: a kill between the two must not be
+  // able to leave a live listing hidden from the user for six months.
+  await storeEval(`chrome.storage.local.get('closedJobs').then(r => { const m = r.closedJobs || {}; delete m[${JSON.stringify(jobId)}]; return chrome.storage.local.set({ closedJobs: m }); })`);
+  console.log(`closed    : ${jobId} learned from the page ("${banner.split('|')[0].trim()}") and hidden on the board ` +
+    `(hidden=${r.hidden}, badge ${JSON.stringify(r.badge)}), chip: ${JSON.stringify(r.chip)}`);
 }
 
 console.log('verify-live: PASS');

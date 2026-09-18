@@ -50,16 +50,23 @@ reintroduce it.)
 ## Rule order (observable, do not reorder)
 
 ```
-stale → noSalary → negative (unless good) → positive → nothing
+closed → stale → noSalary (unless good, if rescued) → negative (unless good) → positive → nothing
 ```
 
 First match wins. This is not an implementation detail: with `noSalary` off, a no-salary card that
 also matches a negative keyword is counted in the keyword bucket, so a predicted count computed by
 adding the two buckets is wrong. Measured on a live page: 5 no-salary + 16 keyword = 21, but with
 `noSalary` off the same page hides **20** as keywords. `tools/verify-live.mjs` recomputes that
-expectation from the DOM in the same order (`ruleEval`) rather than by arithmetic.
+expectation from the DOM in the same order (`ruleEval`) rather than by arithmetic — and it now takes the
+remembered-closed ids as an argument, because a predicted total that ignores the first rule is wrong by
+exactly the number of remembered listings.
 
-**Recency is first**, and deliberately above the reconsider state: a stale listing is hidden even if it
+**`closed` is first** (W9 / D29): a listing you have already seen close is hidden before anything else
+looks at it. It is a fact about the listing, not a judgement about it, so it outranks the recency window
+and every keyword. The ids come from `chrome.storage.local.closedJobs`, learned only from a listing's own
+page, pruned at 180 days.
+
+**Recency comes next**, and deliberately above the reconsider state: a stale listing is hidden even if it
 matches a positive keyword or pays above the goal. Its timestamp comes from `data-temp-2` (UTC), falling
 back to `data-temp` at the site's own +08:00 — never the machine's local zone. A card whose date cannot
 be read is never stale, because the one rule that runs before everything else must not be the rule that
@@ -72,13 +79,57 @@ mark `salary-cards.js` puts on a listing at or above a goal. A negative match th
 the live ECB rate) `annotate()` asks for one extra pass when a mark moves. Without that, a listing that
 is good only because it pays well stays hidden.
 
+**The no-salary rescue reuses the same `good`** (W10 / D30) and is off by default: when `rescueNoSalary`
+is on, the no-salary branch yields and the card falls through to the keyword rules, so it ends green (or
+yellow) rather than gone. Nothing new decides what "looks good" means.
+
 Positive keywords **never** hide. A false positive costs a real job listing, which is the one mistake
 this extension must not make.
 
+## The detail page (W4)
+
+Two files, because the planner is worth testing without a browser:
+
+- **`detail-text.js`** — pure. `plan(text, cfg)` returns sorted, non-overlapping `{start, end, kind, rule}`
+ranges. It owns two judgements: **red beats green** (a warning is placed before negative and positive
+keywords, so "send your AI portfolio" cannot hide its own warning), and **an ask is not a tool** (a
+messaging tool counts only in the same sentence as an application ask — 3 of 7 live phrase hits were
+Telegram as job content).
+- **`detail.js`** — the applier. One `TreeWalker` over `p#job-description`, wrapping each range in
+`.ojc-hl-pos` / `.ojc-hl-neg` / `.ojc-hl-warn` with a `title` naming the rule. **Idempotent by
+construction**: our spans are unwrapped (and the node normalised) before every pass, because a settings
+change re-runs it and re-wrapping would fragment the description. `verify-live` asserts the mark count is
+stable across repeated passes.
+
+`keywordRegex` lives in `rules.js` and is used by both the card matcher and the highlighter: the page must
+highlight exactly what the board hides, and a second copy of the pattern is a second answer. The figures
+bar reuses `salary.js`'s parser and `salary-cards.js`'s cached rate loader, so a peso listing still makes
+zero requests, and `HOURS PER WEEK` from the overview replaces the 40 h/week assumption whenever the
+listing states one (D28).
+
+## The closed-listing memory (W9)
+
+`chrome.storage.local.closedJobs = { "<jobId>": { at } }`, pruned to 180 days on every write, with
+`closed.js` pure and `closed-cards.js` the applier (the same split as `salary.js` / `salary-cards.js`).
+
+The rule pass reads an in-memory copy synchronously, so the memory is loaded once at boot and the rules
+re-run after it arrives. **`remember()` is a read-modify-write, not a write of the in-memory copy**: two
+tabs can each hold a map that predates the other's closure, and a blind write deletes the other's memory.
+Measured live: five closings, one survivor. The remaining window is one get→set, and a lost update costs
+one remembered listing that the next visit re-learns — a transaction would cost a background worker, so
+this is the deliberate ceiling.
+
+The saved-jobs page is a React table with different markup, and it renders in batches: a one-shot
+rAF guard dropped the mutations that arrived mid-render and left rows unmarked (1 of 3). It re-marks on a
+trailing debounce instead, and our own badge/class is ignored so it cannot loop.
+
+
 ## The injected UI contract
 
-- Everything injected is namespaced: `#ojc-chip`, `#ojc-panel`, `.ojc-pos`, `.ojc-neg`, `.ojc-recon`,
-  `.ojc-pos-badge`, `.ojc-neg-badge`. The extension never restyles the site's own elements.
+- Everything injected is namespaced: `#ojc-chip`, `#ojc-panel`, `#ojc-detail-bar`, `.ojc-pos`,
+  `.ojc-neg`, `.ojc-recon`, `.ojc-closed`, `.ojc-pos-badge`, `.ojc-neg-badge`, `.ojc-closed-badge`,
+  `.ojc-closed-row`, `.ojc-hl-pos`, `.ojc-hl-neg`, `.ojc-hl-warn`. The extension never restyles the
+  site's own elements.
 - **Every injected class must be in `isOurs()`'s `OUR_CLASSES`.** A badge added by the rule pass is a real
   DOM mutation, and if `isOurs()` cannot recognise it the pass schedules itself forever (§2.2). Adding a
   badge means adding it here too — `.ojc-neg-badge` cost one line in two places, and forgetting the

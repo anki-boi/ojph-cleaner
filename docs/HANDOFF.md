@@ -1,6 +1,6 @@
 # HANDOFF — OJ.ph Cleaner (Chrome MV3 extension)
 
-**Date:** 2026-09-18 · **Extension version:** 0.7.0 · **Branch:** `main`
+**Date:** 2026-09-18 · **Extension version:** 0.8.0 · **Branch:** `main`
 **Repo:** `C:\Users\PC\Desktop\ojph-cleaner` → https://github.com/anki-boi/ojph-cleaner (public)
 **Author identity in this repo's history:** `Jeyson <jeyson@local>`
 
@@ -380,6 +380,41 @@ salary    : 23 monthly figure(s), 3 posted-rate figure(s), 1 with no figure
 
 ---
 
+### 4g. ✅ W4 / W9 / W10 / W11 — the job's own page, the closed memory, the rescue (0.8.0)
+
+Four things landed together because the detail page is what made the others worth building. Full decision
+list in `spec.md` D25–D30; the measured evidence:
+
+- **The detail page has a structured `HOURS PER WEEK`** (`dl.row.no-gutters dd > h3` label, `> p` value), and
+  14 of 18 sampled listings state a real number (40, 40, 35, 25, 20, 15, 10, 9, 5…). That is what makes a
+  monthly figure honest instead of a 40 h/week guess (D28).
+- **The description is plain text with `<br>`s** — 0 of 5 sampled descriptions carried an `<a>`. Application
+  links appear as prose (`"fill out the form carefully: forms.gle/VL1hbhWz8FpRDNrFA"`), so a detector that
+  reads only `href`s finds almost nothing.
+- **OJ.ph redacts application links as `----------`, and it does so even when you are signed in** (3 of 18
+  listings). Logged out it is worse: **every** sampled listing hid its link, and the closure notice
+  `This job has been closed` is login-gated too — a plain HTTP fetch of a listing known to be closed returned
+  0 hits. Anything that must read those two facts needs the signed-in browser.
+- **Off-platform pressure is common: 9 of 18 listings** (7 by an application-ask phrase, 2 with a bare URL,
+  2 with an email). But **3 of those 7 phrase hits were Telegram as job content** ("Help monitor Telegram
+  accounts"), which is why a tool only counts inside a sentence that also asks you to apply (D26).
+- **Dead listings do not accumulate on the board** — 1 of 30 on the deepest page (20 days old) — but they
+  pile up in Saved Jobs: **4 of 16**. The board is shallow (`/jobsearch/240` is the last page for that
+  filter, `/jobsearch/1000` is empty) and drops closed listings within about three weeks.
+- **The saved-jobs page is a different frontend**: a React/tailwind `<tr>` table, no `.jobpost-cat-box`
+  anywhere, columns `Title / Description / Notes / Delete` and **no status column** — so it cannot reveal a
+  closure by itself (D29).
+
+Traps this work added to section 3's list, each of which cost real time:
+
+| Trap | Symptom | Fix |
+|---|---|---|
+| `Page.addScriptToEvaluateOnNewDocument` without `Page.enable` | The script is registered and never runs, which looks exactly like a listing that is not closed | Call `Page.enable` first |
+| A no-op `chrome.storage.local.set` fires **no** `onChanged` | A harness trigger that writes the settings back unchanged asserts nothing, and reports an empty result as if the feature were broken | Write a value that actually changes |
+| An uncaught exception bypasses `fail()` | The harness claimed "every exit path restores", but a crash skipped the restore and left the seed in the profile. Every later run then snapshotted the seeded state and dutifully restored *it*, so the damage silently became the baseline | `uncaughtException` / `unhandledRejection` handlers that restore, plus a snapshot log line that prints the keyword count it captured |
+| A backtick inside page-side code in a `tab.evaluate` template literal | The literal ends early and the harness dies with a confusing syntax error — **third** occurrence in this repo | No backticks inside those literals, ever |
+| React renders its table in batches | Rows that arrive while a one-shot rAF guard is pending are never marked (1 of 3 marked) | A trailing debounce, reset on every mutation |
+
 ## 5. What is left to build
 
 | Task | Status |
@@ -396,6 +431,9 @@ salary    : 23 monthly figure(s), 3 posted-rate figure(s), 1 with no figure
 | `spec.md` W6 — perpetual pagination | ✅ 0.5.0, see §4d |
 | `spec.md` W7 — salary figures + both goals | ✅ 0.6.0, see §4e |
 | `spec.md` W8 — recency + the yellow reconsider state | ✅ 0.7.0, see §4f |
+| `spec.md` W4 — the job's own page (highlights, figures, off-platform) | ✅ 0.8.0, see §4g |
+| `spec.md` W9 — closed-listing memory (6-month cap) | ✅ 0.8.0, see §4g |
+| `spec.md` W10 — the opt-in no-salary rescue | ✅ 0.8.0, see §4g |
 | **4. Deep scan engine** (`spec.md` W3) | ⬜ **next** |
 | 6. Detail-page banner (`spec.md` W4) | ⬜ |
 | Distribution (`spec.md` W5) | ⬜ unpacked for now (D2) |

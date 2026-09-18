@@ -9,7 +9,9 @@ dependencies · 1 live CDP harness · Chrome 153, unpacked, enabled in the autom
 **Status after the audit:** ✅ W1 (public face, hygiene, gates) and ✅ W2 (every defect in §2) landed
 in 0.4.0 — see `docs/HANDOFF.md` §4c for the measured before/after. ✅ W6 (perpetual pagination) landed
 in 0.5.0. ✅ W7 (salary figures + goal) landed in 0.6.0. ✅ W8 (recency + the yellow reconsider state)
-landed in 0.7.0. W3 (deep scan) is next; D2–D5 are still open.
+landed in 0.7.0. ✅ W4 (the job's own page), ✅ W9 (closed-listing memory), ✅ W10 (the no-salary rescue)
+and ✅ W11 (the harness's silent-exception bug) landed in 0.8.0. W3 (deep scan) is next; D2–D5 are still
+open.
 
 ---
 
@@ -38,10 +40,12 @@ discipline, sized to a ~250-line extension.
 | Layer | Files | Notes |
 |---|---|---|
 | Manifest | `manifest.json` | MV3, `permissions: ["storage"]` (load-bearing — see §1.2), host permissions on `onlinejobs.ph` only |
-| Content script | `content.js` (283 lines) | chip, in-page options panel, rule pass, mutation observer, storage sync — **no network code** |
+| Content script | `content.js` (299 lines) | chip, in-page options panel, rule pass, mutation observer, storage sync — **no network code**. At the 300-line cap: the next change must split the chip out |
 | Loader | `pagination.js` (126 lines) | perpetual pagination: sentinel, one fetch per user scroll, stop conditions (W6) |
-| Rules | `rules.js` (91 lines) | pure `hasSalary` / `matchKeywords` (with the `=` whole-word marker), `parsePosted` / `isStale`, UMD, no DOM |
-| Styles | `content.css` (185 lines) | chip + panel + highlight styles, all `#ojc-*` scoped |
+| Rules | `rules.js` (105 lines) | pure `hasSalary` / `matchKeywords` / `keywordRegex` (the one place the exact-word pattern is built), `parsePosted` / `isStale`, UMD, no DOM |
+| Styles | `content.css` (278 lines) | chip + panel + highlight + detail-bar styles, all `#ojc-*` scoped |
+| Detail page | `detail-text.js` (146 lines), `detail.js` (214 lines) | the highlight planner (pure, tested) and the applier + figures bar (W4) |
+| Closed memory | `closed.js` (63 lines), `closed-cards.js` (152 lines) | the pure map/prune/lookup and its applier: learn a closure, mark cards and saved rows (W9) |
 | Options page | `options.html` / `options.js` | standalone fallback; the panel is the primary UI |
 | Tests | `test-rules.js`, `test-manifest.js` | 27 assertions, zero dependencies, `npm test` |
 | Live harness | `tools/cdp.mjs`, `tools/verify-live.mjs` | drives real Chrome over CDP against the live site |
@@ -190,6 +194,12 @@ the only thing standing between a red gate and `main`. The suite treats this as 
 | **D22** | The live harness and the user's settings | It must snapshot and restore `chrome.storage.local` around every run — including on SIGINT/SIGTERM — because it seeds into the user's daily browser. **This was a live data-loss bug, not a nicety** | ✅ decided 2026-09-18 |
 | **D23** | Window boundaries | Strict (`age > maxAgeDays`), so `7` means "posted within the last 7 days" — rolling, not a calendar week | ✅ decided 2026-09-18 |
 | **D24** | Keyword matching | **Exact word or phrase**, case-insensitive: `ai` never matches `email`, and `video editor` never matches `video editors`. A leading `=` is accepted and ignored so a keyword saved by the opt-in release keeps working. Not a preference — a defect fix: substring `AI` matched 30 of 30 live cards, and with D15 that silently turned the user's entire negative list into a no-op | ✅ decided 2026-09-18 |
+| **D25** | The job's own page | Green for a keyword you like, red for a keyword you asked to hide, and red for anything that takes you off OnlineJobs.ph. Where two rules overlap, **red wins** — a warning must never be hidden by an endorsement | ✅ decided 2026-09-18 |
+| **D26** | "Off-platform" as a signal | **Application asks only** (`apply here/via`, `fill out the form`, `send your resume`, `email your…`, `DM me`). A messaging or booking tool counts only in the same sentence as an ask, because 3 of 7 phrase hits in a live 18-listing sample were Telegram as *job content* | ✅ decided 2026-09-18 |
+| **D27** | The redacted link | OnlineJobs.ph replaces an application URL with `----------` **even when you are signed in** (3 of 18 listings). That dash run is itself a red signal: it is sometimes the only surviving trace of an off-platform apply | ✅ decided 2026-09-18 |
+| **D28** | The monthly figure on a detail page | Computed from the listing's **own `HOURS PER WEEK`** when it states one (14 of 18 listings do). `TBD` falls back to 40 h/week **with the disclaimer**, and only for full-time/unstated listings: part-time with no stated hours claims no month at all, because that is a 2× error, not a rounding one. A per-unit rate never claims one | ✅ decided 2026-09-18 |
+| **D29** | Closed-listing memory | Learned **only** when you open a listing whose page says it closed, kept 180 days, and never used to fetch anything. A crawler that tested every card would fetch every listing — the property `docs/scraping.md` protects. Consequence: a saved job you have never opened cannot be known closed | ✅ decided 2026-09-18 |
+| **D30** | The no-salary rescue | **Opt-in, off by default** (`rescueNoSalary`). When on, a no-salary listing that also looks good falls through to the keyword rules instead of being hidden — `good` being the same predicate the reconsider state already uses, so nothing new defines what "looks good" means | ✅ decided 2026-09-18 |
 
 ---
 
@@ -222,11 +232,12 @@ spec.md                this file
 - **All injected UI lives under `#ojc-` ids**, and `isOurs()` must recognise every one of them. The
   panel is a **sibling** of the chip, never a child: `renderChip()` wipes the chip's children, so a
   child panel would be destroyed mid-edit. Asserted live.
-- **Rule order is `stale → noSalary → negative (unless good) → positive`** and it is observable: with
+- **Rule order is `closed → stale → noSalary → negative (unless good) → positive`** and it is observable: with
   `noSalary` off, the no-salary cards fall through to the keyword rule (measured: 16 keyword hides become
   20). Any test that predicts a count must replicate the order, not add up the buckets. `good` — a
   positive match, or a goal mark — turns a negative match into the **yellow reconsider state** (D15/D16)
-  instead of a hide.
+  instead of a hide. `closed` is first because a dead listing is a fact, not a judgement call (D29), and
+  the three places that predict counts — `content.js`, and the harness's `ruleEval` — all replicate it.
 - **One file, one job.** No file over 300 lines (gate-enforced, W2.4) — the analogue of the suite's
   250-line route-module cap.
 
@@ -240,6 +251,10 @@ a one-line fix and the harness can name the selector that broke:
 | List card | `.jobpost-cat-box.latest-job-post` | rule pass, harness |
 | Card salary | `dd.col` (text must contain a digit) | rule pass, harness |
 | Card posted date | `p[data-temp]` → `data-temp-2` (UTC), fallback `data-temp` (+08:00) | rule pass (W8), harness |
+| Job description | `p#job-description` — 73 nodes, only `#text` and `<br>` (no `<a>`, so links are prose) | detail page (W4) |
+| Job overview | `dl.row.no-gutters dd` → `dd > h3` label, `dd > p` value: `TYPE OF WORK`, `WAGE / SALARY`, `HOURS PER WEEK`, `DATE UPDATED` | detail page (W4) |
+| Closure notice | the text `This job has been closed` **above the description** (login-gated: a logged-out fetch shows 0 hits) | detail page (W9) |
+| Saved-jobs rows | a React `<tr>` table (no `.jobpost-cat-box`); the job link is `a[href*="/jobseekers/job/"]` | memory marks (W9) |
 | Detail description | `p#job-description` | W3 |
 | Detail salary | `p` next sibling of the `h3.fs-12` matching `/WAGE\s*\/\s*SALARY/i` | W3 |
 | List pages | `/jobseekers/jobsearch` (bare or `/offset/`), `/jobseekers/search/c/{slug}/{offset}` | content script |
@@ -316,11 +331,54 @@ listings". Decisions D15–D24.
 | W8.8 | A section that seeds its own keywords and **requires each branch to fire**, so a bare run can no longer pass without exercising the negative, positive or reconsider rule | `tools/verify-live.mjs` |
 | W8.9 | Keywords are matched as exact words or phrases (D24), with a leading `=` accepted and ignored for the one release that made it opt-in | `rules.js`, `test-rules.js`, `panel.js`, `options.html`, `README.md` |
 
-### W4 — Detail-page banner (the original Task 6) → depends on W3
+### W4 — The job's own page ✅ (0.8.0)
 
-| ID | Task |
-|---|---|
-| W4.1 | On `/jobseekers/job/...`, show the same verdict for the job being viewed (salary status, matched keywords), no hiding |
+Asked for as: *"when a job listing is opened, the extension still works … highlight green the keywords we
+like, then highlight red what we dont like … auto-highlight links and email addresses as red. This is
+unwanted because we are forced to submit applications outside of onlinejobs.ph."* Decisions D25–D28.
+
+| ID | Task | Files |
+|---|---|---|
+| W4.1 | The pure planner: keyword ranges, bare domains in prose, emails (incl. obfuscated), application-ask phrases with the tool guard, the `----------` redaction, and overlap resolution where red beats green | `detail-text.js`, `test-detail.js` |
+| W4.2 | The applier: one text-node walk, non-overlapping `span.ojc-hl-pos` / `-neg` / `-warn`, each titled with the rule that made it, and idempotent because our spans are unwrapped before every pass | `detail.js`, `content.css` |
+| W4.3 | The figures bar: the listing's own `HOURS PER WEEK`, the month computed from it, the goal verdict, and `⚠ applies off-platform` | `detail.js`, `content.css` |
+| W4.4 | A new content-script file wired into the manifest, and every new mark listed in `OUR_CLASSES` — a detail page can carry related-job cards that the board's rules read | `manifest.json`, `content.js` |
+| W4.5 | Live assertions: the computed figure recomputed with the same parser and the same cached rate, and an **inserted** off-platform paragraph that must fire every detector | `tools/verify-live.mjs` |
+
+`keywordRegex` moved into `rules.js` so the page highlights exactly what the board hides, and the rate
+comes from `salary-cards.js`'s cached loader, so a peso listing still makes zero requests.
+
+### W9 — Closed-listing memory ✅ (0.8.0)
+
+Asked for as: *"when we see that the job listing is already closed, it forever classifies that job listing
+as hidden in the job board … max history of 6 months is good."* Decision D29.
+
+| ID | Task | Files |
+|---|---|---|
+| W9.1 | Pure `jobIdFrom` / `isClosedText` / `prune` / `record`, with tests pinning both slug spellings, a search page being *not* a job, and the 180-day boundary | `closed.js`, `test-closed.js` |
+| W9.2 | Learn a closure from the listing's own page and persist it, pruning on every write | `closed-cards.js` |
+| W9.3 | The closed rule **first** in the pass: hidden, counted in the chip, revealed by Show all with a grey `⊘ closed` badge | `content.js`, `content.css` |
+| W9.4 | The saved-jobs table (React, different markup): dead rows greyed and labelled but kept, since deleting the row is the only way to clear it | `closed-cards.js`, `content.css` |
+| W9.5 | A live round trip: inject the closure notice **before the extension boots**, then assert the id was recorded and the board hides that card | `tools/verify-live.mjs` |
+
+### W10 — The no-salary rescue ✅ (0.8.0)
+
+Asked for as: *"A listing with no salary mentioned might still be nice if there are matches to the positive
+keywords."* Decision D30. One line of rule logic plus both UIs.
+
+| ID | Task | Files |
+|---|---|---|
+| W10.1 | `rescueNoSalary` (off by default): the no-salary branch yields to the keyword rules when the setting is on and the card is `good` | `content.js` |
+| W10.2 | Toggle in both UIs and a README row (the gate fails if a `DEFAULTS` key is undocumented) | `panel.js`, `options.html`, `options.js`, `README.md` |
+
+### W11 — The harness's silent exception ✅ (0.8.0)
+
+`tools/cdp.mjs`'s `evaluate` returned `undefined` when the page-side expression threw, which turns "my
+probe threw" into "the page has no such element" — two opposite facts behind one value. It cost three
+debugging rounds while W4 was being built, and it can make a live assertion stop checking anything. Now
+rethrown. The same session exposed that an **uncaught exception skipped the storage restore**, so the
+harness's "every exit path" claim was false and a crash left the user's settings replaced; `fail()` is
+now backed by `uncaughtException` / `unhandledRejection` handlers.
 
 ### W5 — Distribution (the original Task 8) → depends on W1, W3
 
@@ -466,6 +524,10 @@ Recorded so nobody re-proposes them. Each has a trigger that would change the an
 | W6 | `pagination.js` (new), `test-pager.js` (new), `content.js`, `content.css`, `options.*`, `tools/verify-live.mjs` |
 | W7 | `salary.js` + `salary-cards.js` (new), `test-salary.js` (new), `panel.js` (new, split from `content.js`), `content.js`, `content.css`, `options.*`, `manifest.json`, `tools/verify-live.mjs` |
 | W8 | `rules.js`, `test-rules.js`, `content.js`, `content.css`, `salary-cards.js`, `panel.js`, `options.*`, `tools/verify-live.mjs`, `tools/cdp.mjs`, `README.md`, `docs/*`, `manifest.json` |
+| W4 | `detail-text.js` + `test-detail.js` (new), `detail.js` (new), `rules.js` (`keywordRegex`), `content.css`, `content.js` (OUR_CLASSES), `manifest.json`, `tools/verify-live.mjs` |
+| W9 | `closed.js` + `test-closed.js` (new), `closed-cards.js` (new), `content.js`, `content.css`, `detail.js`, `manifest.json`, `tools/verify-live.mjs` |
+| W10 | `content.js`, `panel.js`, `options.html`, `options.js`, `README.md` |
+| W11 | `tools/cdp.mjs`, `tools/verify-live.mjs` |
 | W3 (new) | `detail-parser.js`, `test-detail-parser.js` |
 | Existing, unchanged | `manifest.json`, `rules.js`, `test-rules.js`, `content.css`, `options.html` |
 | Reference | `spec.md` (this file), `docs/HANDOFF.md`, `plans/*` |
@@ -489,6 +551,12 @@ List URLs: `/jobseekers/jobsearch?jobkeyword=…`, `/jobseekers/jobsearch/{offse
 | `autoLoad` | boolean | `true` | Append the next result page when the user scrolls to the bottom (W6) | `pagination.js` |
 | `goalSalary` | number | `0` (off) | Monthly PHP goal; cards at or above it brighten (W7) | `salary.js` |
 | `maxAgeDays` | number | `7` | Hide listings posted longer ago than this many days (`0` = off, `7` = last week, `30` = last month). Read **before** every other rule; an unreadable date is never stale (W8) | rule pass |
+| `rescueNoSalary` | boolean | `false` | With `noSalary` on: a listing that states no pay but matches a keyword you like (or beats a goal) is shown instead of hidden (W10, D30) | rule pass |
+
+Not in `settings`: `closedJobs` (`chrome.storage.local.closedJobs = { "<jobId>": { at } }`) — the closed-listing
+memory (W9, D29). It lives in its own key because it is data the extension collects, not a preference the
+user sets, and because `options.js`'s Save writes the whole `settings` object: a key in there is a key a
+Save can silently drop.
 
 `tools/check-readme.js` fails the gate if a key here is missing from the README's table.
 
@@ -503,7 +571,7 @@ List URLs: `/jobseekers/jobsearch?jobkeyword=…`, `/jobseekers/jobsearch/{offse
 | `test-repo-hygiene.js` | ✅ | no LICENSE, README stance, SECURITY, templates, hook wiring | `node test-repo-hygiene.js` |
 | `tools/check-readme.js` | ✅ | settings documented, no stale counts | `node tools/check-readme.js` |
 | `tools/gate.sh` | ✅ | all of the above + syntax + path scan + size cap | `sh tools/gate.sh` |
-| `tools/verify-live.mjs` | ❌ live site + browser | injection, selector drift, rule parity, `[hidden]`⇒`display:none`, chip toggle, panel open/save with no reload, an inserted card filtered on arrival + bounded rebuilds, pagination (idle = no requests, one per scroll, stops at the end), salary figures (recomputed with the same parser, the hours policy, piece rates left alone, one rate request per currency, goal marks exact); **W8**: recency parity + a watchdog on the date attributes, the computed yellow outline, `✗` badge parity, every branch forced to fire, and an inserted card that must turn yellow | `node tools/verify-live.mjs` |
+| `tools/verify-live.mjs` | ❌ live site + browser | injection, selector drift, rule parity, `[hidden]`⇒`display:none`, chip toggle, panel open/save with no reload, an inserted card filtered on arrival + bounded rebuilds, pagination (idle = no requests, one per scroll, stops at the end), salary figures (recomputed with the same parser, the hours policy, piece rates left alone, one rate request per currency, goal marks exact); **W8**: recency parity + a watchdog on the date attributes, the computed yellow outline, `✗` badge parity, every branch forced to fire, and an inserted card that must turn yellow; **W4**: the detail bar's figure recomputed from the DOM with the same parser and the same cached rate, plus an inserted off-platform paragraph that must fire the link, email, redaction and ask detectors; **W9**: a closure injected before the extension boots, then asserted recorded and hidden on the board (and removed again by hand *and* by the snapshot — it teaches the memory a listing that is not closed) | `node tools/verify-live.mjs` |
 | CI (Node 20) | ✅ | `npm test` + package integrity | `.github/workflows/ci.yml` |
 
 ## 9. What "done" looks like

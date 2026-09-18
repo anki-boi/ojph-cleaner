@@ -1214,7 +1214,7 @@ if (res.noSalExpected > 0) {
   if (!r.found) await fail(`the listing we just learned as closed (${jobId}) is no longer on the board page`);
   if (!r.cls || !r.badge) await fail(`a remembered-closed card was not marked (class ${r.cls}, badge ${JSON.stringify(r.badge)})`);
   if (r.hidden !== !showHidden) await fail(`a remembered-closed card had hidden=${r.hidden} with showHidden=${showHidden}`);
-  if (!/closed/.test(r.chip)) await fail(`the chip does not count the closed listing: ${JSON.stringify(r.chip)}`);
+  if (!/closed/i.test(r.chip)) await fail(`the chip does not count the closed listing: ${JSON.stringify(r.chip)}`);
   // This run deliberately taught the memory a closure for a listing that is NOT closed. Remove it now,
   // explicitly, as well as through the storage snapshot at the end: a kill between the two must not be
   // able to leave a live listing hidden from the user for six months.

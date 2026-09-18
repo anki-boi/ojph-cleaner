@@ -26,33 +26,82 @@
     panel = document.createElement('div');
     panel.id = 'ojc-panel';
     panel.hidden = true;
+    // Three parts — a fixed head, a scrolling body, a fixed foot — because the form is taller than most
+    // viewports: with one flat column the Save button sat below the fold, so the panel could not be
+    // completed without scrolling the whole page. Sections group the ten controls into the four
+    // questions they actually answer, and each hint carries what used to be a parenthetical inside the
+    // label, which is what made every row wrap onto two lines.
     panel.innerHTML = `
-      <label for="ojc-maxAge">Hide jobs posted more than this many days ago (0 = off · 7 = last week · 30 = last month)</label>
-      <input type="number" id="ojc-maxAge" min="0" step="1" placeholder="7">
-      <label for="ojc-neg">Hide jobs mentioning… (one per line · exact words, so <b>ai</b> never matches email)</label>
-      <textarea id="ojc-neg" rows="3" placeholder="crypto&#10;video editor"></textarea>
-      <label for="ojc-pos">Highlight jobs mentioning… (one per line · exact words, same rule)</label>
-      <textarea id="ojc-pos" rows="3" placeholder="quickbooks&#10;ai"></textarea>
-      <label class="ojc-check"><input type="checkbox" id="ojc-noSalary"> Hide jobs with no salary listed</label>
-      <label class="ojc-check"><input type="checkbox" id="ojc-rescueNoSalary"> …but keep one that matches a keyword I like, or beats my goal</label>
-      <label class="ojc-check"><input type="checkbox" id="ojc-showHidden"> Show hidden jobs</label>
-      <label class="ojc-check"><input type="checkbox" id="ojc-autoLoad"> Load more jobs when I scroll to the bottom</label>
-      <label for="ojc-goal">Brighten jobs paying at least this much per month (₱, 0 = off)</label>
-      <input type="number" id="ojc-goal" min="0" step="1000" placeholder="e.g. 40000">
-      <label for="ojc-goal-hourly">…or at least this much per hour (₱, 0 = off) — for listings that post a rate</label>
-      <input type="number" id="ojc-goal-hourly" min="0" step="10" placeholder="e.g. 300">
-      <label class="ojc-check" title="Saved now, acted on once the deep scan ships (spec.md W3)">
-        <input type="checkbox" id="ojc-autoScan" disabled> Auto deep-scan this page
-        <em class="ojc-soon">— not built yet</em>
-      </label>
-      <div class="ojc-row">
-        <button id="ojc-save">Save</button>
+      <div id="ojc-panel-head">
+        <b>Settings</b>
+        <button id="ojc-close" type="button" title="Close (Esc)">✕</button>
+      </div>
+      <div id="ojc-panel-body">
+        <div class="ojc-sec">
+          <i>Filters</i>
+          <div class="ojc-field">
+            <label for="ojc-maxAge">Hide jobs older than</label>
+            <div class="ojc-input"><input type="number" id="ojc-maxAge" min="0" step="1" placeholder="7"><span>days</span></div>
+            <p class="ojc-hint">0 = off · 7 = last week · 30 = last month</p>
+          </div>
+          <div class="ojc-field">
+            <label for="ojc-neg">Hide jobs mentioning</label>
+            <textarea id="ojc-neg" rows="3" spellcheck="false" placeholder="crypto&#10;video editor"></textarea>
+            <p class="ojc-hint">One per line. Exact words, so <b>ai</b> never matches <em>email</em>.</p>
+          </div>
+          <div class="ojc-field">
+            <label for="ojc-pos">Highlight jobs mentioning</label>
+            <textarea id="ojc-pos" rows="3" spellcheck="false" placeholder="quickbooks&#10;ai"></textarea>
+            <p class="ojc-hint">One per line, same rule — and never hidden.</p>
+          </div>
+          <label class="ojc-check"><input type="checkbox" id="ojc-noSalary"><span>Hide jobs with no salary listed</span></label>
+          <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-rescueNoSalary"><span>…but keep one that matches a keyword I like, or beats a goal</span></label>
+          <label class="ojc-check"><input type="checkbox" id="ojc-showHidden"><span>Show hidden jobs</span></label>
+        </div>
+        <div class="ojc-sec">
+          <i>Salary goals</i>
+          <div class="ojc-grid">
+            <div class="ojc-field">
+              <label for="ojc-goal">Monthly</label>
+              <div class="ojc-input"><span>₱</span><input type="number" id="ojc-goal" min="0" step="1000" placeholder="40000"></div>
+            </div>
+            <div class="ojc-field">
+              <label for="ojc-goal-hourly">Hourly</label>
+              <div class="ojc-input"><span>₱</span><input type="number" id="ojc-goal-hourly" min="0" step="10" placeholder="300"></div>
+            </div>
+          </div>
+          <p class="ojc-hint">0 = off. A listing at or above either goal brightens up. A monthly goal cannot judge a listing that posts a rate — use the hourly one for those.</p>
+        </div>
+        <div class="ojc-sec">
+          <i>Loading</i>
+          <label class="ojc-check"><input type="checkbox" id="ojc-autoLoad"><span>Load more jobs when I scroll to the bottom</span></label>
+          <label class="ojc-check ojc-off" title="Saved now, acted on once the deep scan ships (spec.md W3)">
+            <input type="checkbox" id="ojc-autoScan" disabled><span>Auto deep-scan this page <em class="ojc-soon">not built yet</em></span>
+          </label>
+        </div>
+      </div>
+      <div id="ojc-panel-foot">
+        <button id="ojc-save" type="button">Save changes</button>
         <span id="ojc-saved">Saved ✓</span>
         <a href="${chrome.runtime.getURL('options.html')}" target="_blank">full options ↗</a>
       </div>`;
     panel.querySelector('#ojc-save').onclick = save;
+    panel.querySelector('#ojc-close').onclick = () => open(false);
     document.body.appendChild(panel);
     return panel;
+  }
+
+  /**
+   * Sit above the status panel, whatever height it has. The old fixed `bottom: 60px` was tuned for a
+   * one-line chip; once the chip became a panel that grows with its rows (220px on a live page) the
+   * settings panel opened *on top of it*, hiding both.
+   */
+  function place() {
+    const chip = document.getElementById('ojc-chip');
+    const gap = 24;
+    const chipH = chip ? Math.round(chip.getBoundingClientRect().height) : 0;
+    panel.style.bottom = `${chipH + gap}px`;
+    panel.style.maxHeight = `calc(100vh - ${chipH + gap * 2}px)`;   // never taller than the viewport
   }
 
   function fillPanel() {
@@ -79,10 +128,12 @@
   function open(openTo) {
     const p = ensurePanel();
     p.hidden = !(openTo ?? p.hidden);
-    if (!p.hidden) fillPanel();
+    if (!p.hidden) { fillPanel(); place(); }
   }
 
-  /** Save applies the rules immediately — the storage write is durability, not the trigger. */
+  /**
+   * Save applies the rules immediately — the storage write is durability, not the trigger.
+   */
   function save() {
     const current = api.getSettings();
     api.setSettings({
@@ -106,6 +157,12 @@
     clearTimeout(save.timer);
     save.timer = setTimeout(() => { el.style.display = 'none'; }, 1500);
   }
+
+  // Esc closes the panel, like every other dialog the user has ever used. Only while it is open, so
+  // this never competes with the site's own keyboard handling.
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && panel && !panel.hidden) open(false);
+  });
 
   self.OJCPanel = { open, sync, save };
 })();

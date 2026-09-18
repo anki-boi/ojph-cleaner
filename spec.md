@@ -40,10 +40,11 @@ discipline, sized to a ~250-line extension.
 | Layer | Files | Notes |
 |---|---|---|
 | Manifest | `manifest.json` | MV3, `permissions: ["storage"]` (load-bearing — see §1.2), host permissions on `onlinejobs.ph` only |
-| Content script | `content.js` (299 lines) | chip, in-page options panel, rule pass, mutation observer, storage sync — **no network code**. At the 300-line cap: the next change must split the chip out |
+| Content script | `content.js` (271 lines) | rule pass, mutation observer, storage sync, the counts the panel shows — **no network code**. At 299 lines the status panel was split into `chip.js` |
+| Status panel | `chip.js` (138 lines) | the bottom-right panel: the hidden total with a line per reason, the matching stats, and the two buttons (`ui.css` styles it). Foldable from its header |
 | Loader | `pagination.js` (126 lines) | perpetual pagination: sentinel, one fetch per user scroll, stop conditions (W6) |
 | Rules | `rules.js` (105 lines) | pure `hasSalary` / `matchKeywords` / `keywordRegex` (the one place the exact-word pattern is built), `parsePosted` / `isStale`, UMD, no DOM |
-| Styles | `content.css` (278 lines) | chip + panel + highlight + detail-bar styles, all `#ojc-*` scoped |
+| Styles | `content.css` (206 lines), `ui.css` (222 lines) | `content.css` paints the site (card marks, salary notes, detail highlights); `ui.css` floats over it (the status panel and the options panel) |
 | Detail page | `detail-text.js` (146 lines), `detail.js` (214 lines) | the highlight planner (pure, tested) and the applier + figures bar (W4) |
 | Closed memory | `closed.js` (63 lines), `closed-cards.js` (152 lines) | the pure map/prune/lookup and its applier: learn a closure, mark cards and saved rows (W9) |
 | Options page | `options.html` / `options.js` | standalone fallback; the panel is the primary UI |

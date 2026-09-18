@@ -8,8 +8,8 @@
   "content_scripts": [
     {
       "matches": ["https://www.onlinejobs.ph/*", "https://onlinejobs.ph/*"],
-      "js": ["rules.js", "detail-text.js", "closed.js", "content.js", "salary.js", "salary-cards.js", "closed-cards.js", "pagination.js", "panel.js", "detail.js"],
-      "css": ["content.css"],
+      "js": ["rules.js", "detail-text.js", "closed.js", "chip.js", "content.js", "salary.js", "salary-cards.js", "closed-cards.js", "pagination.js", "panel.js", "detail.js"],
+      "css": ["ui.css", "content.css"],
       "run_at": "document_idle"
     }
   ],

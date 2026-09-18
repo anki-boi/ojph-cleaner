@@ -11,7 +11,7 @@ No-salary jobs and negative keywords are gone; the chip in the bottom-right says
 and offers one click to see everything it removed — a keyword-hidden card comes back with a red
 dashed marker, so the decision stays yours:
 
-![The in-page options panel](docs/img/options-panel.png)
+![The in-page options panel: Filters, Salary goals and Loading, with Save always in reach](docs/img/options-panel.png)
 
 Positive keywords never hide anything. They mark the card with a green outline and a `✓ keyword`
 badge, so a job you want floats to the top of your attention instead of disappearing by mistake:
@@ -58,9 +58,14 @@ it: the salary figure, the posted date and the listing itself are the site's.
 red `✗ keyword` badge sits in the same place on every card a negative keyword matched — the yellow ones,
 and the hidden ones when you turn *Show all* on. So nothing on the page is marked without saying why.
 
-The chip reports `N hidden (a stale, x no salary, y keywords, z highlighted, w to reconsider)` and
-toggles between hiding and showing. Click `⚙` to open the settings panel **in the page** — saving
-applies to the listings immediately, with no reload.
+The panel in the bottom-right corner says what it did, in two groups: the **Hidden** total with a line per
+reason, then **Stats** — how many listings matched a keyword you asked to hide, how many you highlighted,
+and how many are worth a second look (the yellow ones). Each line's dot and number share the colour of the
+mark it refers to on the cards, and the header explains the total on hover. Click the header to fold the
+lists away and leave the two buttons.
+
+`Show All` reveals everything it hid, `Settings` opens the rules **in the page** — saving applies to the
+listings immediately, with no reload.
 
 **Keep scrolling.** When you reach the bottom of the list the next result page is appended, so a
 297-job search is one continuous scroll instead of eight clicks on *Next*. One page per scroll, one
@@ -101,7 +106,7 @@ end of a range, so a "maybe" is not a yes. The hourly goal exists because a list
 
 ## Settings
 
-Click `⚙` on the chip, or use the standalone options page if you prefer a full tab. Both write the
+Click `Settings` on the panel, or use the standalone options page if you prefer a full tab. Both write the
 same storage, and both take effect on every open tab immediately.
 
 | Setting | Default | Meaning |
@@ -111,7 +116,7 @@ same storage, and both take effect on every open tab immediately.
 | `noSalary` | on | Hide listings whose salary field contains no digit (`TBD`, `N/A`, `Negotiable`, `DOE`, empty). |
 | `rescueNoSalary` | off | With `noSalary` on: a listing with no figure that matches a keyword you like, or pays at or above one of your goals, is **shown** instead of hidden. Off by default — a listing that states no pay at all is usually one you did not want to read. |
 | `maxAgeDays` | 7 | Hide listings posted longer ago than this many days. `0` turns it off, `7` is the last week, `30` the last month. Applied **before** every other rule, and a listing whose date cannot be read is never hidden by it. |
-| `showHidden` | off | Reveal what was hidden, with a red dashed marker. The chip's `Show all` writes this. |
+| `showHidden` | off | Reveal what was hidden, with a red dashed marker. The panel's `Show All` writes this. |
 | `autoLoad` | on | Append the next page of results when you scroll to the bottom of the list. One page per real scroll, one request per page, and it stops at the end of the results. |
 | `goalSalary` | 0 (off) | A monthly PHP figure. Cards whose converted salary is **at least** this much get a green wash and a `★ at or above your monthly goal` line. Judged on the low end of a range — a "maybe" is not a yes. |
 | `goalHourly` | 0 (off) | The same, per hour: for listings that post an hourly rate, which a monthly goal cannot judge. A card is brightened if **either** goal is met. |

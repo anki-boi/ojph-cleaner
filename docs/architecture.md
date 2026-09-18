@@ -27,12 +27,24 @@ split exists upstream in the sibling project's `scraper/parsers.py`, for the sam
 the same rules from the live DOM to check the result independently. All network code lives in
 `pagination.js`, which is also the only file that can grow the page's card list.
 
-**Four content scripts, one job each.** `content.js` is the hub — it owns the settings, the rule pass
-and the chip — and publishes a small API (`self.OJC`). The other three are loaded after it and talk to it
-only through that API: `salary.js` + `salary-cards.js` (money), `pagination.js` (loading) and `panel.js` (the options form).
-Each was split out when `content.js` reached the gate's 300-line ceiling, and each split has a second
-justification: the money maths is unit-testable, the loader is the only network code, and the panel owns
-no rule logic — so a change to the form cannot alter which listings are hidden.
+**One job per file.** `content.js` is the hub — it owns the settings, the rule pass and the counts — and
+publishes a small API (`self.OJC`). Everything else is loaded around it and talks to it only through that
+API, or takes its data as arguments: `rules.js` (pure rules), `detail-text.js` (pure highlight planning),
+`closed.js` (pure closed-memory maths), `chip.js` (the status panel), `salary.js` + `salary-cards.js`
+(money), `closed-cards.js` (the memory's storage and marks), `pagination.js` (loading), `panel.js` (the
+options form) and `detail.js` (the job's own page).
+
+Each was split out when a file reached the gate's 300-line ceiling, and each split has a second
+justification. The pure ones are unit-testable offline (the rules, the money maths, the pager's URLs, the
+highlight planner, the memory's pruning). The appliers own one external system each: `pagination.js` is
+the only file that can make a request, `closed-cards.js` is the only one that writes the memory, and
+`panel.js` owns no rule logic, so a change to the form cannot alter which listings are hidden. `chip.js`
+and `ui.css` were split out together when the panel outgrew a single line: the status UI is the part that
+keeps growing, and none of it can change a verdict.
+
+The styles follow the same line: `ui.css` is what floats over the page (the status panel and the options
+panel), `content.css` is what is painted on the site's own elements (card marks, salary notes, the detail
+page's highlights and bar).
 
 **`pagination.js` is a second content script, not a module.** It needs the DOM, the settings and the
 rule pass, so it talks to `content.js` through one small API (`self.OJC`: selectors, `cards()`,
@@ -130,6 +142,11 @@ trailing debounce instead, and our own badge/class is ignored so it cannot loop.
   `.ojc-neg`, `.ojc-recon`, `.ojc-closed`, `.ojc-pos-badge`, `.ojc-neg-badge`, `.ojc-closed-badge`,
   `.ojc-closed-row`, `.ojc-hl-pos`, `.ojc-hl-neg`, `.ojc-hl-warn`. The extension never restyles the
   site's own elements.
+- **The status UI is a panel, and it can fold.** `chip.js` owns its DOM and rebuilds it wholesale on every
+rule pass — the pass owns the numbers, and a number left behind by a partial update is the same class of
+bug as an injected mark that `isOurs()` cannot recognise. It is a sibling of the options panel, not a
+parent, and the loader's note (`#ojc-note`) sits outside the collapsible body so folding the panel away
+cannot hide the line that says what just happened.
 - **Every injected class must be in `isOurs()`'s `OUR_CLASSES`.** A badge added by the rule pass is a real
   DOM mutation, and if `isOurs()` cannot recognise it the pass schedules itself forever (§2.2). Adding a
   badge means adding it here too — `.ojc-neg-badge` cost one line in two places, and forgetting the

@@ -75,57 +75,29 @@
     return ownText(c) + (ctx ? ' ' + (ctx.description || '') : '');
   };
 
-  // ── Chip (bottom-right status bar) ───────────────────────────────────────
-  let chip = null;
+  // ── Chip (bottom-right status panel) ─────────────────────────────────────
+  // The DOM for it lives in chip.js (this file is at the 300-line cap and the panel is the part that
+  // keeps growing). Here: the counts it shows, the note, and the two things the buttons do.
   let chipNote = '';
   const setNote = (text) => { chipNote = text; renderChip(); };
   let chipCounts = { closed: 0, stale: 0, noSal: 0, kw: 0, pos: 0, recon: 0 };
-  function ensureChip() {
-    if (!chip || !chip.isConnected) {
-      chip = document.createElement('div');
-      chip.id = 'ojc-chip';
-      document.body.appendChild(chip);
-    }
-    return chip;
-  }
   function renderChip() {
     if (!LIST_RE.test(location.pathname)) {
-      if (chip?.isConnected) chip.style.display = 'none';
+      self.OJCChip?.hide();
       self.OJCPanel?.open(false);   // the panel belongs to panel.js; closing is the same call
       return;
     }
-    const el = ensureChip();
-    el.style.display = '';
-    el.innerHTML = '';
-    const total = chipCounts.closed + chipCounts.stale + chipCounts.noSal + chipCounts.kw;
-    const b = document.createElement('b');
-    b.textContent = settings.showHidden ? `${total} would be hidden` : `${total} hidden`;
-    const s = document.createElement('span');
-    s.textContent = ` (${chipCounts.stale} stale, ${chipCounts.noSal} no salary, ${chipCounts.kw} keywords` +
-      (chipCounts.closed ? `, ${chipCounts.closed} closed` : '') +
-      (chipCounts.pos ? `, ${chipCounts.pos} highlighted` : '') +
-      (chipCounts.recon ? `, ${chipCounts.recon} to reconsider` : '') + ')';
-    const gear = document.createElement('button');
-    gear.id = 'ojc-gear';
-    gear.title = 'Options';
-    gear.textContent = '⚙';
-    gear.onclick = () => self.OJCPanel?.open();   // panel.js owns the panel (W1: 300-line cap)
-    const btn = document.createElement('button');
-    btn.id = 'ojc-toggle';
-    btn.textContent = settings.showHidden ? 'Hide them' : 'Show all';
-    btn.onclick = () => {
-      settings.showHidden = !settings.showHidden;
-      refreshRules();
-      persistField('showHidden', settings.showHidden);
-    };
-    el.append(gear, b, s);
-    if (chipNote) {
-      const note = document.createElement('i');
-      note.id = 'ojc-note';
-      note.textContent = chipNote;
-      el.appendChild(note);
-    }
-    el.appendChild(btn);
+    self.OJCChip?.render({
+      counts: chipCounts,
+      showHidden: settings.showHidden,
+      note: chipNote,
+      onToggle: () => {
+        settings.showHidden = !settings.showHidden;
+        refreshRules();
+        persistField('showHidden', settings.showHidden);
+      },
+      onSettings: () => self.OJCPanel?.open(),   // panel.js owns the panel (W1: 300-line cap)
+    });
   }
 
   // ── Rules pass ───────────────────────────────────────────────────────────

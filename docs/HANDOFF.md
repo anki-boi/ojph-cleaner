@@ -220,7 +220,19 @@ want to reload to see a settings change. Both were addressed in **0.3.0**:
 - **Also asserted:** every card carrying `[hidden]` is really `display: none` (the site CSS could
   win the cascade — it does not today), and the panel survives a Save (it is not rebuilt by
   `refreshRules()`).
-- `⚙` opens the panel; `full options ↗` in it opens the standalone page, which is kept as a fallback
+- `Settings` opens the panel; `full options ↗` in it opens the standalone page, which is kept as a fallback
+- **Redesigned in 0.8.0** into a real settings sheet: a fixed head (`Settings` + `✕`), a scrolling body
+  grouped as `Filters` / `Salary goals` / `Loading`, and a fixed foot with `Save changes`. Two things the
+  first version got wrong and are worth keeping in mind:
+  - **The panel was anchored `bottom: 60px`, tuned for a one-line chip.** Once the chip became a panel that
+    grows with its rows (220px live), the settings panel opened *on top of it* and both were unreadable.
+    `panel.js` now measures the chip and sets `bottom`/`max-height` from it — do not go back to a constant.
+  - **Labels were whole sentences**, so every row wrapped onto two lines and the form read as a wall of
+    text. Each row is now a short title plus a `.ojc-hint` line, which is also what lets the body scroll
+    while the head and foot stay put: a form whose Save button is below the fold cannot be completed.
+- **`scrollbar-width: thin` and `::-webkit-scrollbar` are mutually exclusive in Chrome.** Setting the
+  former made Chrome ignore the latter and fall back to the default scrollbar — with arrow buttons — in a
+  dark panel. Pick one; this uses the webkit pseudo-elements.
   and is what `verify-live` seeds test settings through.
 
 ### 4c. ✅ W2 — what the audit found, fixed (0.4.0)

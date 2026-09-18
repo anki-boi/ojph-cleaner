@@ -1,0 +1,222 @@
+/* ui.css — the floating UI: the status panel (chip.js) and the options panel (panel.js).
+   Split out of content.css, which hit the gate's 300-line cap. content.css owns what is painted ON
+   the site (cards, marks, the detail bar); this file owns what floats over it. */
+
+/* Bottom-right status panel. A panel rather than a line: five numbers separated by commas stopped
+   being readable, so the hidden reasons and the matching stats are separate groups, and each row's dot
+   and number carry the hue of the mark it refers to on the cards (.ojc-closed grey, .ojc-neg red,
+   .ojc-pos green, .ojc-recon yellow). Muted enough to sit over a page all day. */
+#ojc-chip {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2147483000;
+  min-width: 210px;
+  background: #1f2933;
+  color: #e6edf3;
+  font: 12px/1.5 system-ui, -apple-system, sans-serif;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+  overflow: hidden;
+}
+#ojc-chip-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+}
+#ojc-chip-head:hover { background: #26323d; }
+#ojc-chip-total { color: #fff; font-weight: 700; }
+#ojc-chip-caret { color: #9fb3c8; font-size: 11px; }
+#ojc-chip-body { padding: 0 10px 4px; }
+.ojc-chip-group + .ojc-chip-group { margin-top: 6px; }
+.ojc-chip-group > i {
+  display: block;
+  color: #8a9aa8;
+  font: 600 10px/1.4 system-ui, sans-serif;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.ojc-chip-group ul { margin: 2px 0 0; padding: 0; list-style: none; }
+.ojc-chip-row { display: flex; align-items: center; gap: 7px; padding: 1px 0; }
+.ojc-chip-count { min-width: 22px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
+/* The label stays neutral and the dot + number carry the row's hue, so a line is identifiable at a
+   glance without reading it. (The first version made the dot `flex: 0 0 1px` — a 1px vertical bar — and
+   left `currentColor` on the neutral label, so every row got an identical grey tick.) */
+.ojc-chip-row > span:last-child { color: #e6edf3; }
+.ojc-chip-row::before {
+  content: '';
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.ojc-chip-closed { color: #9aa7b3; }
+.ojc-chip-stale { color: #7ea6cc; }
+.ojc-chip-nosal { color: #e0a800; }
+.ojc-chip-kw { color: #e2705f; }
+.ojc-chip-pos { color: #8fb877; }
+.ojc-chip-recon { color: #e8b93c; }
+#ojc-chip-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px 10px;
+}
+#ojc-chip button {
+  flex: 1;
+  background: #3a4a5a;
+  border: 0;
+  color: #fff;
+  font: 600 12px system-ui, sans-serif;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+#ojc-chip button:hover { background: #4d617a; }
+#ojc-chip #ojc-toggle { background: #3f6ea8; }
+#ojc-chip #ojc-toggle:hover { background: #4d82c1; }
+/* Folded away: the header and buttons stay, the lists go. */
+#ojc-chip.ojc-chip-collapsed #ojc-chip-body { display: none; }
+
+/* In-page options panel — a sibling of the status panel, anchored above it (panel.js measures the
+   status panel and sets `bottom` so the two never overlap, whatever height the status panel has).
+   Three parts: a fixed head, a scrolling body, a fixed foot, so Save is always reachable even though
+   the form is taller than a short viewport. */
+#ojc-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 60px;
+  z-index: 2147483000;
+  width: 340px;
+  display: flex;
+  flex-direction: column;
+  background: #1f2933;
+  color: #e6edf3;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .45);
+  font: 12px/1.45 system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+}
+#ojc-panel[hidden] { display: none; }
+#ojc-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 10px 9px 14px;
+  border-bottom: 1px solid #2c3946;
+}
+#ojc-panel-head b { font-size: 13px; color: #fff; letter-spacing: .01em; }
+#ojc-close {
+  background: transparent;
+  border: 0;
+  color: #8a9aa8;
+  font-size: 13px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+#ojc-close:hover { background: #33414f; color: #fff; }
+/* The body scrolls, the head and foot do not: the form is ~640px tall and Save below the fold is a form
+   you cannot finish. Thin scrollbar so it does not read as a browser control. */
+#ojc-panel-body { overflow-y: auto; padding: 4px 14px 12px; }
+#ojc-panel-body::-webkit-scrollbar { width: 8px; }
+#ojc-panel-body::-webkit-scrollbar-thumb { background: #3a4a5a; border-radius: 4px; }
+.ojc-sec { padding-top: 10px; }
+.ojc-sec + .ojc-sec { margin-top: 10px; border-top: 1px solid #2c3946; }
+/* Same group-label treatment as the status panel, so the two read as one design. */
+.ojc-sec > i {
+  display: block;
+  margin-bottom: 8px;
+  color: #8a9aa8;
+  font: 600 10px/1.4 system-ui, sans-serif;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.ojc-field + .ojc-field { margin-top: 10px; }
+.ojc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+#ojc-panel label { display: block; margin-bottom: 4px; color: #cbd5e0; font-weight: 500; }
+#ojc-panel .ojc-hint { margin: 4px 0 0; color: #8a9aa8; font-size: 11px; line-height: 1.4; }
+#ojc-panel .ojc-hint b { color: #cbd5e0; }
+/* Inputs: one dark field style for numbers and textareas, with the unit as a gutter inside the same box
+   so "₱ 70000" and "30 days" read as one control instead of a number floating next to a word. */
+#ojc-panel input[type=number],
+#ojc-panel textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: #16202a;
+  border: 1px solid #33414f;
+  border-radius: 6px;
+  color: #fff;
+  font: 12px/1.4 system-ui, sans-serif;
+  padding: 6px 8px;
+  outline: none;
+}
+#ojc-panel textarea {
+  padding-right: 14px;   /* never let a long keyword sit under the 8px scrollbar */
+  min-height: 58px;
+  max-height: 132px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  line-height: 1.5;
+}
+#ojc-panel textarea::-webkit-scrollbar { width: 8px; }
+#ojc-panel textarea::-webkit-scrollbar-thumb { background: #3a4a5a; border-radius: 4px; }
+#ojc-panel input[type=number]:focus,
+#ojc-panel textarea:focus { border-color: #4d82c1; box-shadow: 0 0 0 2px rgba(77, 130, 193, .25); }
+.ojc-input { display: flex; align-items: center; background: #16202a; border: 1px solid #33414f; border-radius: 6px; }
+.ojc-input:focus-within { border-color: #4d82c1; box-shadow: 0 0 0 2px rgba(77, 130, 193, .25); }
+.ojc-input input[type=number] { border: 0; background: transparent; box-shadow: none; border-radius: 0; }
+.ojc-input > span { padding: 0 2px 0 9px; color: #8a9aa8; font-size: 12px; }
+.ojc-input > span:last-child { padding: 0 9px 0 6px; }
+/* Checkbox rows: the box never shrinks and the text wraps beside it, aligned to the first line. */
+#ojc-panel .ojc-check {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 8px;
+  align-items: start;
+  margin: 8px 0 0;
+  color: #e6edf3;
+  font-weight: 400;
+  cursor: pointer;
+}
+#ojc-panel .ojc-check input { width: 14px; height: 14px; margin: 2px 0 0; accent-color: #4d82c1; cursor: pointer; }
+#ojc-panel .ojc-sub { margin-left: 24px; color: #cbd5e0; }
+#ojc-panel .ojc-off { color: #8a9aa8; cursor: default; }
+#ojc-panel .ojc-off input { cursor: default; }
+.ojc-soon { color: #8a9aa8; font-style: italic; }
+#ojc-panel-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid #2c3946;
+  background: #1b242d;
+}
+#ojc-panel-foot button {
+  background: #3f6ea8;
+  border: 0;
+  color: #fff;
+  font: 600 12px system-ui, sans-serif;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+#ojc-panel-foot button:hover { background: #4d82c1; }
+#ojc-saved { display: none; color: #9ed38a; font-weight: 600; font-size: 11px; }
+#ojc-panel a { margin-left: auto; color: #8a9aa8; text-decoration: none; }
+#ojc-panel a:hover { color: #cbd5e0; text-decoration: underline; }
+
+/* The loader's message ("loaded page 2 of 3"). Outside the collapsible body: folding the panel away
+   must not hide the one line that says what just happened. */
+#ojc-note {
+  padding: 0 10px 2px;
+  color: #9fb3c8;
+  font-style: italic;
+  font-size: 11px;
+}

@@ -16,6 +16,29 @@
   }
 
   /**
+   * The one place the "exact word or phrase" pattern is built (D24), so anything that needs the same
+   * matching semantics — `matchKeywords` below, the detail page's highlighter — shares one definition
+   * instead of a second copy that drifts. A leading `=` is accepted and dropped (legacy).
+   *
+   * Returns null for an empty keyword. Pass `'g'` to walk every occurrence with `exec`.
+   */
+  function keywordRegex(keyword, flags = '') {
+    const raw = String(keyword ?? '').trim();
+    const needle = (raw.startsWith('=') ? raw.slice(1) : raw).trim().toLowerCase();
+    if (!needle) return null;
+    // Lookarounds rather than \b: a boundary is "no word character either side", which is also right
+    // for a needle that starts or ends with punctuation (`$5`, `c++`), where \b refuses to match.
+    // The needle is escaped — a keyword is data, so a `.` in one is a literal dot.
+    return new RegExp('(?<!\\w)' + needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?!\\w)', flags);
+  }
+
+  /** The keyword as shown to the user: a leading `=` stripped, whitespace trimmed. */
+  function cleanKeyword(keyword) {
+    const raw = String(keyword ?? '').trim();
+    return (raw.startsWith('=') ? raw.slice(1) : raw).trim();
+  }
+
+  /**
    * Case-insensitive keyword match, **exact by default**: every keyword is a whole word or a whole
    * phrase. `ai` matches "AI tools" and "AI-powered" but never `email` or `daily`; `video editor`
    * matches that phrase and not `video editors` — add the forms you want to the list instead of
@@ -26,23 +49,13 @@
    * matched 30 of 30 cards on the live board, through `daily`, `email`, `main`, `paid`, `thumbnail`
    * and `management` — and because the yellow reconsider rule rescues every negative match, that
    * silently turned the user's entire negative-keyword list into a no-op.
-   *
-   * A leading `=` is accepted and ignored, so a keyword saved as `=ai` by the one release that made
-   * whole-word opt-in keeps working rather than quietly matching nothing.
    */
   function matchKeywords(text, keywords) {
     const t = (text || '').toLowerCase();
     const hits = [];
     for (const k of keywords || []) {
-      if (!k || !String(k).trim()) continue;
-      const raw = String(k).trim();
-      const needle = (raw.startsWith('=') ? raw.slice(1) : raw).trim().toLowerCase();
-      if (!needle) continue;
-      // Lookarounds rather than \b: a boundary is "no word character either side", which is also right
-      // for a needle that starts or ends with punctuation (`$5`, `c++`), where \b refuses to match.
-      // The needle is escaped — a keyword is data, so a `.` in one is a literal dot.
-      const re = new RegExp('(?<!\\w)' + needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?!\\w)');
-      if (re.test(t)) hits.push(needle === raw.toLowerCase() ? raw : raw.slice(1).trim());
+      const re = keywordRegex(k);
+      if (re && re.test(t)) hits.push(cleanKeyword(k));
     }
     return hits;
   }
@@ -88,5 +101,5 @@
     return (nowMs - postedMs) / 86400000 > max;
   }
 
-  return { hasSalary, matchKeywords, parsePosted, isStale, MANILA_OFFSET_MINUTES };
+  return { hasSalary, matchKeywords, keywordRegex, cleanKeyword, parsePosted, isStale, MANILA_OFFSET_MINUTES };
 });

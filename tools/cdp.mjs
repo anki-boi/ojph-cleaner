@@ -20,8 +20,22 @@ const rpc = (ws) => {
     pending.set(i, { resolve, reject });
     ws.send(JSON.stringify({ id: i, method, params }));
   });
-  const evaluate = async expression =>
-    (await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }))?.result?.value;
+  /**
+   * Evaluate in the page. A page-side exception is rethrown, not returned as `undefined`.
+   *
+   * Chrome reports a thrown expression as `exceptionDetails` with an empty `result`, so the obvious
+   * `?.result?.value` turns "my probe threw" into "the page has no such element" — two opposite facts
+   * behind one value. That cost three debugging rounds while the detail page was being built, and in a
+   * harness assertion it is worse than inconvenient: a check can quietly stop checking anything.
+   */
+  const evaluate = async expression => {
+    const res = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
+    if (res?.exceptionDetails) {
+      const d = res.exceptionDetails.exception?.description || res.exceptionDetails.text || 'unknown';
+      throw new Error(`page-side exception: ${String(d).split('\n')[0]}`);
+    }
+    return res?.result?.value;
+  };
   const ready = () => evaluate(`new Promise(r=>{document.readyState==='complete'?r(1):addEventListener('load',()=>r(1),{once:true})})`);
   /** Subscribe to a CDP event — used to count real network requests, which a page-world
    *  fetch patch cannot see (the content script runs in an isolated world). */

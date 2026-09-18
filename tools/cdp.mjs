@@ -85,3 +85,26 @@ export async function withTab(port, url, fn, settleMs = 1500) {
     browserWs.close();
   }
 }
+
+/**
+ * Open one tab and hand it back open. For a page a run needs a handle on over and over — an extension
+ * page used as a `chrome.storage` handle, say. `withTab` opens and closes a tab per call, so a caller
+ * that reads the storage ten times used to open and close ten real tabs in the user's browser; one
+ * long-lived tab is one tab.
+ */
+export async function openTab(port, url, settleMs = 600) {
+  const { webSocketDebuggerUrl } = await versionInfo(port);
+  const browserWs = await openWs(webSocketDebuggerUrl);
+  const browser = rpc(browserWs);
+  const { targetId } = await browser.send('Target.createTarget', { url });
+  const session = await attach(port, targetId);
+  await new Promise(r => setTimeout(r, settleMs));
+  return {
+    ...session,
+    close: async () => {
+      session.close();
+      try { await browser.send('Target.closeTarget', { targetId }); } catch {}
+      browserWs.close();
+    },
+  };
+}

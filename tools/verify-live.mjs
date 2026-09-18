@@ -7,8 +7,10 @@
 //   node tools/verify-live.mjs --neg=crypto,insurance --pos=bookkeeper
 //
 // Env: OJC_CDP_PORT (default 9333), OJC_EXT_NAME (default "OJ.ph Cleaner").
-import { connect, withTab } from './cdp.mjs';
+import { connect, withTab, openTab } from './cdp.mjs';
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
 const arg = (name, dflt) => {
   const hit = process.argv.find(a => a.startsWith(`--${name}=`));
@@ -24,9 +26,86 @@ const GOAL_HOURLY = +(arg('goal-hourly', '300')); // hourly PHP goal
 // salary.js's pure factory, injected into the page so the harness can recompute every figure from
 // the DOM with the SAME code the extension used — a parity check, not a second opinion.
 const salarySrc = fs.readFileSync(new URL('../salary.js', import.meta.url), 'utf8');
+// Same idea for the rules: `ruleEval` below injects this instead of re-implementing the date maths, so
+// a parity check can never disagree with `parsePosted`/`isStale` about what "stale" means. rules.js is
+// UMD, and the page has no `module`, so it lands on the page's own `self.OJRules` — a different world
+// from the content script's copy, so nothing collides.
+const RULES_SRC = fs.readFileSync(new URL('../rules.js', import.meta.url), 'utf8');
 
-const fail = async msg => { console.error('verify-live: FAIL — ' + msg); await new Promise(r => setTimeout(r, 250)); process.exit(1); };
+const fail = async msg => {
+  console.error('verify-live: FAIL — ' + msg);
+  await restoreStorage();   // a failing run must not leave the user's settings replaced either
+  await new Promise(r => setTimeout(r, 250));
+  process.exit(1);
+};
 const settle = ms => new Promise(r => setTimeout(r, ms));
+
+/**
+ * This harness writes settings into the profile it finds on `:${PORT}` — which is the user's daily
+ * driver, not a throwaway (docs/HANDOFF §2). It therefore snapshots the whole of
+ * `chrome.storage.local` BEFORE its first write and puts it back on every exit path, including a
+ * failure. Without this, one run silently replaced the user's keyword lists and salary goals with the
+ * harness's fixtures and left them there: data loss committed in the name of testing.
+ *
+ * Restoring is a `set` of the snapshot followed by a `remove` of the keys that did not exist before,
+ * never a `clear()` — a crash between the two must not be able to leave the profile empty.
+ *
+ * The snapshot is also written to disk and restored on SIGINT/SIGTERM, because the first version of
+ * this restore ran only on a normal exit — and the run that found that out was killed by a tool
+ * timeout mid-flight, leaving the user's keywords and salary goals replaced by the harness's
+ * fixtures. `node tools/verify-live.mjs --restore` recovers from that file by hand after a hard kill.
+ */
+const SNAP_FILE = path.join(os.tmpdir(), 'ojc-verify-live-snapshot.json');
+const RESTORE_ONLY = process.argv.includes('--restore');
+let SNAPSHOT = null, EXT = null, STORE = null, restoring = false;
+
+/**
+ * The run's single `chrome.storage` handle.
+ *
+ * `chrome.storage` is only reachable from an extension context, and the obvious way to get one —
+ * `withTab(…options.html…)` — opens and closes a real tab in the user's browser on every call. Read the
+ * storage ten times and that is ten tabs appearing and vanishing while they watch. This harness used to
+ * do exactly that, twenty times over in one poll loop, before it had loaded the site at all. One tab,
+ * opened once, is one tab: it is also why the seed no longer needs a poll loop, since `await`ing the
+ * write in a live tab is the proof that it landed.
+ */
+const storeEval = (expression, settleMs = 400) => (STORE
+  ? STORE.evaluate(expression)
+  : withTab(PORT, `chrome-extension://${EXT}/options.html`, (tab) => tab.evaluate(expression), settleMs));
+const readStorage = async () => JSON.parse(await storeEval(`chrome.storage.local.get(null).then(r => JSON.stringify(r))`));
+const readSettings = async () => JSON.parse(await storeEval(`chrome.storage.local.get('settings').then(r => JSON.stringify(r.settings || {}))`));
+
+async function applySnapshot(snap) {
+  return JSON.parse(await storeEval(`(async () => {
+    const snap = ${JSON.stringify(snap)};
+    const now = await chrome.storage.local.get(null);
+    await chrome.storage.local.set(snap);
+    const extra = Object.keys(now).filter(k => !(k in snap));
+    if (extra.length) await chrome.storage.local.remove(extra);
+    return JSON.stringify({ kept: Object.keys(snap), removed: extra });
+  })()`, 600));
+}
+
+async function restoreStorage() {
+  if (restoring || !SNAPSHOT || !EXT) return;   // nothing was taken (the run died before step 2)
+  restoring = true;
+  try {
+    const done = await applySnapshot(SNAPSHOT);
+    console.log(`storage   : restored (kept ${done.kept.join(', ') || 'nothing'}` +
+      `${done.removed.length ? `, removed ${done.removed.join(', ')}` : ''})`);
+  } catch (e) {
+    console.error(`verify-live: WARNING — could not restore the pre-run chrome.storage (${e.message}). ` +
+      `The snapshot is at ${SNAP_FILE}; recover it with --restore.`);
+  }
+}
+
+// A timeout, a ctrl-c or a closed terminal must not be able to leave the profile seeded.
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  process.on(signal, () => {
+    console.error(`verify-live: ${signal} — putting the storage back before exiting`);
+    restoreStorage().then(() => STORE?.close()).finally(() => process.exit(130));
+  });
+}
 
 /**
  * The rule pass is scheduled with requestAnimationFrame and the loader's fetch resolves on the tab's
@@ -77,89 +156,92 @@ if (!extInfo.length) await fail(`${EXT_NAME} is not installed in this browser pr
 const { id: EXT_ID, version: EXT_VERSION, state, path: EXT_PATH } = extInfo[0];
 if (state !== 'ENABLED') await fail(`${EXT_NAME} is ${state}`);
 
+// Take the user's storage before the first write below, so every exit path can put it back.
+EXT = EXT_ID;
+if (RESTORE_ONLY) {
+  SNAPSHOT = JSON.parse(fs.readFileSync(SNAP_FILE, 'utf8'));
+  await restoreStorage();
+  console.log(`verify-live: restored from ${SNAP_FILE}`);
+  process.exit(0);
+}
 // Reload so edits on disk take effect. (runtimeErrors are historical and persist
 // across reloads, so the pass/fail decision below is based on behaviour.)
 await withTab(PORT, 'chrome://extensions', tab => tab.evaluate(
   `chrome.developerPrivate.reload(${JSON.stringify(EXT_ID)}, { failQuietly: true }).then(()=>1)`));
 await settle(2500);
+// After the reload: reloading the extension invalidates any extension page already open.
+STORE = await openTab(PORT, `chrome-extension://${EXT_ID}/options.html`);
 console.log(`extension : ${EXT_NAME} v${EXT_VERSION} ${state} (${EXT_PATH})`);
 
-// ── 2. optional: seed keyword settings through the options page ──────────
-// Always seed, even with no flags: settings persist in chrome.storage, so an
-// unseeded run would be judged against whatever a previous run left behind.
+// The user's own storage, taken before the first write below, so every exit path can put it back.
+SNAPSHOT = await readStorage();
+fs.writeFileSync(SNAP_FILE, JSON.stringify(SNAPSHOT, null, 1));   // survives a hard kill
+console.log(`storage   : snapshot taken (${Object.keys(SNAPSHOT).join(', ') || 'empty'}) — restored when this run ends`);
+
+// ── 2. seed the settings this run asserts against ────────────────────────
+// Seeded rather than inherited from whatever the browser had, so a run's outcome depends on the code
+// under test and not on the keywords the user happened to have typed. The seeding is reversible (see
+// `restoreStorage`), and every assertion below recomputes its expectation from the DOM, so it holds for
+// any settings — the flags only decide which branches this run is guaranteed to reach.
 const settings = { negative: neg, positive: pos, noSalary: true, showHidden: false, autoScan: false, goalSalary: GOAL, goalHourly: GOAL_HOURLY };
-await withTab(PORT, `chrome-extension://${EXT_ID}/options.html`, tab =>
-  tab.evaluate(`chrome.storage.local.set({ settings: ${JSON.stringify(settings)} }).then(()=>1)`), 1200);
+await storeEval(`chrome.storage.local.set({ settings: ${JSON.stringify(settings)} }).then(()=>1)`, 900);
 // Drop the FX cache so the live ECB path is exercised on every run (otherwise a 24h-old rate from a
 // previous run would silently satisfy it).
-await withTab(PORT, `chrome-extension://${EXT_ID}/options.html`, tab =>
-  tab.evaluate(`chrome.storage.local.remove('fx').then(()=>1)`), 800);
-/** The durable settings, read through an extension context (page scripts cannot see chrome.storage). */
-const storedSettings = async () => JSON.parse(await withTab(PORT, `chrome-extension://${EXT_ID}/options.html`,
-  tab => tab.evaluate(`chrome.storage.local.get('settings').then(r => JSON.stringify(r.settings || {}))`), 350));
-// A tab that boots before a write lands sees the old value — so wait for the seed to be durable rather
-// than assuming the write beat the next tab. (It did not, once, and reported a phantom failure.)
-for (let i = 0; i < 20; i++) {
-  const now = await storedSettings();
-  if (now.goalSalary === GOAL && now.goalHourly === GOAL_HOURLY && now.autoLoad === true) break;
-  await settle(200);
+await storeEval(`chrome.storage.local.remove('fx').then(()=>1)`, 500);
+// The write landed if every key matches — compared per key, not as one serialized string: Chrome
+// reorders object keys on the way out, so a string compare fails on a perfectly good write.
+const sameSettings = (a, b) => JSON.stringify(Object.entries(a).sort()) === JSON.stringify(Object.entries(b).sort());
+const stored = await readSettings();
+if (!sameSettings(stored, settings)) {
+  await fail(`the seeded settings did not land: wrote ${JSON.stringify(settings)}, read back ${JSON.stringify(stored)}`);
 }
 console.log(`settings  : ${JSON.stringify(settings)}`);
 
 
 /**
- * Count what the rule pass will do, with the rule's own order (noSalary → negative → positive).
- * `negAny` is the count when noSalary is OFF: a no-salary card that also matches a keyword re-files into
- * the keyword bucket, so it must be counted there (docs/HANDOFF.md §2.3). One implementation, used by
- * every section that needs a count — two copies of this logic disagreed and reported phantom failures.
+ * Count what the rule pass will do, with the rule's own order, recomputed from the DOM.
+ *
+ * ONE copy, used by every section that needs a count: this logic used to exist three times in this
+ * file (a section-3 copy, a `ruleCounts` helper that nothing called any more, and a per-section
+ * pick), and two copies that disagree report phantom failures (docs/HANDOFF §2.3). `rules.js` is
+ * injected rather than re-implemented, so the date maths is the extension's own code.
+ *
+ * `negExpected` counts only cards the keyword rule actually hides: a no-salary card re-files into the
+ * no-salary bucket, because noSalary is checked first — which is why a predicted total can never be
+ * computed by adding the buckets up.
  */
-const ruleCounts = (tab, negative, positive) => tab.evaluate(`(() => {
-  const neg = ${JSON.stringify(negative.map(k => k.toLowerCase()))};
+const ruleEval = (tab, { neg = [], pos = [] } = {}) => tab.evaluate(`${RULES_SRC}
+(() => {
+  const neg = ${JSON.stringify(neg.map((k) => k.toLowerCase()))};
+  const pos = ${JSON.stringify(pos.map((k) => k.toLowerCase()))};
   const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
-  const ownText = (c) => {
+  const ownSal = (c) => {
     const d = c.querySelector('dd.col');
     if (!d) return '';
-    const own = d.cloneNode(true);
-    for (const injected of own.querySelectorAll('[class^="ojc-"]')) injected.remove();
-    return own.textContent;
+    const o = d.cloneNode(true);
+    for (const injected of o.querySelectorAll('[class^="ojc-"]')) injected.remove();
+    return o.textContent;
   };
-  let noSal = 0, kw = 0, pos = 0, negAny = 0;
+  let noSalExpected = 0, negExpected = 0, posExpected = 0, negAnyExpected = 0;
   for (const c of cards) {
     const text = (c.textContent || '').toLowerCase();
-    const ns = !/\\d/.test(ownText(c));
-    const nm = neg.filter(k => text.includes(k)).length > 0;
-    const pm = ${JSON.stringify(positive.map(k => k.toLowerCase()))}.some(k => text.includes(k));
-    if (nm) negAny++;
-    if (ns) noSal++;
-    else if (nm) kw++;
-    else if (pm) pos++;
+    const ns = !/\\d/.test(ownSal(c));
+    const nm = neg.some((k) => text.includes(k));
+    const pm = pos.some((k) => text.includes(k));
+    if (nm) negAnyExpected++;
+    if (ns) noSalExpected++;
+    else if (nm) negExpected++;
+    else if (pm) posExpected++;
   }
-  return JSON.stringify({ cards: cards.length, noSal, kw, pos, negAny, on: noSal + kw, off: negAny });
+  return JSON.stringify({ cards: cards.length, noSalExpected, negExpected, posExpected, negAnyExpected });
 })()`);
 
 // ── 3. live page ─────────────────────────────────────────────────────────
 const res = JSON.parse(await withTab(PORT, URL_, async (tab) => {
   await settle(3500);
+  const counts = JSON.parse(await ruleEval(tab, { neg, pos }));
   return tab.evaluate(`(() => {
-    const neg = ${JSON.stringify(neg.map(k => k.toLowerCase()))};
-    const pos = ${JSON.stringify(pos.map(k => k.toLowerCase()))};
     const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
-    const text = c => (c.textContent || '').toLowerCase();
-    const hasSalary = c => { const d = c.querySelector('dd.col'); if (!d) return false;
-      const own = d.cloneNode(true);
-      for (const injected of own.querySelectorAll('[class^="ojc-"]')) injected.remove();
-      return /\\d/.test(own.textContent); };
-    // the same rule order content.js uses, recomputed from the DOM
-    const expectHide = c => { const ns = !hasSalary(c); const nm = neg.some(k => text(c).includes(k));
-      return { ns, nm, pm: pos.some(k => text(c).includes(k)) }; };
-    let noSalExpected = 0, negExpected = 0, posExpected = 0, negAnyExpected = 0;
-    for (const c of cards) {
-      const e = expectHide(c);
-      if (neg.some(k => text(c).includes(k))) negAnyExpected++; // the only hide rule left when noSalary is off
-      if (e.ns) noSalExpected++;
-      else if (e.nm) negExpected++;
-      else if (e.pm) posExpected++;
-    }
     return JSON.stringify({
       url: location.href,
       cards: cards.length,
@@ -173,10 +255,9 @@ const res = JSON.parse(await withTab(PORT, URL_, async (tab) => {
       invisible: [...document.querySelectorAll('.jobpost-cat-box.latest-job-post[hidden]')]
         .filter(c => getComputedStyle(c).display === 'none').length,
       negatives: document.querySelectorAll('.jobpost-cat-box.ojc-neg').length,
-      highlights: document.querySelectorAll('.ojc-pos-badge').length,
-      noSalExpected, negExpected, posExpected, negAnyExpected
+      highlights: document.querySelectorAll('.ojc-pos-badge').length
     });
-  })()`);
+  })()`).then((page) => JSON.stringify({ ...JSON.parse(page), ...counts }));
 }, 500));
 
 console.log('live page :', res.url);
@@ -210,26 +291,44 @@ if (res.negatives !== res.negExpected) await fail(`keyword hides ${res.negatives
 if (res.highlights !== res.posExpected) await fail(`highlights ${res.highlights}, expected ${res.posExpected}`);
 
 // ── 4. chip "Show all" must reveal, and re-hide, everything it hid ───────
-const expected = res.noSalExpected + res.negExpected;
-if (expected > 0) {
-  const toggled = async (expectHidden) => withTab(PORT, URL_, async (tab) => {
+// Both toggles happen in ONE tab, and the number to restore is read from that tab before anything is
+// clicked. The property here is *reversibility*, so it must not be compared against another page
+// load: the board is live, and two loads one second apart hold different no-salary counts (observed:
+// 6 cards hidden, then 8 one load later). Section 3 owns "the counts are right"; this owns "Show all
+// undoes exactly what was done". The previous version opened a fresh tab per toggle and compared both
+// against section 3's number, so it failed on the site being busy rather than on the extension.
+if (res.noSalExpected + res.negExpected > 0) {
+  const r = JSON.parse(await withTab(PORT, URL_, async (tab) => {
     await settle(3000);
-    await tab.evaluate(`document.querySelector('#ojc-toggle').click()`);
-    // wait for the listing to actually change, instead of assuming 400 ms is enough
-    await waitFor(tab, `[...document.querySelectorAll('.jobpost-cat-box.latest-job-post[hidden]')].length === ${'${expectHidden}'}`,
-      { timeout: 5000 });
-    return tab.evaluate(`JSON.stringify({
-      hidden: document.querySelectorAll('.jobpost-cat-box.latest-job-post[hidden]').length,
+    const count = `document.querySelectorAll('.jobpost-cat-box.latest-job-post[hidden]').length`;
+    const snap = () => tab.evaluate(`JSON.stringify({ hidden: ${count},
       label: document.querySelector('#ojc-chip b').textContent,
-      btn: document.querySelector('#ojc-chip button').textContent
-    })`);
-  }, 500);
-  const shown = JSON.parse(await toggled(0));
-  if (shown.hidden !== 0) await fail(`after "Show all", ${shown.hidden} cards are still hidden`);
-  if (!/would be hidden/.test(shown.label)) await fail(`chip label did not switch to the preview wording: "${shown.label}"`);
-  const hiddenAgain = JSON.parse(await toggled(expected));
-  if (hiddenAgain.hidden !== expected) await fail(`after re-hiding, ${hiddenAgain.hidden} hidden vs ${expected}`);
-  console.log(`toggle    : Show all revealed ${expected}, re-hide restored ${hiddenAgain.hidden}`);
+      btn: document.querySelector('#ojc-chip button').textContent })`);
+    const before = JSON.parse(await snap());
+    await tab.evaluate(`document.querySelector('#ojc-toggle').click()`);
+    // Wait for the listing to actually change instead of assuming a fixed delay is enough. (The
+    // condition used to be interpolated as the literal `${expectHidden}`, so it never matched and
+    // this was a 5 s sleep wearing a wait's clothes.)
+    await waitFor(tab, `${count} === 0`, { timeout: 5000 });
+    const shown = JSON.parse(await snap());
+    await tab.evaluate(`document.querySelector('#ojc-toggle').click()`);
+    await waitFor(tab, `${count} === ${before.hidden}`, { timeout: 5000 });
+    return JSON.stringify({ before, shown, again: JSON.parse(await snap()) });
+  }, 500));
+  if (!r.before.hidden) {
+    await fail(`this load has 0 hidden cards, so the Show-all toggle cannot be tested ` +
+      `(the board changes between loads — re-run, or pick a URL with no-salary listings)`);
+  }
+  if (r.shown.hidden !== 0) await fail(`after "Show all", ${r.shown.hidden} cards are still hidden`);
+  if (!/would be hidden/.test(r.shown.label)) {
+    await fail(`chip label did not switch to the preview wording: "${r.shown.label}"`);
+  }
+  if (r.again.hidden !== r.before.hidden) {
+    await fail(`after re-hiding, ${r.again.hidden} hidden vs the ${r.before.hidden} this same tab had ` +
+      `before the toggle — Show all did not fully come back`);
+  }
+  console.log(`toggle    : Show all revealed ${r.before.hidden}, re-hide restored ${r.again.hidden} ` +
+    `(same tab, no reload)`);
 }
 
 // ── 5. in-page options panel: edit here, listing reacts on Save, no reload ──
@@ -474,8 +573,7 @@ if (res.noSalExpected > 0) {
 // checks the conversion arithmetic against the rate the note itself claims to have used. The FX cache
 // is cleared first so this tab has to make the live ECB call rather than reuse an earlier tab's.
 {
-  await withTab(PORT, `chrome-extension://${EXT_ID}/options.html`, tab =>
-    tab.evaluate(`chrome.storage.local.remove('fx').then(()=>1)`), 600);
+  await storeEval(`chrome.storage.local.remove('fx').then(()=>1)`, 500);
 
   const r = JSON.parse(await withTab(PORT, URL_, async (tab) => {
     const fxReqs = [];
@@ -551,16 +649,23 @@ if (res.noSalExpected > 0) {
     await fail(`${unusedHours.length} card(s) state hours/week but were not converted to a month ` +
       `(e.g. ${JSON.stringify(unusedHours[0].posted)}, ${unusedHours[0].hours} h/week)`);
   }
-  // a card with no figure must SAY why: a piece rate has no monthly equivalent, and a foreign
-  // currency without a live rate is never approximated
+  // A card with no figure must SAY why. The reasons are a closed set (salary-cards.js), and which one
+  // applies depends on why the maths stopped, not on the card's unit: an hourly card with no live rate
+  // says so, and that is the honest answer. This used to demand the "no monthly figure is claimed"
+  // wording from anything with unit 'hour', so a transiently-unavailable currency (NZD during one run)
+  // failed the gate even though the card explained itself correctly.
+  const REASONS = [
+    /per-unit rate has no honest monthly equivalent/,
+    /no monthly figure is claimed/,
+    /no live [A-Z]{3}→PHP rate/,
+    /bare number with no unit/,
+  ];
   const silent = parseable.filter(x => !x.note);
   for (const x of silent) {
-    const explains = x.perUnit ? /per-unit rate has no honest monthly equivalent/.test(x.title || '')
-      : x.unit === 'hour' ? /no monthly figure is claimed/.test(x.title || '')
-      : /no live [A-Z]{3}|bare number/.test(x.title || '');
-    if (!explains) {
+    if (!REASONS.some(re => re.test(x.title || ''))) {
       await fail(`a card shows no figure without saying why: posted ${JSON.stringify(x.posted)}, ` +
-        `title ${JSON.stringify(x.title)}`);
+        `title ${JSON.stringify(x.title || '')} — none of the honest reasons matched ` +
+        `(${REASONS.map(String).join(' | ')})`);
     }
   }
   const pieces = parseable.filter(x => x.perUnit);
@@ -723,5 +828,7 @@ if (res.noSalExpected > 0) {
 }
 
 console.log('verify-live: PASS');
+await restoreStorage();
+await STORE?.close();
 await settle(250);
 process.exit(0);

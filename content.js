@@ -29,15 +29,25 @@
   };
   const SALARY_LABEL_RE = /WAGE\s*\/\s*SALARY/i; // W3
   const cards = () => [...document.querySelectorAll(SELECTORS.card)];
+  /**
+   * The site's own text inside `el`, free of anything this extension injected.
+   *
+   * Our note, warning and badge live in the same cells the rules read, so text we wrote can end up
+   * feeding the rule that decides whether to hide the card — a card then hides or highlights because of
+   * our own annotation. That happened for real twice: a second rule pass re-parsed the disclaimer's
+   * "40 h/week" into the figure (₱50,186 - ₱401,485/mo), and the keyword "assumes" — which appears on no
+   * listing on the board — highlighted a card because the word was in our warning.
+   */
+  const ownText = (el) => {
+    const own = el.cloneNode(true);
+    for (const injected of own.querySelectorAll('[class^="ojc-"]')) injected.remove();
+    return own.textContent || '';
+  };
   const cardSalary = (c) => {
     const d = c.querySelector(SELECTORS.cardSalary);
-    if (!d) return '';
     // The site's own text only: our salary annotation (W7) lives in the same cell, and it must
     // never be able to change the no-salary verdict.
-    const own = d.cloneNode(true);
-    // Everything this extension injected into the cell, by namespace — never the site's own text.
-    for (const injected of own.querySelectorAll('[class^="ojc-"]')) injected.remove();
-    return own.textContent.trim();
+    return d ? ownText(d).trim() : '';
   };
 
   // Full context = card text + (after a deep scan) the fetched detail description.
@@ -46,7 +56,7 @@
   const ctxMap = new WeakMap();
   const fullText = (c) => {
     const ctx = ctxMap.get(c);
-    return (c.textContent || '') + (ctx ? ' ' + (ctx.description || '') : '');
+    return ownText(c) + (ctx ? ' ' + (ctx.description || '') : '');
   };
 
   // ── Chip (bottom-right status bar) ───────────────────────────────────────
@@ -163,6 +173,11 @@
   // copy of the rule pass.
   self.OJC = {
     SELECTORS, LIST_RE, cards, refreshRules, setNote, persist,
+    // The site's own text, our injected namespace removed. Exported because more than one module reads
+    // card text to make a decision (the rules here, the hours basis in salary-cards.js, the pager's card
+    // key) and each of them silently breaks if our own note is included: a second rule pass once read
+    // the disclaimer's "40 h/week" as a second salary figure and showed "₱50,186 - ₱401,485/mo".
+    ownText,
     getSettings: () => settings,
     // panel.js writes a whole form; assigning (not merging) is the point of a Save button.
     setSettings: (next) => { settings = { ...DEFAULTS, ...next }; },

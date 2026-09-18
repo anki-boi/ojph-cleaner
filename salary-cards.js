@@ -62,8 +62,13 @@
     return own.textContent.trim();
   };
 
-  // The weekly-hours basis comes from the card's own words ("20 hours per week", "Part Time").
-  const basisOf = (card) => hoursPerWeekFrom(card.textContent);
+  // The weekly-hours basis comes from the card's OWN words ("20 hours per week", "Part Time").
+  // Not `card.textContent`: our disclaimer says "assumes 40 h/week (full time)", so a second pass would
+  // read the assumption we just wrote as if the listing had stated it — the disclaimer would then drop
+  // itself (basis 'stated' is not 'full-time') and the goal would flip from monthly to hourly. It only
+  // survived because "40 h/week" happens not to match the stated-hours pattern; one word of rewording
+  // away from a silent, self-erasing card.
+  const basisOf = (card) => hoursPerWeekFrom(api.ownText(card));
 
   async function annotate() {
     if (running || !chrome.storage) return;

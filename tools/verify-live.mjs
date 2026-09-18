@@ -656,6 +656,72 @@ if (res.noSalExpected > 0) {
     `${monthlyMarks.length} above ₱${GOAL}/mo, ${hourlyMarks.length} above ₱${GOAL_HOURLY}/hr`);
 }
 
+// ── 9. our own annotation must not feed the rules ───────────────────────
+// The salary note, the h/week disclaimer and the highlight badge live in the very cells the rules
+// read, so text WE wrote can decide a card's fate. Two real cases: a second rule pass re-parsed the
+// disclaimer's own "40 h/week" into the figure "₱50,186 - ₱401,485/mo", and the word "assumes" — which
+// is in our disclaimer and on no listing on this board — highlighted two cards. Both are the same bug
+// (an output fed back as input) and both are fixed the same way: strip our namespace before reading.
+//
+// The keyword is taken from the rendered disclaimer rather than hardcoded, so rewording the
+// disclaimer cannot silently weaken this check.
+{
+  const r = JSON.parse(await withTab(PORT, URL_, async (tab) => {
+    await settle(3500);
+    const read = () => tab.evaluate(`(() => {
+      const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
+      const siteText = (c) => { const o = c.cloneNode(true);
+        for (const i of o.querySelectorAll('[class^="ojc-"]')) i.remove(); return o.textContent.toLowerCase(); };
+      const warn = document.querySelector('.ojc-salary-warn');
+      // siteText() already lower-cases; take the first word of the disclaimer as the keyword
+      const word = warn ? warn.textContent.trim().split(/\\s+/)[0].toLowerCase() : '';
+      return JSON.stringify({
+        word,
+        badges: cards.filter(c => c.querySelector('.ojc-pos-badge')).length,
+        warned: cards.filter(c => c.querySelector('.ojc-salary-warn')).length,
+        siteTextHasWord: cards.filter(c => siteText(c).includes(word)).length,
+      });
+    })()`);
+    const before = JSON.parse(await read());
+    await tab.evaluate(`document.querySelector('#ojc-gear').click()`);
+    await settle(300);
+    // That word, and only that word, as a positive keyword: nothing on the board contains it.
+    await tab.evaluate(`(() => {
+      document.querySelector('#ojc-pos').value = ${JSON.stringify(before.word || '')};
+      document.querySelector('#ojc-neg').value = '';
+      document.querySelector('#ojc-noSalary').checked = false;
+      document.querySelector('#ojc-save').click();
+      return 1; })()`);
+    await settle(900);
+    const polluted = JSON.parse(await read());
+    // put the harness's seeded settings back through the same Save (this section runs last)
+    await tab.evaluate(`(() => {
+      document.querySelector('#ojc-pos').value = ${JSON.stringify(pos.join('\n'))};
+      document.querySelector('#ojc-neg').value = ${JSON.stringify(neg.join('\n'))};
+      document.querySelector('#ojc-noSalary').checked = true;
+      document.querySelector('#ojc-save').click();
+      return 1; })()`);
+    await settle(600);
+    return JSON.stringify({ before, polluted });
+  }, 500));
+
+  if (!r.before.warned) {
+    await fail('no card carries the h/week disclaimer on this page — cannot test that our own text ' +
+      'stays out of the rules (run with a page that has hourly full-time listings)');
+  }
+  if (r.before.siteTextHasWord !== 0) {
+    await fail(`the disclaimer word ${JSON.stringify(r.before.word)} also appears in the site's own text ` +
+      `on ${r.before.siteTextHasWord} card(s) — this check would not prove anything on this page`);
+  }
+  if (r.polluted.badges > 0) {
+    await fail(`${r.polluted.badges} card(s) were highlighted by our own disclaimer text ` +
+      `(keyword ${JSON.stringify(r.before.word)}, present in ${r.before.warned} disclaimer(s) and in 0 ` +
+      'listings) — our injected DOM is feeding the rule that decides what to show');
+  }
+  console.log(`own text  : keyword ${JSON.stringify(r.before.word)} (in ${r.before.warned} disclaimer(s), ` +
+    `0 listings) highlighted 0 card(s) — our annotation stays out of the rules`);
+}
+
 console.log('verify-live: PASS');
 await settle(250);
 process.exit(0);

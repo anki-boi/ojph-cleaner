@@ -304,6 +304,18 @@ a Full Time badge. `$5/hour` on a Part Time card keeps its rate (`≈ ₱314/hr`
   A first pass drew a pale pill *inline* with the posted text and looked like a highlighter blob; the
   `docs/img/` screenshots are re-shot from the live site, so the look stays reviewable.
 
+**A fourth bug, of the same family, found by a probe rather than by the harness (2026-09-18):** our own
+injected text was part of what the rules read. `fullText()` — the text keyword matching runs on — returned
+`card.textContent`, which includes the salary note and the disclaimer, so a keyword that appears only in
+our text highlighted cards: with `positive: ["assumes"]` (in 2 disclaimers, on 0 listings) **2 cards** got a
+badge. Two siblings came out of the same sweep: the hours basis read `card.textContent`, so a later pass
+read the "40 h/week" *we* had written as if the listing had stated it (it survived only because "40 h/week"
+does not match the stated-hours pattern — one word of rewording from the disclaimer deleting itself), and
+the pager's card key used raw text, so a note that changes (rate → month, once live rates land) could make
+it re-import a card it already had. All three now go through one exported helper, `self.OJC.ownText()`.
+Guard: harness section 9 takes the first word of the rendered disclaimer and uses it as a keyword; the
+check fails if any card highlights. Proven red by reintroducing the bug (2 cards), green after the fix.
+
 The money code is split: `salary.js` is the pure parser (unit-tested), `salary-cards.js` the applier
 (there is a 300-line-per-file cap in the gate, and it has now forced three splits: pagination, the panel,
 and this one).

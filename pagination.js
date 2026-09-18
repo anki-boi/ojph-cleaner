@@ -43,9 +43,13 @@
   }
 
   /** The identity of a card for de-duplication: its job href, else its leading text. */
-  function jobKeyOf(card) {
+  function jobKeyOf(card, ownText) {
     const a = card.querySelector('a[href*="/jobseekers/job/"]');
-    return a ? a.getAttribute('href') : (card.textContent || '').slice(0, 120).trim();
+    if (a) return a.getAttribute('href');
+    // The fallback key must be the SITE's text: our salary note changes over a card's life (a rate
+    // first, a month once the live rates land), and a key that moves makes the pager re-import a card
+    // it already has. `ownText` is supplied by the loader; the default keeps this module pure.
+    return ((ownText ? ownText(card) : card.textContent) || '').slice(0, 120).trim();
   }
 
   return { SELECTOR, nextPageUrl, parseShown, pageOffset, jobKeyOf };
@@ -58,6 +62,7 @@
   const api = self.OJC;
   if (!api) return; // content.js failed to boot; nothing to page
   const { nextPageUrl, parseShown, pageOffset, jobKeyOf } = self.OJCPager;
+  const ownText = api.ownText;   // card identity must be the site's words, not our annotation
 
   const MIN_GAP_MS = 600;
   // `gesture` counts scroll events; `spent` is the last gesture that bought a page. One scroll buys
@@ -93,7 +98,7 @@
     pag.lastAt = Date.now();
     api.setNote('loading more…');
     const container = now[0].parentElement;
-    const seen = new Set(now.map(jobKeyOf));
+    const seen = new Set(now.map(c => jobKeyOf(c, ownText)));
     try {
       const url = nextPageUrl(location.href, here);
       const res = await fetch(url, { credentials: 'same-origin' });
@@ -102,7 +107,7 @@
       // A page of nothing but jobs we already have means we are at the end (or the site
       // repeats itself) — never keep fetching on the strength of a count alone.
       const incoming = [...doc.querySelectorAll(self.OJCPager.SELECTOR)]
-        .filter(c => { const k = jobKeyOf(c); return !seen.has(k) && (seen.add(k), true); });
+        .filter(c => { const k = jobKeyOf(c, ownText); return !seen.has(k) && (seen.add(k), true); });
       if (!incoming.length) return stop('the next page held no jobs we did not already have');
       for (const c of incoming) container.appendChild(document.importNode(c, true));
       placeSentinel();   // the new last card is further down; the trigger must follow it

@@ -74,8 +74,18 @@ always been an automation profile and why the retired default profile never coul
 ```bash
 "/c/Program Files/Google/Chrome/Application/chrome.exe" \
   --user-data-dir="C:/Users/PC/AppData/Local/agent-chrome-profile" \
-  --remote-debugging-port=9333 --no-first-run --no-default-browser-check about:blank &
+  --remote-debugging-port=9333 --no-first-run --no-default-browser-check \
+  --disable-background-timer-throttling --disable-backgrounding-occluded-windows \
+  --disable-renderer-backgrounding about:blank &
 ```
+
+**The last three flags matter** (added 2026-09-18): the rule pass is scheduled with
+`requestAnimationFrame` and the loader's fetch resolves on the tab's own time, and Chrome pauses or
+throttles both in a hidden/occluded tab. Because this profile is now the daily browser, a tab the
+harness opens can sit behind whatever else is on screen — without these flags `verify-live` fails
+with "the browser tab stayed hidden" instead of a real result. The harness activates its own tab and
+waits for `visibilityState === 'visible'` before the two timing-sensitive checks; if the window is
+occluded it fails loudly with that hint rather than reporting a false PASS.
 
 ---
 
@@ -217,7 +227,9 @@ able to fail before it was trusted.
 ```
 verify-live: cards 30 (site claims 30) · chip "21 hidden (5 no salary, 16 keywords, 1 highlighted)"
   hidden 21 = rule 21 · toggle reveals 21, re-hides 21 · panel Save 30→20→21 with no reload
-  loop: 1 external mutation → 2 chip rebuilds in 2000 ms (bounded)          verify-live: PASS
+  observer: new no-salary card hidden on arrival · 3 chip rebuilds in 1500 ms (bounded)
+  pagination: idle 0 requests · one scroll → +30 cards, 1 request · parity over all 60 cards
+  final page: 290+7=297 — idle and scrolled both spend 0 requests      verify-live: PASS
 ```
 
 Two new gate checks (run by `npm test`, so CI inherits them): `test-repo-hygiene.js` — license stance,
@@ -242,6 +254,13 @@ apart.
   The "Displaying N out of M" counter is a page's **size**, not its position: on the final partial
   page (offset 290, 7 cards of 297) using it would send the loader back to page 1.
 - **A page with no new job links ends it**, whatever the counter says. No retry loop.
+- **Two bugs the live check found, both now fixed and both worth remembering:**
+  1. The IntersectionObserver callback and the scroll event can arrive in *either* order, so arming
+     "the other one's" flag lost the trigger until the sentinel left and re-entered view. Both paths
+     now call one `maybeLoad()` that requires (visible AND scrolled).
+  2. The sentinel was inserted once and left there — after appending 30 cards it was stranded
+     *mid-list*, marking a bottom that was no longer the bottom. `placeSentinel()` moves it after the
+     new last card on every load.
 
 ```
 full list : idle 0 requests · one scroll → +30 cards, 1 request (/jobseekers/jobsearch/30?…)

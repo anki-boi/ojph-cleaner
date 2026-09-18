@@ -61,7 +61,7 @@
 
   const MIN_GAP_MS = 600;
   const pag = { armed: false, busy: false, done: false, pages: 0, lastAt: 0 };
-  let sentinel = null, io = null, scrollHooked = false;
+  let sentinel = null, io = null, scrollHooked = false, visible = false;
 
   function stop(reason) {
     if (pag.done) return;
@@ -102,6 +102,7 @@
         .filter(c => { const k = jobKeyOf(c); return !seen.has(k) && (seen.add(k), true); });
       if (!incoming.length) return stop('the next page held no jobs we did not already have');
       for (const c of incoming) container.appendChild(document.importNode(c, true));
+      placeSentinel();   // the new last card is further down; the trigger must follow it
       pag.pages++;
       api.setNote('');
       api.refreshRules(); // the observer sees the insertion too; this makes the repaint immediate
@@ -111,6 +112,29 @@
     } finally {
       pag.busy = false;
     }
+  }
+
+  /** The sentinel belongs after the LAST card, not where it was first inserted: appending a page
+   *  to the container would otherwise leave it stranded mid-list, marking a bottom that is no longer
+   *  the bottom. */
+  function placeSentinel() {
+    if (!sentinel) return;
+    const all = api.cards();
+    const last = all[all.length - 1];
+    if (last?.parentElement && sentinel.previousElementSibling !== last) {
+      last.parentElement.appendChild(sentinel);
+    }
+  }
+
+  /**
+   * The trigger is "the sentinel is visible AND the user has scrolled": the two can arrive in either
+   * order (the IntersectionObserver callback is not guaranteed to run after the scroll event for the
+   * same gesture), so both paths call this instead of one setting the flag the other is waiting for.
+   */
+  function maybeLoad() {
+    if (!visible || !pag.armed || pag.busy || pag.done) return;
+    pag.armed = false;
+    loadNextPage();
   }
 
   /**
@@ -128,11 +152,13 @@
     first.parentElement.appendChild(sentinel);
     if (io) io.disconnect();
     io = new IntersectionObserver((entries) => {
-      if (entries.some(e => e.isIntersecting) && pag.armed) { pag.armed = false; loadNextPage(); }
+      visible = entries.some(e => e.isIntersecting);
+      maybeLoad();
     }, { rootMargin: '400px' });
     io.observe(sentinel);
+    placeSentinel();
     if (!scrollHooked) {
-      window.addEventListener('scroll', () => { pag.armed = true; }, { passive: true });
+      window.addEventListener('scroll', () => { pag.armed = true; maybeLoad(); }, { passive: true });
       scrollHooked = true;
     }
   }

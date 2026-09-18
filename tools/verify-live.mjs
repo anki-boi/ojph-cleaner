@@ -22,6 +22,24 @@ const pos = arg('pos', '').split(',').filter(Boolean);
 const fail = async msg => { console.error('verify-live: FAIL — ' + msg); await new Promise(r => setTimeout(r, 250)); process.exit(1); };
 const settle = ms => new Promise(r => setTimeout(r, ms));
 
+/**
+ * The rule pass is scheduled with requestAnimationFrame and the loader's fetch resolves on the tab's
+ * own time. Chrome pauses both in a hidden tab — and because the debug profile is now the user's
+ * daily browser, a tab this harness opens can sit behind their work. Activate it and wait until it
+ * really reports visible, rather than measuring something a throttled tab cannot do.
+ */
+async function activate(tab) {
+  await tab.send('Page.bringToFront').catch(() => {});
+  for (let i = 0; i < 12; i++) {
+    if (await tab.evaluate(`document.visibilityState`) === 'visible') return true;
+    await settle(300);
+  }
+  return false;
+}
+const HIDDEN_HINT = 'the browser tab stayed hidden, so Chrome throttled it — bring the Chrome window ' +
+  'to the front (or launch it with --disable-background-timer-throttling ' +
+  '--disable-backgrounding-occluded-windows --disable-renderer-backgrounding, see docs/HANDOFF.md §2)';
+
 // ── 1. browser + extension must be present ───────────────────────────────
 let version;
 try { version = await (await fetch(`http://127.0.0.1:${PORT}/json/version`)).json(); }
@@ -193,43 +211,51 @@ if (res.noSalExpected > 0) {
   console.log(`panel     : opened from chip, loaded settings; Save 30→${r.noSalaryOff.hidden}→${r.noSalaryOn.hidden} hidden with no reload`);
 }
 
-// ── 6. the rule pass must not feed itself (spec.md §2.2) ────────────────
-// renderChip() wipes the chip on every pass; if isOurs() cannot recognise that pass as
-// its own, each pass schedules the next one and the page never idles. One external DOM
-// mutation is the trigger a real page provides constantly. Measured before the fix:
-// 1614 chip rebuilds in 4 s. Bounded afterwards.
+// ── 6. the observer reacts, and does not feed itself (spec.md §2.2) ───────
+// Two properties in one probe. A newly inserted card must be filtered (the extension is live, not
+// only correct at boot), and the rule pass must settle — renderChip() wipes the chip on every pass,
+// so if isOurs() cannot recognise that pass as its own, each pass schedules the next one forever
+// (measured before the fix: 1614 chip rebuilds in 4 s). Rebuilds are counted from document.body so
+// the count survives the chip node being replaced.
 {
   const loop = JSON.parse(await withTab(PORT, URL_, async (tab) => {
-    await settle(3500);
-    return tab.evaluate(`new Promise(res => {
+    if (!await activate(tab)) await fail(`the observer check cannot run: ${HIDDEN_HINT}`);
+    await settle(3000);
+    return tab.evaluate(`(async () => {
+      const container = document.querySelector('.jobpost-cat-box.latest-job-post')?.parentElement;
+      if (!container) return JSON.stringify({ card: false });
       const chip = document.getElementById('ojc-chip');
-      if (!chip) return res(JSON.stringify({ chip: false }));
       let passes = 0;
-      const mo = new MutationObserver(ms => { passes += ms.length; });
-      mo.observe(chip, { childList: true });
-      setTimeout(() => {                       // one mutation, like the site's own scripts
-        const d = document.createElement('div');
-        d.id = 'not-ours-nudge';               // must NOT look like an injected #ojc-* node
-        document.body.appendChild(d);
-        setTimeout(() => {
-          mo.disconnect();
-          document.getElementById('not-ours-nudge')?.remove();
-          res(JSON.stringify({ chip: true, passes, windowMs: 2000, cards: document.querySelectorAll('.jobpost-cat-box.latest-job-post').length }));
-        }, 2000);
-      }, 300);
-    })`);
+      const mo = new MutationObserver(ms => {
+        for (const m of ms) if (m.target && m.target.id === 'ojc-chip') passes++;
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+
+      // a card with no salary field: the rule must hide it as soon as it appears
+      const probe = document.createElement('div');
+      probe.className = 'jobpost-cat-box latest-job-post';
+      probe.id = 'probe-card-not-ours';   // must not look like an injected #ojc-* node
+      probe.innerHTML = '<div><dd class="col">Negotiable</dd></div>';
+      container.appendChild(probe);
+      await new Promise(r => setTimeout(r, 1500));
+      const hidden = probe.hidden;
+      mo.disconnect();
+      probe.remove();
+      return JSON.stringify({ card: true, chip: !!chip, hidden, passes, windowMs: 1500 });
+    })()`);
   }, 500));
-  if (!loop.chip) await fail('no chip to observe in the loop check');
-  // One rebuild = 2 records (the wipe, then the append): fewer than 1 means the observer stopped
-  // reacting to the page altogether, which would make this check pass while the extension is dead.
-  if (loop.passes < 1) {
-    await fail('an external DOM mutation produced no rule pass at all — the observer is not reacting');
+
+  if (!loop.card) await fail('no card container on the page — cannot check the observer');
+  if (!loop.chip) await fail('no chip to observe in the observer check');
+  if (!loop.hidden) {
+    await fail('a card inserted after boot was not hidden — the mutation observer is not filtering new cards');
   }
   if (loop.passes > 20) {
     await fail(`one external DOM mutation caused ${loop.passes} chip rebuilds in ${loop.windowMs} ms ` +
       `— the rule pass is re-scheduling itself (isOurs() must judge the mutation target)`);
   }
-  console.log(`loop      : 1 external mutation → ${loop.passes} chip rebuilds in ${loop.windowMs} ms (bounded)`);
+  console.log(`observer  : new no-salary card hidden on arrival · ${loop.passes} chip rebuilds in ` +
+    `${loop.windowMs} ms (bounded)`);
 }
 
 // ── 7. perpetual pagination (spec.md W6 / D8) ───────────────────────────
@@ -243,6 +269,7 @@ if (res.noSalExpected > 0) {
     const reqs = [];
     await tab.send('Network.enable');
     tab.on('Network.requestWillBeSent', p => reqs.push({ url: p.request.url, type: p.type }));
+    if (!await activate(tab)) await fail(`the pagination check cannot run: ${HIDDEN_HINT}`);
     await settle(3500);
 
     const snapshot = `(() => {
@@ -303,7 +330,8 @@ if (res.noSalExpected > 0) {
       await fail(`one scroll produced ${r.pageUrls.length} loader requests: ${r.pageUrls.join(', ')} ` +
         '(expected exactly one page per scroll)');
     }
-    if (!/\/\d+\?/.test(r.pageUrls[0])) {
+    // the offset segment is the whole point: a category URL has no query string, a search URL does
+    if (!/\/\d+(\?|$)/.test(r.pageUrls[0])) {
       await fail(`the next-page URL has no offset segment: ${r.pageUrls[0]}`);
     }
     if (r.afterOne.hidden !== r.afterOne.expect) {

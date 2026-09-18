@@ -289,6 +289,7 @@ and "crawl" are one careless decision apart.
 | W6.3 | Stop conditions: no new job links, every result loaded, non-200, offline — each says why in the console and stops the loader for good | `pagination.js` |
 | W6.4 | `autoLoad` setting in the panel and the options page; README row; the request-budget table in `docs/scraping.md` | `content.js`, `options.*`, docs |
 | W6.5 | Live assertion: no requests while idle, exactly one request per scroll, card count grows, counts stay truthful, sentinel removed once stopped | `tools/verify-live.mjs` |
+| W6.6 | Live assertion that the observer is *alive*: a card inserted after boot must be filtered on arrival (this replaced a proxy that counted chip rebuilds, and immediately exposed both an observer-ordering race and a stranded sentinel — see `docs/HANDOFF.md` §4d) | `tools/verify-live.mjs`, `pagination.js` |
 
 Splitting the file also settled a cap argument: `content.js` hit 344 lines (the gate caps at 300), and
 the honest split is "the extension that filters" vs "the code that fetches" — which is why
@@ -436,7 +437,7 @@ List URLs: `/jobseekers/jobsearch?jobkeyword=…`, `/jobseekers/jobsearch/{offse
 | `test-repo-hygiene.js` | ✅ | no LICENSE, README stance, SECURITY, templates, hook wiring | `node test-repo-hygiene.js` |
 | `tools/check-readme.js` | ✅ | settings documented, no stale counts | `node tools/check-readme.js` |
 | `tools/gate.sh` | ✅ | all of the above + syntax + path scan + size cap | `sh tools/gate.sh` |
-| `tools/verify-live.mjs` | ❌ live site + browser | injection, selector drift, rule parity, `[hidden]`⇒`display:none`, chip toggle, panel open/save with no reload, bounded re-passes, pagination (idle = no requests, one per scroll, stops at the end) | `node tools/verify-live.mjs` |
+| `tools/verify-live.mjs` | ❌ live site + browser | injection, selector drift, rule parity, `[hidden]`⇒`display:none`, chip toggle, panel open/save with no reload, an inserted card filtered on arrival + bounded rebuilds, pagination (idle = no requests, one per scroll, stops at the end) | `node tools/verify-live.mjs` |
 | CI (Node 20) | ✅ | `npm test` + package integrity | `.github/workflows/ci.yml` |
 
 ## 9. What "done" looks like

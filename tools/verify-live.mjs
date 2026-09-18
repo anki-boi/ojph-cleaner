@@ -22,6 +22,10 @@ const neg = arg('neg', '').split(',').filter(Boolean);
 const pos = arg('pos', '').split(',').filter(Boolean);
 const GOAL = +(arg('goal', '40000'));      // monthly PHP goal
 const GOAL_HOURLY = +(arg('goal-hourly', '300')); // hourly PHP goal
+// The recency window this run asserts against. Exposed as a flag because the interesting proof needs a
+// page that HAS stale listings: a keyword search's first page is always fresh (measured 0.03-1.2 days),
+// while a deep offset page is 40-46 days old.
+const MAX_AGE = +(arg('max-age', '7'));
 
 // salary.js's pure factory, injected into the page so the harness can recompute every figure from
 // the DOM with the SAME code the extension used — a parity check, not a second opinion.
@@ -183,7 +187,7 @@ console.log(`storage   : snapshot taken (${Object.keys(SNAPSHOT).join(', ') || '
 // under test and not on the keywords the user happened to have typed. The seeding is reversible (see
 // `restoreStorage`), and every assertion below recomputes its expectation from the DOM, so it holds for
 // any settings — the flags only decide which branches this run is guaranteed to reach.
-const settings = { negative: neg, positive: pos, noSalary: true, showHidden: false, autoScan: false, goalSalary: GOAL, goalHourly: GOAL_HOURLY };
+const settings = { negative: neg, positive: pos, noSalary: true, showHidden: false, autoScan: false, goalSalary: GOAL, goalHourly: GOAL_HOURLY, maxAgeDays: MAX_AGE };
 await storeEval(`chrome.storage.local.set({ settings: ${JSON.stringify(settings)} }).then(()=>1)`, 900);
 // Drop the FX cache so the live ECB path is exercised on every run (otherwise a 24h-old rate from a
 // previous run would silently satisfy it).
@@ -208,13 +212,25 @@ console.log(`settings  : ${JSON.stringify(settings)}`);
  *
  * `negExpected` counts only cards the keyword rule actually hides: a no-salary card re-files into the
  * no-salary bucket, because noSalary is checked first — which is why a predicted total can never be
- * computed by adding the buckets up.
+ * computed by adding the buckets up. `reconExpected` is the yellow state: a hide keyword on a listing
+ * that also looks good (a positive match, or a goal mark the salary pass put on it).
  */
-const ruleEval = (tab, { neg = [], pos = [] } = {}) => tab.evaluate(`${RULES_SRC}
+const ruleEval = (tab, { neg = [], pos = [], maxAgeDays = 0, noSalary = true } = {}) => tab.evaluate(`${RULES_SRC}
 (() => {
   const neg = ${JSON.stringify(neg.map((k) => k.toLowerCase()))};
   const pos = ${JSON.stringify(pos.map((k) => k.toLowerCase()))};
+  const maxAgeDays = ${JSON.stringify(Number(maxAgeDays) || 0)};
+  const noSalary = ${JSON.stringify(noSalary !== false)};
+  const now = Date.now();
   const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
+  // Our own injected nodes are removed before any text is matched — the 40 h/week disclaimer says
+  // "verify with the employer", so matching raw textContent lets our annotation feed the rules
+  // (commit 97de155). This is the harness mirroring ownText(), not a second opinion on it.
+  const ownText = (el) => {
+    const o = el.cloneNode(true);
+    for (const injected of o.querySelectorAll('[class^="ojc-"]')) injected.remove();
+    return (o.textContent || '').toLowerCase();
+  };
   const ownSal = (c) => {
     const d = c.querySelector('dd.col');
     if (!d) return '';
@@ -222,24 +238,41 @@ const ruleEval = (tab, { neg = [], pos = [] } = {}) => tab.evaluate(`${RULES_SRC
     for (const injected of o.querySelectorAll('[class^="ojc-"]')) injected.remove();
     return o.textContent;
   };
-  let noSalExpected = 0, negExpected = 0, posExpected = 0, negAnyExpected = 0;
+  // The posted instant, parsed by the extension's own code (rules.js is injected above).
+  const postedAt = (c) => {
+    const p = c.querySelector('p[data-temp]');
+    if (!p) return null;
+    return OJRules.parsePosted(p.getAttribute('data-temp-2')) ??
+      OJRules.parsePosted(p.getAttribute('data-temp'), OJRules.MANILA_OFFSET_MINUTES);
+  };
+  let staleExpected = 0, noSalExpected = 0, negExpected = 0, posExpected = 0, reconExpected = 0;
+  let noDate = 0, noUtc = 0, negAnyExpected = 0;
   for (const c of cards) {
-    const text = (c.textContent || '').toLowerCase();
-    const ns = !/\\d/.test(ownSal(c));
+    const text = ownText(c);
+    const p = c.querySelector('p[data-temp]');
+    if (!p || !p.getAttribute('data-temp-2')) noUtc++;
+    const at = postedAt(c);
+    if (at == null) noDate++;
+    const ns = noSalary && !/\\d/.test(ownSal(c));
     const nm = neg.some((k) => text.includes(k));
     const pm = pos.some((k) => text.includes(k));
+    const good = pm || c.classList.contains('ojc-goal');
     if (nm) negAnyExpected++;
-    if (ns) noSalExpected++;
+    if (OJRules.isStale(at, now, maxAgeDays)) staleExpected++;
+    else if (ns) noSalExpected++;
+    else if (nm && good) reconExpected++;
     else if (nm) negExpected++;
     else if (pm) posExpected++;
   }
-  return JSON.stringify({ cards: cards.length, noSalExpected, negExpected, posExpected, negAnyExpected });
+  return JSON.stringify({ cards: cards.length, staleExpected, noSalExpected, negExpected, posExpected,
+    reconExpected, negAnyExpected, noDate, noUtc,
+    hiddenExpected: staleExpected + noSalExpected + negExpected });
 })()`);
 
 // ── 3. live page ─────────────────────────────────────────────────────────
 const res = JSON.parse(await withTab(PORT, URL_, async (tab) => {
   await settle(3500);
-  const counts = JSON.parse(await ruleEval(tab, { neg, pos }));
+  const counts = JSON.parse(await ruleEval(tab, { neg, pos, maxAgeDays: MAX_AGE }));
   return tab.evaluate(`(() => {
     const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
     return JSON.stringify({
@@ -255,16 +288,20 @@ const res = JSON.parse(await withTab(PORT, URL_, async (tab) => {
       invisible: [...document.querySelectorAll('.jobpost-cat-box.latest-job-post[hidden]')]
         .filter(c => getComputedStyle(c).display === 'none').length,
       negatives: document.querySelectorAll('.jobpost-cat-box.ojc-neg').length,
+      recons: document.querySelectorAll('.jobpost-cat-box.ojc-recon').length,
+      reconOutline: (() => { const c = document.querySelector('.jobpost-cat-box.ojc-recon');
+        return c ? getComputedStyle(c).outlineColor : null; })(),
       highlights: document.querySelectorAll('.ojc-pos-badge').length
     });
   })()`).then((page) => JSON.stringify({ ...JSON.parse(page), ...counts }));
 }, 500));
 
-console.log('live page :', res.url);
+console.log(`live page :`, res.url);
 console.log(`  cards   : ${res.cards}${res.claimed ? ` (site claims ${res.claimed})` : ''} (${res.salaries} with a salary field)`);
 console.log(`  chip    : ${res.chip ? res.chipText : 'MISSING — content script did not run'}`);
-console.log(`  hidden  : ${res.hidden}   (expected by rule: ${res.noSalExpected + res.negExpected})`);
-console.log(`  no-salary ${res.noSalExpected} → hidden, keyword ${res.negExpected} → hidden, positive ${res.posExpected} → highlighted`);
+console.log(`  hidden  : ${res.hidden}   (expected by rule: ${res.hiddenExpected})`);
+console.log(`  stale ${res.staleExpected} / no-salary ${res.noSalExpected} / keyword ${res.negExpected} → hidden, ` +
+  `positive ${res.posExpected} → highlighted, ${res.reconExpected} → yellow (reconsider)`);
 
 if (!res.chip) await fail('content script did not inject — check manifest permissions/host_permissions');
 
@@ -281,13 +318,36 @@ if (res.claimed && res.cards !== res.claimed) {
     `— SELECTORS.card is missing some markup`);
 }
 if (res.cards && !res.salaries) await fail('no dd.col salary elements — list markup may have drifted');
-if (res.hidden !== res.noSalExpected + res.negExpected) {
-  await fail(`hidden ${res.hidden}, rule says ${res.noSalExpected + res.negExpected} (no-salary ${res.noSalExpected} + keyword ${res.negExpected})`);
+// The recency filter is only as good as the attribute it reads, and a renamed attribute would silently
+// turn it off: every card would read as undateable, and an undateable card is deliberately never stale.
+if (res.cards && res.noUtc) {
+  await fail(`${res.noUtc}/${res.cards} card(s) have no data-temp-2 — the UTC posted attribute has ` +
+    `drifted, so the recency filter is falling back to the site's Manila wall clock (or doing nothing)`);
+}
+if (res.cards && res.noDate) {
+  await fail(`${res.noDate}/${res.cards} card(s) have no readable posted date — SELECTORS.cardPosted ` +
+    `has drifted, and a card with no date can never be filtered by recency`);
+}
+if (res.hidden !== res.hiddenExpected) {
+  await fail(`hidden ${res.hidden}, rule says ${res.hiddenExpected} (stale ${res.staleExpected} + ` +
+    `no-salary ${res.noSalExpected} + keyword ${res.negExpected})`);
 }
 if (res.hidden !== res.invisible) {
   await fail(`${res.hidden} cards carry [hidden] but only ${res.invisible} are actually display:none — the site CSS is winning`);
 }
 if (res.negatives !== res.negExpected) await fail(`keyword hides ${res.negatives}, expected ${res.negExpected}`);
+if (res.recons !== res.reconExpected) {
+  await fail(`${res.recons} card(s) carry the yellow reconsider outline, expected ${res.reconExpected} — ` +
+    `a listing that matches a hide keyword AND looks good (positive keyword, or a goal mark) must be ` +
+    `shown, not hidden`);
+}
+// A card can be both above goal and a positive match, which is why .ojc-recon is declared after .ojc-goal
+// at the same specificity: otherwise the goal's green outline wins and the yellow is invisible on
+// exactly the cards that are yellow because they pay well.
+if (res.recons && !/rgb\(224, 168, 0\)/.test(res.reconOutline || '')) {
+  await fail(`a reconsider card's computed outline is ${res.reconOutline}, not the yellow — the goal's ` +
+    `green is winning the cascade`);
+}
 if (res.highlights !== res.posExpected) await fail(`highlights ${res.highlights}, expected ${res.posExpected}`);
 
 // ── 4. chip "Show all" must reveal, and re-hide, everything it hid ───────
@@ -297,7 +357,7 @@ if (res.highlights !== res.posExpected) await fail(`highlights ${res.highlights}
 // 6 cards hidden, then 8 one load later). Section 3 owns "the counts are right"; this owns "Show all
 // undoes exactly what was done". The previous version opened a fresh tab per toggle and compared both
 // against section 3's number, so it failed on the site being busy rather than on the extension.
-if (res.noSalExpected + res.negExpected > 0) {
+if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
   const r = JSON.parse(await withTab(PORT, URL_, async (tab) => {
     await settle(3000);
     const count = `document.querySelectorAll('.jobpost-cat-box.latest-job-post[hidden]').length`;
@@ -329,6 +389,108 @@ if (res.noSalExpected + res.negExpected > 0) {
   }
   console.log(`toggle    : Show all revealed ${r.before.hidden}, re-hide restored ${r.again.hidden} ` +
     `(same tab, no reload)`);
+}
+
+// ── 4b. every branch, exercised on purpose ───────────────────────────────
+// The flags default to no keywords, so a bare `node tools/verify-live.mjs` used to reach the negative,
+// positive and reconsider branches zero times: the gate stayed green with all three broken. That is a
+// gate that cannot fail, which is worse than none (§7). This section seeds its OWN settings — keywords
+// chosen to match the page rather than borrowed from the caller — requires each branch to actually fire,
+// and requires the listing to agree with the recomputed rule afterwards. Section 3 above still tests the
+// caller's configuration; this one tests that the rules work at all.
+//
+// Recency is off here (maxAgeDays: 0) so it cannot hide the cards these branches are about.
+{
+  const r = JSON.parse(await withTab(PORT, URL_, async (tab) => {
+    await settle(3000);
+    /** Seed, then wait until the listing agrees with the recomputed rule — never sleep and hope. */
+    const measure = async (partial) => {
+      const next = { ...settings, ...partial, maxAgeDays: 0 };
+      await storeEval(`chrome.storage.local.set({ settings: ${JSON.stringify(next)} }).then(()=>1)`, 300);
+      const read = `JSON.stringify({
+        hidden: document.querySelectorAll('.jobpost-cat-box.latest-job-post[hidden]').length,
+        neg: document.querySelectorAll('.jobpost-cat-box.ojc-neg').length,
+        recon: document.querySelectorAll('.jobpost-cat-box.ojc-recon').length,
+        pos: document.querySelectorAll('.ojc-pos-badge').length })`;
+      let counts, dom;
+      for (let i = 0; i < 40; i++) {
+        counts = JSON.parse(await ruleEval(tab, { neg: next.negative, pos: next.positive, maxAgeDays: 0 }));
+        dom = JSON.parse(await tab.evaluate(read));
+        const agreed = dom.hidden === counts.hiddenExpected && dom.neg === counts.negExpected &&
+          dom.recon === counts.reconExpected && dom.pos === counts.posExpected && counts.cards > 0;
+        if (agreed) return { counts, dom, settled: true };
+        await settle(250);
+      }
+      return { counts, dom, settled: false };
+    };
+
+    // The keyword is "the": a word that appears in English prose, so the branch is reachable on any
+    // page. If it ever stops matching, the section fails loudly rather than passing with nothing tested.
+    const hide = await measure({ negative: ['the'], positive: [], goalSalary: 0, goalHourly: 0 });
+    const show = await measure({ negative: [], positive: ['the'], goalSalary: 0, goalHourly: 0 });
+    const yellow = await measure({ negative: ['the'], positive: [], goalSalary: 1, goalHourly: 1 });
+
+    // The goal-mark seam, which is the one defect this feature had that nothing else caught: a listing
+    // that is good only because it pays well is decided by a mark that arrives a pass AFTER the rule
+    // pass, so without a re-run it stays hidden. A stray mutation on a live page re-runs the pass for
+    // the existing cards and hides that, so the proof has to be a FRESH card with no other activity.
+    const arrival = JSON.parse(await tab.evaluate(`(() => {
+      const marker = 'the';
+      const src = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')]
+        .find(c => { const n = c.querySelector('.ojc-salary-note'); return n && n.textContent.trim(); });
+      if (!src) return JSON.stringify({ skipped: 'no card carries a salary figure' });
+      const clone = src.cloneNode(true);
+      for (const injected of clone.querySelectorAll('[class^="ojc-"]')) injected.remove();
+      for (const cls of ['ojc-neg', 'ojc-pos', 'ojc-recon', 'ojc-goal']) clone.classList.remove(cls);
+      clone.hidden = false;
+      clone.removeAttribute('title');
+      const desc = clone.querySelector('.desc');
+      if (desc) { const a = document.createElement('a'); a.textContent = marker; desc.prepend(a); }
+      src.parentElement.appendChild(clone);
+      window.__ojcArrival = clone;
+      return JSON.stringify({ inserted: true });
+    })()`));
+    if (arrival.inserted) {
+      for (let i = 0; i < 40; i++) {
+        Object.assign(arrival, await tab.evaluate(`(() => { const c = window.__ojcArrival;
+          return JSON.stringify({ hidden: !!c.hidden, recon: c.classList.contains('ojc-recon'),
+            goal: c.classList.contains('ojc-goal'),
+            figure: (c.querySelector('.ojc-salary-note') || {}).textContent || null }); })()`).then(JSON.parse));
+        if (arrival.recon) break;
+        await settle(250);
+      }
+      await tab.evaluate(`window.__ojcArrival.remove()`);
+    }
+    return JSON.stringify({ hide, show, yellow, arrival });
+  }, 500));
+
+  const branches = [
+    ['negative keyword hides', r.hide, r.hide.counts.negExpected > 0],
+    ['positive keyword highlights', r.show, r.show.counts.posExpected > 0],
+    ['a hide keyword on a good listing turns yellow instead', r.yellow, r.yellow.counts.reconExpected > 0],
+  ];
+  for (const [name, m, reachable] of branches) {
+    if (!reachable) {
+      await fail(`cannot exercise "${name}" on this page: no card matches the probe keyword ` +
+        `(rule says ${JSON.stringify(m.counts)}) — pick a different page or probe keyword`);
+    }
+    if (!m.settled) {
+      await fail(`"${name}" never settled: the rule says ${JSON.stringify(m.counts)}, the page has ` +
+        `${JSON.stringify(m.dom)} — after seeding the listing must match the recomputed rule`);
+    }
+  }
+  if (r.arrival.inserted && !(r.arrival.recon && !r.arrival.hidden)) {
+    await fail(`a fresh card that matches a hide keyword and pays above the goal stayed hidden ` +
+      `(${JSON.stringify(r.arrival)}) — the goal mark arrives after the rule pass, so without a re-run ` +
+      `the reconsider state never applies to a listing that is good only because it pays well`);
+  }
+  console.log(`branches  : keyword hides ${r.hide.dom.hidden}, highlights ${r.show.dom.pos}, ` +
+    `yellow ${r.yellow.dom.recon} — each branch had to fire`);
+  if (r.arrival.inserted) console.log(`seam      : a fresh good-pay negative match → ` +
+    `${r.arrival.recon ? 'yellow' : 'NOT yellow'}, goal mark ${r.arrival.goal}, hidden ${r.arrival.hidden}`);
+  // Put the run's own seeds back: everything below asserts against the caller's configuration, not this
+  // section's probe keywords.
+  await storeEval(`chrome.storage.local.set({ settings: ${JSON.stringify(settings)} }).then(()=>1)`, 400);
 }
 
 // ── 5. in-page options panel: edit here, listing reacts on Save, no reload ──
@@ -370,7 +532,7 @@ if (res.noSalExpected > 0) {
     await tab.evaluate(`document.querySelector('#ojc-gear').click()`);    await settle(200);
     const opened = JSON.parse(await tab.evaluate(`(()=>{const p=document.getElementById('ojc-panel');
       if (!p) return JSON.stringify({exists:false});
-      const fields=['#ojc-neg','#ojc-pos','#ojc-noSalary','#ojc-showHidden','#ojc-autoScan','#ojc-save'];
+      const fields=['#ojc-maxAge','#ojc-neg','#ojc-pos','#ojc-noSalary','#ojc-showHidden','#ojc-autoScan','#ojc-save'];
       return JSON.stringify({exists:true, visible:!p.hidden, inChip:!!document.querySelector('#ojc-chip #ojc-panel'),
         fields:fields.every(s=>!!p.querySelector(s)),
         neg:p.querySelector('#ojc-neg').value, noSalary:p.querySelector('#ojc-noSalary').checked,

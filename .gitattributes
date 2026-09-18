@@ -1,0 +1,17 @@
+# Line endings are load-bearing: the gate script and the pre-push hook are the only
+# thing standing between a red gate and main, and `sh tools/gate.sh` must not depend
+# on how git checked the file out on Windows. core.autocrlf=true is the default on
+# Windows, so the catch-all below is what keeps a clone and CI byte-identical.
+* text eol=lf
+
+*.sh text eol=lf
+.githooks/* text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+
+# README screenshots must survive byte-for-byte.
+*.png binary

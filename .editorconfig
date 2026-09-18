@@ -1,0 +1,14 @@
+root = true
+
+# Everything here is JS / CSS / HTML / JSON / Markdown: one indent size, one charset.
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Markdown uses trailing double-spaces for hard line breaks.
+[*.md]
+trim_trailing_whitespace = false

@@ -58,7 +58,13 @@ assert.deepStrictEqual(bare('1500 per month'), [1500, 1500, 'USD', 'month'],
 // but an explicit unit keeps the board's convention: pesos
 assert.deepStrictEqual(bare('140 -175/ per hour', 20), [11200, 14000, 'PHP', 'hour']);
 assert.deepStrictEqual(bare('1000/day'), [1000, 1000, 'PHP', 'day']);
+// the magnitude reading is only a FALLBACK: a stated currency always wins, whatever the size
+assert.deepStrictEqual(monthly('€450-550'), [450, 550, 'EUR'], '3-4 digits, but stated in €');
+assert.deepStrictEqual(monthly('450-550 AUD'), [450, 550, 'AUD']);
+assert.deepStrictEqual(monthly('Php 1,500'), [1500, 1500, 'PHP'], '4 digits, stated in pesos');
+assert.deepStrictEqual(monthly('£2500'), [2500, 2500, 'GBP']);
 assert.strictEqual(parseSalary('42000').assumedCurrency, true, 'the currency was inferred, and says so');
+assert.strictEqual(parseSalary('Php 42000').assumedCurrency, false, 'a stated marker is never "assumed"');
 assert.strictEqual(parseSalary('$400').assumedCurrency, false, 'a stated marker is not an inference');
 
 assert.deepStrictEqual(monthly('$700/month ($175/week, paid weekly)'), [700, 700, 'USD'], 'aside dropped');

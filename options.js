@@ -2,12 +2,13 @@
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const DEFAULTS = { negative: [], positive: [], noSalary: true, showHidden: false, autoScan: false, autoLoad: true, goalSalary: 0, goalHourly: 0 };
+  const DEFAULTS = { negative: [], positive: [], noSalary: true, showHidden: false, autoScan: false, autoLoad: true, goalSalary: 0, goalHourly: 0, maxAgeDays: 7 };
   const toLines = (arr) => (arr || []).join('\n');
   const fromLines = (s) => [...new Set(s.split('\n').map(x => x.trim()).filter(Boolean))];
 
   chrome.storage.local.get('settings', (res) => {
     const s = { ...DEFAULTS, ...(res.settings || {}) };
+    $('maxAgeDays').value = s.maxAgeDays ?? '';
     $('neg').value = toLines(s.negative);
     $('pos').value = toLines(s.positive);
     $('noSalary').checked = s.noSalary;
@@ -20,6 +21,7 @@
 
   $('save').onclick = () => {
     const settings = {
+      maxAgeDays: Math.max(0, Math.round(Number($('maxAgeDays').value) || 0)),
       negative: fromLines($('neg').value),
       positive: fromLines($('pos').value),
       noSalary: $('noSalary').checked,

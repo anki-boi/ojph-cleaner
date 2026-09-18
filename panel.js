@@ -27,6 +27,8 @@
     panel.id = 'ojc-panel';
     panel.hidden = true;
     panel.innerHTML = `
+      <label for="ojc-maxAge">Hide jobs posted more than this many days ago (0 = off · 7 = last week · 30 = last month)</label>
+      <input type="number" id="ojc-maxAge" min="0" step="1" placeholder="7">
       <label for="ojc-neg">Hide jobs mentioning… (one per line)</label>
       <textarea id="ojc-neg" rows="3" placeholder="crypto&#10;insurance"></textarea>
       <label for="ojc-pos">Highlight jobs mentioning… (one per line)</label>
@@ -54,6 +56,7 @@
 
   function fillPanel() {
     const s = api.getSettings();
+    $p('#ojc-maxAge').value = s.maxAgeDays ?? '';
     $p('#ojc-neg').value = toLines(s.negative);
     $p('#ojc-pos').value = toLines(s.positive);
     $p('#ojc-noSalary').checked = s.noSalary;
@@ -81,6 +84,7 @@
   function save() {
     const current = api.getSettings();
     api.setSettings({
+      maxAgeDays: num($p('#ojc-maxAge').value),
       negative: fromLines($p('#ojc-neg').value),
       positive: fromLines($p('#ojc-pos').value),
       noSalary: $p('#ojc-noSalary').checked,

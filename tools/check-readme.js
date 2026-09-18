@@ -25,7 +25,9 @@ if (!keys.length) {
   console.error('check-readme: FAIL — DEFAULTS parsed to zero keys');
   process.exit(1);
 }
-const undocumented = keys.filter(k => !readme.includes('`' + k + '`'));
+// The key must appear as a row in a table — a backticked mention in prose ("with `noSalary`
+// off") does not document a setting, and it used to keep this check green by accident.
+const undocumented = keys.filter(k => !readme.includes('| `' + k + '` |'));
 
 // ── 2. referenced paths exist ────────────────────────────────────────────
 const referenced = [

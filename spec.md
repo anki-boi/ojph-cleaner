@@ -6,6 +6,10 @@
 **State:** 560 tracked source lines (js/css/html/json, 21 tracked files) · 2 node test files, zero
 dependencies · 1 live CDP harness · Chrome 153, unpacked, enabled in the automation profile
 
+**Status after the audit:** ✅ W1 (public face, hygiene, gates) and ✅ W2 (every defect in §2) landed
+in 0.4.0 — see `docs/HANDOFF.md` §4c for the measured before/after. W3 (deep scan) is next;
+D2/D3/D4/D5 are decided.
+
 ---
 
 ## 0. How to use this document

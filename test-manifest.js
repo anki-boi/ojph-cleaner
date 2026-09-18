@@ -15,6 +15,29 @@ for (const k of ['name', 'version', 'description']) {
   assert.ok(manifest[k], `manifest is missing "${k}"`);
 }
 
+// ── which files are actual extension source ──────────────────────────────
+// Recursive, so a source file in a subdirectory cannot escape the checks below
+// (this used to readdirSync(root) only). tools/ is dev-only; docs/ is prose.
+const SKIP_DIRS = new Set(['.git', 'node_modules', 'docs', 'tools', 'icons', '.github']);
+const walk = (dir, out = []) => {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.isDirectory()) { if (!SKIP_DIRS.has(e.name)) walk(path.join(dir, e.name), out); continue; }
+    out.push(path.relative(root, path.join(dir, e.name)).replace(/\\/g, '/'));
+  }
+  return out;
+};
+const allFiles = walk(root);
+const sourceFiles = allFiles.filter(f => f.endsWith('.js') && !/(^|\/)test-/.test(f));
+assert.ok(sourceFiles.length, 'no extension source files found');
+
+// Files the package actually loads: content script entries, plus anything an HTML
+// file pulls in with a <script src>.
+const wired = new Set((manifest.content_scripts || []).flatMap(cs => cs.js || []));
+for (const html of allFiles.filter(f => f.endsWith('.html'))) {
+  const src = fs.readFileSync(path.join(root, html), 'utf8');
+  for (const m of src.matchAll(/<script[^>]+src=["']([^"']+)["']/g)) wired.add(m[1]);
+}
+
 // ── permissions cover every chrome.* namespace the source uses ───────────
 // null = needs no manifest permission.
 const PERMISSION_FOR = {
@@ -36,9 +59,6 @@ const PERMISSION_FOR = {
   action: null,
 };
 
-const sourceFiles = fs.readdirSync(root).filter(f => f.endsWith('.js') && !/^test-/.test(f));
-assert.ok(sourceFiles.length, 'no extension source files found');
-
 const used = new Set();
 for (const f of sourceFiles) {
   const src = fs.readFileSync(path.join(root, f), 'utf8');
@@ -55,6 +75,13 @@ for (const ns of [...used].sort()) {
   const ok = needed.some(req => req === '<host_permissions>' ? hosts.length : declared.has(req));
   assert.ok(ok, `chrome.${ns} is used in ${sourceFiles.join(', ')} but manifest declares none of: ${needed.join(', ')}`);
 }
+
+// ── every source file is wired into the package ──────────────────────────
+// A source file nothing loads is dead weight in a public repo; the reverse case
+// (loaded but unlisted) would escape the permission check above.
+const orphans = sourceFiles.filter(f => !wired.has(f) && !wired.has(path.basename(f)));
+assert.deepStrictEqual(orphans, [],
+  `source file(s) nothing loads: ${orphans.join(', ')} — add to manifest.json content_scripts or the HTML that needs them`);
 
 // ── every file the manifest points at exists ─────────────────────────────
 const referenced = [];
@@ -76,4 +103,4 @@ for (const rel of referenced) {
 assert.ok(!fs.existsSync(path.join(root, 'background.js')),
   'background.js exists but the manifest no longer registers it — the storage proxy is dead code');
 
-console.log(`manifest: ok (${used.size} chrome APIs checked, ${referenced.length} files verified)`);
+console.log(`manifest: ok (${used.size} chrome APIs checked, ${sourceFiles.length} source files wired, ${referenced.length} files verified)`);

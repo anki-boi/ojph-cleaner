@@ -110,6 +110,19 @@ Three consequences, all verified:
    `/jobseekers/jobsearch/{offset}?jobkeyword=…`; category pages use
    `/jobseekers/search/c/{slug}/{offset}`. Both list variants tested. Search pages are readable
    **without login** in the automation profile.
+10. **A removed node has no parent.** `isOurs()` used to walk `parentNode` to decide whether a
+    mutation was ours. A child removed from the chip is *already detached*, so the walk never reached
+    `#ojc-chip` and every chip rebuild scheduled the next one — one external DOM mutation produced
+    1 614 rebuilds in 4 s, forever. Judge the mutation's **target** (still attached); `verify-live`
+    now asserts the count stays bounded.
+11. **`core.autocrlf=true` is the Windows default, and git will not re-normalize a working tree that
+    was checked out before `.gitattributes` existed.** The index held LF while the working copies of
+    `gate.sh`, the hook and six other files were CRLF — and `git status` called the tree clean either
+    way. `test-repo-hygiene.js` now fails on any CRLF in a tracked text file; the cure is
+    `git checkout-index -f -a`, and the permanent fix is `.gitattributes` (`* text eol=lf`).
+12. **A gate that cannot fail is worse than no gate.** `verify-live` compared `hidden` to `expected`,
+    so an empty page (0 vs 0) printed `PASS` — selector drift would have gone unnoticed forever. It
+    now requires ≥1 parsed card and cross-checks the site's own "Displaying N out of M" line.
 
 ---
 
@@ -185,6 +198,31 @@ want to reload to see a settings change. Both were addressed in **0.3.0**:
 - `⚙` opens the panel; `full options ↗` in it opens the standalone page, which is kept as a fallback
   and is what `verify-live` seeds test settings through.
 
+### 4c. ✅ W2 — what the audit found, fixed (0.4.0)
+
+`spec.md` §2 lists these with their evidence; this is the state after the fixes. Every one was proven
+able to fail before it was trusted.
+
+| Defect | Fix | Proof |
+|---|---|---|
+| P1 self-sustaining rule loop | `onMutate()` judges `m.target` (a removed node is already detached and never matched) | one external mutation → **2** chip rebuilds in 2 s, was ~807 |
+| P0 the live gate passed on an empty page | parse watchdog: ≥1 parsed card required, and the parsed count must equal the site's own "Displaying N out of M" | the zero-result URL now FAILS (it used to print PASS) |
+| P1 `autoScan` persisted and read by nothing | disabled + labelled "not built yet" in both UIs; the panel keeps the stored value rather than the disabled input's | live: the checkbox is disabled in the panel and the options page |
+| P3 dead code | `dataset.why` deleted (4 writes, 0 reads); `ctxMap` marked `ponytail:` as the W3 seam | `grep dataset.why` → nothing |
+| P3 static checks could miss files | `test-manifest.js` walks the tree and fails on an orphan source file; `gate.sh` checks **every** tracked `*.js` and caps any source file at 300 lines | proven red against a syntax error in `tools/check-readme.js`, a 301-line file, an orphan `detail-parser.js` |
+| Page coupling spread over the file | one `SELECTORS` block at the top of `content.js` | documented in `docs/scraping.md` |
+
+```
+verify-live: cards 30 (site claims 30) · chip "21 hidden (5 no salary, 16 keywords, 1 highlighted)"
+  hidden 21 = rule 21 · toggle reveals 21, re-hides 21 · panel Save 30→20→21 with no reload
+  loop: 1 external mutation → 2 chip rebuilds in 2000 ms (bounded)          verify-live: PASS
+```
+
+Two new gate checks (run by `npm test`, so CI inherits them): `test-repo-hygiene.js` — license stance,
+required files, hook wiring, no CRLF in any tracked text file — and `tools/check-readme.js` — every
+setting in `content.js`'s `DEFAULTS` must appear as a row in the README's settings table, and every
+path the README points at must exist.
+
 ---
 
 ## 5. What is left to build
@@ -197,9 +235,15 @@ want to reload to see a settings change. Both were addressed in **0.3.0**:
 | 5. Keyword pass (hide negative / highlight positive) | ✅ at card level — only becomes useful once Task 4 lands |
 | 7. Options page | ✅ (works now that storage is granted) |
 | 7b. In-page options panel + live re-apply on Save | ✅ 0.3.0, asserted live |
-| **4. Deep scan engine** | ⬜ **next** |
-| 6. Detail-page banner | ⬜ |
-| 8. README + screenshots + push | ⬜ |
+| 8. README + screenshots + docs + hygiene + gates (`spec.md` W1) | ✅ 0.4.0 — README, `SECURITY.md`, `.editorconfig`, `.gitattributes`, issue templates, `docs/architecture.md`, `docs/scraping.md`, `test-repo-hygiene.js`, `tools/check-readme.js` |
+| `spec.md` audit + decision-ready wave plan | ✅ `spec.md` |
+| `spec.md` W2 — the defects the audit found | ✅ 0.4.0, see §4c |
+| **4. Deep scan engine** (`spec.md` W3) | ⬜ **next** |
+| 6. Detail-page banner (`spec.md` W4) | ⬜ |
+| Distribution (`spec.md` W5) | ⬜ unpacked for now (D2) |
+
+The plan of record is now **`spec.md`** (waves, task IDs, acceptance criteria). This table is kept as
+the original Task 1–8 numbering so older notes still line up.
 
 **Task 4 is the meaningful one.** Card-level text is too thin: in the live run above, negative
 keywords only bit because the search term itself (`bookkeeper`) appears in every card, while
@@ -254,6 +298,9 @@ paths out of tracked source (the gate enforces this).
 - Positive keywords **highlight only**; they never hide.
 - The deep scan stays **bounded to the current page** — no crawling, no pagination.
 - With no keywords configured, the extension issues **zero extra requests**.
+- **The rule pass must never schedule itself.** Judge the mutation's *target* (`isOurs`), not just the
+  added/removed nodes; a detached node has no ancestors. `verify-live` asserts a bounded number of
+  chip rebuilds after one external mutation.
 - The options panel stays a **sibling** of the chip — putting it back inside `#ojc-chip` means
   `renderChip()` destroys it mid-edit.
 - Saving options (panel or page) **applies to the open listing immediately**; no reload is ever
@@ -265,14 +312,17 @@ paths out of tracked source (the gate enforces this).
 
 ## 8. Open decisions (need the user, not an agent)
 
-1. **License.** The repo is public with no `LICENSE` file, so it is all-rights-reserved by default.
-   The suite is deliberately in the same position. Decide before distributing further.
-2. **Distribution.** Unpacked only (today), or publish to the Chrome Web Store? A store listing needs
-   a privacy justification for the `host_permissions` on onlinejobs.ph.
-3. **Deep-scan cache store.** The plan says IndexedDB (better for 1 000 × ~3 KB); `chrome.storage.local`
-   is simpler but runs into quota pressure.
-4. **`autoScan` default** is OFF in both plan and code. Keep it OFF until a scan is proven cheap,
-   since it spends requests on every page load.
+1. **License.** **Decided 2026-09-18:** no `LICENSE` file, README states *all rights reserved* (the
+   suite's stance, adapted because this repo is public). Asserted by `test-repo-hygiene.js`.
+2. **Distribution.** **Decided 2026-09-18:** unpacked only for now; revisit after W3 lands, since a
+   store listing needs a privacy justification for the `onlinejobs.ph` host permission and a stable
+   version story.
+3. **Deep-scan cache store.** **Decided 2026-09-18:** IndexedDB, 1 000 entries × ~3 KB, 7-day TTL,
+   oldest evicted. `chrome.storage.local` would share the 10 MB quota with settings and rewrite the
+   whole blob per write.
+4. **`autoScan` default** is OFF in both plan and code, and the control is **disabled and labelled**
+   until the deep scan ships. Keep it OFF until a scan is proven cheap, since it spends requests on
+   every page load.
 
 ---
 

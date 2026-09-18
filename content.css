@@ -57,6 +57,10 @@
   color: #fff;
 }
 #ojc-panel .ojc-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+/* A control that cannot do anything yet says so instead of pretending. */
+#ojc-panel .ojc-soon { color: #9fb3c8; font-style: italic; font-size: 11px; }
+#ojc-panel input[disabled] { cursor: not-allowed; }
+#ojc-panel input[disabled] + span, #ojc-panel label:has(input[disabled]) { color: #9fb3c8; }
 #ojc-panel button {
   background: #3a4a5a;
   border: 0;

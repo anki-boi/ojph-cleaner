@@ -8,19 +8,32 @@
     positive: [],    // keyword list → highlight only
     noSalary: true,  // hide cards whose salary text has no digit
     showHidden: false,
-    autoScan: false, // (Task 4) auto deep-scan on search page loads
+    autoScan: false, // W3: auto deep-scan on search page loads. Inert + disabled in the UI.
   };
   let settings = { ...DEFAULTS };
 
-  // ── DOM helpers ──────────────────────────────────────────────────────────
   const LIST_RE = /\/jobseekers\/(jobsearch|search)(\/|$)/; // keyword search (with or without /offset/) + category list pages
-  const cards = () => [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
+
+  // ── Page selectors ───────────────────────────────────────────────────────
+  // The only place this extension knows about the site's markup, so drift is a one-line
+  // fix. docs/scraping.md records the contract and tools/verify-live.mjs asserts the
+  // live result — it fails loudly when a page parses to zero cards.
+  const SELECTORS = {
+    card: '.jobpost-cat-box.latest-job-post',
+    cardSalary: 'dd.col',
+    detailDescription: 'p#job-description',  // W3 (deep scan)
+    detailSalaryLabel: 'h3.fs-12',           // W3, matched against SALARY_LABEL_RE
+  };
+  const SALARY_LABEL_RE = /WAGE\s*\/\s*SALARY/i; // W3
+  const cards = () => [...document.querySelectorAll(SELECTORS.card)];
   const cardSalary = (c) => {
-    const d = c.querySelector('dd.col'); // confirmed list-card salary element
+    const d = c.querySelector(SELECTORS.cardSalary);
     return d ? d.textContent.trim() : '';
   };
 
-  // Full context = card text + (after a deep scan) the fetched detail description
+  // Full context = card text + (after a deep scan) the fetched detail description.
+  // ponytail: ctxMap is never fed until W3 lands, so fullText() is card text today —
+  // the seam stays so the scan does not have to rewire the rule pass.
   const ctxMap = new WeakMap();
   const fullText = (c) => {
     const ctx = ctxMap.get(c);
@@ -47,7 +60,10 @@
       <textarea id="ojc-pos" rows="3" placeholder="quickbooks"></textarea>
       <label class="ojc-check"><input type="checkbox" id="ojc-noSalary"> Hide jobs with no salary listed</label>
       <label class="ojc-check"><input type="checkbox" id="ojc-showHidden"> Show hidden jobs</label>
-      <label class="ojc-check"><input type="checkbox" id="ojc-autoScan"> Auto deep-scan this page</label>
+      <label class="ojc-check" title="Saved now, acted on once the deep scan ships (spec.md W3)">
+        <input type="checkbox" id="ojc-autoScan" disabled> Auto deep-scan this page
+        <em class="ojc-soon">— not built yet</em>
+      </label>
       <div class="ojc-row">
         <button id="ojc-save">Save</button>
         <span id="ojc-saved">Saved ✓</span>
@@ -87,7 +103,9 @@
       positive: fromLines($p('#ojc-pos').value),
       noSalary: $p('#ojc-noSalary').checked,
       showHidden: $p('#ojc-showHidden').checked,
-      autoScan: $p('#ojc-autoScan').checked,
+      // Read from settings, not the input: the control is disabled until W3, and a
+      // disabled checkbox would otherwise silently reset a stored value to false.
+      autoScan: settings.autoScan,
     };
     refreshRules();
     persist();
@@ -153,16 +171,13 @@
       c.querySelector('.ojc-pos-badge')?.remove();
 
       if (ns) {
-        c.dataset.why = 'no-salary';
         c.hidden = !settings.showHidden;
         noSal++;
       } else if (neg.length) {
-        c.dataset.why = 'keywords:' + neg.join(',');
         c.hidden = !settings.showHidden;
         c.classList.add('ojc-neg');
         kw++;
       } else if (posM.length) {
-        c.dataset.why = '';
         c.hidden = false; // positive = highlight only, never hidden
         c.classList.add('ojc-pos');
         const badge = document.createElement('span');
@@ -171,7 +186,6 @@
         c.prepend(badge);
         pos++;
       } else {
-        c.dataset.why = '';
         c.hidden = false;
       }
     }
@@ -188,14 +202,15 @@
   }
 
   // ── Live re-run on DOM changes (new cards, container swap) ──────────────
-  // Ignore mutations caused by our own UI (chip rebuild, badges) to avoid loops.
+  // Recognise the UI this script injected, and nothing else. The target check is the
+  // load-bearing part: a node we removed from the chip is already detached, so walking
+  // parentNode from it never reaches #ojc-chip — which used to make every chip rebuild
+  // schedule the next one, forever (spec.md §2.2).
   function isOurs(node) {
     let n = node;
     while (n) {
-      if (n.id === 'ojc-chip' || n.id === 'ojc-panel' ||
-          (n.classList && (n.classList.contains('ojc-pos-badge') ||
-                          n.classList.contains('ojc-neg') ||
-                          n.classList.contains('ojc-pos')))) return true;
+      if (n.id === 'ojc-chip' || n.id === 'ojc-panel') return true;
+      if (n.classList && n.classList.contains('ojc-pos-badge')) return true;
       n = n.parentNode;
     }
     return false;
@@ -208,7 +223,8 @@
   }
   function onMutate(muts) {
     for (const m of muts) {
-      if (m.type === 'characterData') { if (!isOurs(m.target)) return schedule(); continue; }
+      if (isOurs(m.target)) continue; // our own chip/panel/badge rebuild
+      if (m.type === 'characterData') return schedule();
       const nodes = [...m.addedNodes, ...m.removedNodes].filter(n => n.nodeType === 1);
       if (nodes.some(n => !isOurs(n))) return schedule();
     }

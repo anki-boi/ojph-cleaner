@@ -10,7 +10,17 @@ if ! command -v node >/dev/null; then
   exit 1
 fi
 
-for f in rules.js content.js options.js; do node --check "$f"; done
+for f in $(git ls-files '*.js'); do node --check "$f"; done
+
+# spec.md §4.2: no source file over 300 lines — the analogue of the suite's
+# 250-line route-module cap. Split when one grows past it.
+for f in $(git ls-files '*.js' '*.css' '*.html'); do
+  n=$(wc -l < "$f")
+  if [ "$n" -gt 300 ]; then
+    echo "gate: FAIL - $f is $n lines (max 300)" >&2
+    exit 1
+  fi
+done
 
 npm test --silent
 

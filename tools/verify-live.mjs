@@ -75,6 +75,9 @@ const res = JSON.parse(await withTab(PORT, URL_, async (tab) => {
     return JSON.stringify({
       url: location.href,
       cards: cards.length,
+      // What the site claims it is showing. The watchdog below needs it: a page that
+      // parses to zero cards must never be able to report PASS.
+      claimed: ((document.body.innerText.match(/Displaying\s+(\d+)\s+out of/i) || [])[1] * 1) || null,
       salaries: document.querySelectorAll('.jobpost-cat-box.latest-job-post dd.col').length,
       chip: !!document.getElementById('ojc-chip'),
       chipText: (document.getElementById('ojc-chip') || {}).textContent || null,
@@ -89,12 +92,25 @@ const res = JSON.parse(await withTab(PORT, URL_, async (tab) => {
 }, 500));
 
 console.log('live page :', res.url);
-console.log(`  cards   : ${res.cards} (${res.salaries} with a salary field)`);
+console.log(`  cards   : ${res.cards}${res.claimed ? ` (site claims ${res.claimed})` : ''} (${res.salaries} with a salary field)`);
 console.log(`  chip    : ${res.chip ? res.chipText : 'MISSING — content script did not run'}`);
 console.log(`  hidden  : ${res.hidden}   (expected by rule: ${res.noSalExpected + res.negExpected})`);
 console.log(`  no-salary ${res.noSalExpected} → hidden, keyword ${res.negExpected} → hidden, positive ${res.posExpected} → highlighted`);
 
 if (!res.chip) await fail('content script did not inject — check manifest permissions/host_permissions');
+
+// ── the watchdog (spec.md §2.1) ──────────────────────────────────────────
+// Without this, a page that parses to zero cards ends in PASS: hidden 0 == expected 0,
+// every assertion holds, and selector drift goes unnoticed. A gate that cannot fail is
+// worse than no gate.
+if (!res.cards) {
+  await fail(`parsed 0 cards${res.claimed ? ` while the site claims to be displaying ${res.claimed}` : ''} ` +
+    `— the list markup or SELECTORS.card in content.js has drifted, or this URL has no results`);
+}
+if (res.claimed && res.cards !== res.claimed) {
+  await fail(`the site says it is displaying ${res.claimed} jobs but ${res.cards} cards were parsed ` +
+    `— SELECTORS.card is missing some markup`);
+}
 if (res.cards && !res.salaries) await fail('no dd.col salary elements — list markup may have drifted');
 if (res.hidden !== res.noSalExpected + res.negExpected) {
   await fail(`hidden ${res.hidden}, rule says ${res.noSalExpected + res.negExpected} (no-salary ${res.noSalExpected} + keyword ${res.negExpected})`);
@@ -175,6 +191,42 @@ if (res.noSalExpected > 0) {
     await fail(`after re-checking "no salary" in the panel, ${r.noSalaryOn.hidden} hidden vs ${expected}, no reload`);
   }
   console.log(`panel     : opened from chip, loaded settings; Save 30→${r.noSalaryOff.hidden}→${r.noSalaryOn.hidden} hidden with no reload`);
+}
+
+// ── 6. the rule pass must not feed itself (spec.md §2.2) ────────────────
+// renderChip() wipes the chip on every pass; if isOurs() cannot recognise that pass as
+// its own, each pass schedules the next one and the page never idles. One external DOM
+// mutation is the trigger a real page provides constantly. Measured before the fix:
+// 1614 chip rebuilds in 4 s. Bounded afterwards.
+{
+  const loop = JSON.parse(await withTab(PORT, URL_, async (tab) => {
+    await settle(3500);
+    return tab.evaluate(`new Promise(res => {
+      const chip = document.getElementById('ojc-chip');
+      if (!chip) return res(JSON.stringify({ chip: false }));
+      let passes = 0;
+      const mo = new MutationObserver(ms => { passes += ms.length; });
+      mo.observe(chip, { childList: true });
+      setTimeout(() => {                       // one mutation, like the site's own scripts
+        const d = document.createElement('div');
+        d.id = 'ojc-probe';
+        document.body.appendChild(d);
+        setTimeout(() => {
+          mo.disconnect();
+          document.getElementById('ojc-probe')?.remove();
+          res(JSON.stringify({ chip: true, passes, windowMs: 2000, cards: document.querySelectorAll('.jobpost-cat-box.latest-job-post').length }));
+        }, 2000);
+      }, 300);
+    })`);
+  }, 500));
+  if (!loop.chip) await fail('no chip to observe in the loop check');
+  // One rebuild = 2 records (the wipe, then the append). A handful is a page reacting to
+  // its own insertion; hundreds per second is the loop.
+  if (loop.passes > 20) {
+    await fail(`one external DOM mutation caused ${loop.passes} chip rebuilds in ${loop.windowMs} ms ` +
+      `— the rule pass is re-scheduling itself (isOurs() must judge the mutation target)`);
+  }
+  console.log(`loop      : 1 external mutation → ${loop.passes} chip rebuilds in ${loop.windowMs} ms (bounded)`);
 }
 
 console.log('verify-live: PASS');

@@ -238,7 +238,11 @@
   // schedule the next one, forever (spec.md §2.2).
   // Classes are listed explicitly rather than matched by "ojc-*": .ojc-pos/.ojc-neg/.ojc-goal sit on
   // the *site's* cards, and a mutation inside a highlighted card is a real change worth re-running for.
-  const OUR_CLASSES = ['ojc-pos-badge', 'ojc-neg-badge', 'ojc-salary-note', 'ojc-salary-warn'];
+  const OUR_CLASSES = ['ojc-pos-badge', 'ojc-neg-badge', 'ojc-salary-note', 'ojc-salary-warn',
+    // W4's detail-page marks. Not because the board's rules read them — a detail page has no cards to
+    // hide — but because a mutation we cannot recognise schedules a rule pass, and a listing's own page
+    // can carry related-job cards that those rules *do* read.
+    'ojc-hl-pos', 'ojc-hl-neg', 'ojc-hl-warn'];
   function isOurs(node) {
     let n = node;
     while (n) {

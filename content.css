@@ -183,3 +183,62 @@
    know when the user has reached the end of the list. */
 #ojc-sentinel { height: 1px; }
 #ojc-chip #ojc-note { color: #9fb3c8; font-style: italic; }
+
+/* ── Job detail page (W4) ────────────────────────────────────────────────────
+   The description is plain text between <br>s, so these spans are the only way a mark can exist.
+   Green is a keyword you asked for; red is a keyword you asked to hide; the warning shade is for
+   something that takes you off OnlineJobs.ph — it is deliberately not the same red as a keyword,
+   because "I dislike this word" and "this listing wants you to apply elsewhere" are different
+   facts and the second one is the reason you opened the page. */
+.ojc-hl-pos {
+  background: rgba(125, 155, 109, .28);
+  color: #33501f;
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 600;
+}
+.ojc-hl-neg {
+  background: rgba(192, 57, 43, .16);
+  color: #8e2b20;
+  border-radius: 3px;
+  padding: 0 2px;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+.ojc-hl-warn {
+  background: rgba(192, 57, 43, .2);
+  color: #8e2b20;
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 #c0392b;
+}
+
+/* The bar that carries what the board cannot: the hours this listing states, the month computed
+   from them, and whether the listing asks you to apply somewhere else. */
+#ojc-detail-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #f4f6f8;
+  border: 1px solid #dfe5eb;
+  font: 600 12px system-ui, sans-serif;
+  color: #33424f;
+}
+#ojc-detail-bar span { white-space: nowrap; }
+#ojc-detail-bar .ojc-bar-pay { color: #14571f; }
+#ojc-detail-bar .ojc-bar-unknown { color: #7a8794; font-weight: 500; }
+#ojc-detail-bar .ojc-bar-assumed { color: #8a6100; font-weight: 500; }
+#ojc-detail-bar .ojc-bar-goal { color: #7a8794; font-weight: 500; }
+#ojc-detail-bar .ojc-bar-goal.ojc-bar-met { color: #14571f; }
+#ojc-detail-bar .ojc-bar-warn {
+  color: #fff;
+  background: #c0392b;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+#ojc-detail-bar .ojc-bar-counts { color: #5a6b7a; font-weight: 500; }

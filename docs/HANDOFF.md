@@ -7,6 +7,9 @@
 Read this before touching code. It carries the current state, the environment invariants, and the
 traps that cost time last session. Everything marked ✅ was verified by running it, not assumed.
 
+**Where the remaining work is planned:** `spec.md` (audit + decision-ready wave plan, mirroring the
+sibling `onlinejobs.ph-suite`). This file stays the **runbook**: environment, resume commands, traps.
+
 ---
 
 ## 0. Resume in three commands
@@ -226,15 +229,15 @@ should keep looking like.
 
 | Suite artifact | Purpose there | State here |
 |---|---|---|
-| `spec.md` | decision-ready spec + wave plan; every task has acceptance criteria and a verify command | ⬜ not mirrored; the approved plan is `plans/2026-08-26_ojph-extension.md` |
+| `spec.md` | decision-ready spec + wave plan; every task has acceptance criteria and a verify command | ✅ mirrored 2026-09-18 (`spec.md`) |
 | `plans/YYYY-MM-DD_<slug>.md` | dated, approved workstreams | ✅ one plan |
 | `tools/gate.sh` + `.githooks/pre-push` (`git config core.hooksPath .githooks`) | one command that must pass before a push | ✅ both, hooked in this clone |
 | `.github/workflows/ci.yml` | matrix tests + a fresh-install smoke job | ✅ Node 20 `npm test` + package-integrity step (never run on GitHub yet — the first push triggers it) |
-| `tests/` incl. `test_repo_hygiene.py` | unit tests + repo invariants | ✅ `test-rules.js`, `test-manifest.js` (node, zero deps); ⬜ the repo-hygiene test |
+| `tests/` incl. `test_repo_hygiene.py` | unit tests + repo invariants | ✅ `test-rules.js`, `test-manifest.js` (node, zero deps); ⬜ `test-repo-hygiene.js` — **W1.6 in `spec.md`** |
 | README with screenshots, config table, workflow narrative | public face; every config key documented | ⬜ Task 8 |
 | `docs/{architecture,scraping,operations}.md` | durable design notes | ⬜ this file exists; add `docs/architecture.md` when Task 4 lands |
-| "README truthfulness" check inside the gate | README cannot drift from the code | ⬜ fold into the repo-hygiene test |
-| `.editorconfig`, `.gitattributes`, `SECURITY.md`, `.github/ISSUE_TEMPLATE/` | repo hygiene | ⬜ |
+| "README truthfulness" check inside the gate | README cannot drift from the code | ⬜ `tools/check-readme.js` (W1.7 in `spec.md`) |
+| `.editorconfig`, `.gitattributes`, `SECURITY.md`, `.github/ISSUE_TEMPLATE/` | repo hygiene | ⬜ W1.1/W1.2/W1.4 of `spec.md` |
 | `# ponytail:` comments marking known ceilings | flag deliberate shortcuts | ✅ keep doing it |
 | one task = one commit, `W5.3 — …` / `fix(W6.1): …` | reviewable diffs | ✅ adopt |
 

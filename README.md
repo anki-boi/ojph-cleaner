@@ -54,6 +54,10 @@ your goals, it stays on the page in yellow — the one state where a listing is 
 suspicious, so you can reconsider it without turning the whole filter off. Nothing else changes about
 it: the salary figure, the posted date and the listing itself are the site's.
 
+**Both badges name the keyword.** A green `✓ keyword` badge sits top-right on a highlighted card, and a
+red `✗ keyword` badge sits in the same place on every card a negative keyword matched — the yellow ones,
+and the hidden ones when you turn *Show all* on. So nothing on the page is marked without saying why.
+
 The chip reports `N hidden (a stale, x no salary, y keywords, z highlighted, w to reconsider)` and
 toggles between hiding and showing. Click `⚙` to open the settings panel **in the page** — saving
 applies to the listings immediately, with no reload.
@@ -102,8 +106,8 @@ same storage, and both take effect on every open tab immediately.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `negative` | empty | One keyword per line. A listing whose text contains any of them is **hidden**. |
-| `positive` | empty | One keyword per line. A listing whose text contains any of them is **highlighted**, never hidden. |
+| `negative` | empty | One keyword per line. A listing whose text contains any of them is **hidden**. Prefix with `=` for a whole word (`=ai`). |
+| `positive` | empty | One keyword per line. A listing whose text contains any of them is **highlighted**, never hidden. Prefix with `=` for a whole word (`=ai`). |
 | `noSalary` | on | Hide listings whose salary field contains no digit (`TBD`, `N/A`, `Negotiable`, `DOE`, empty). |
 | `maxAgeDays` | 7 | Hide listings posted longer ago than this many days. `0` turns it off, `7` is the last week, `30` the last month. Applied **before** every other rule, and a listing whose date cannot be read is never hidden by it. |
 | `showHidden` | off | Reveal what was hidden, with a red dashed marker. The chip's `Show all` writes this. |
@@ -113,7 +117,10 @@ same storage, and both take effect on every open tab immediately.
 | `autoScan` | off | Deep-scan this page's listings once the described feature ships — **disabled in the UI until then** (`spec.md` W3). |
 
 Matching is plain case-insensitive substring, so `crypto` also matches `cryptocurrency`. Keep the
-list short and specific.
+list short and specific — or prefix a keyword with `=` to match it as a whole word: `=ai` matches
+`AI tools` and `AI-powered`, but not `email` or `daily`. That matters for short keywords: `AI` as a
+plain substring matched **every** listing on a live search, and because a listing that also looks
+good is shown in yellow rather than hidden, that quietly turned keyword hiding off altogether.
 
 ## Privacy
 

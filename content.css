@@ -98,6 +98,23 @@
   outline-offset: 2px;
 }
 
+/* Which keyword it was, top-right, mirroring the green ✓ badge — on a keyword-hidden card when "Show
+   all" reveals it, and on a yellow reconsider card always (there it is the reason the card is shown at
+   all, so it earns its place). Same geometry as .ojc-pos-badge; a card is never both green and red,
+   because the negative branch is decided first. */
+.ojc-neg-badge {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  z-index: 1;
+  background: rgba(192, 57, 43, .16);
+  color: #8e2b20;
+  font: 600 12px system-ui, sans-serif;
+  padding: 2px 10px;
+  border-radius: 10px;
+  pointer-events: none;
+}
+
 /* Salary annotation (W7): sits ABOVE the site's posted figures on its own line (width: fit-content keeps
    it shrink-wrapped) and is deliberately louder than them. No background: a price should read like a
    price, not like a highlighter. The left rule ties it to the posted figure underneath. The posted

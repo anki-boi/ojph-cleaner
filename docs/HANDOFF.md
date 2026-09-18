@@ -1,6 +1,6 @@
 # HANDOFF — OJ.ph Cleaner (Chrome MV3 extension)
 
-**Date:** 2026-09-18 · **Extension version:** 0.6.0 · **Branch:** `main`
+**Date:** 2026-09-18 · **Extension version:** 0.7.0 · **Branch:** `main`
 **Repo:** `C:\Users\PC\Desktop\ojph-cleaner` → https://github.com/anki-boi/ojph-cleaner (public)
 **Author identity in this repo's history:** `Jeyson <jeyson@local>`
 
@@ -280,6 +280,43 @@ full list : idle 0 requests · one scroll → +30 cards, 1 request (/jobseekers/
 last page : 290+7=297 — idle and scrolled both spent 0 requests, nothing to load
 ```
 
+### 4f. ✅ W8 — recency and the yellow reconsider state (0.7.0)
+
+Asked for as two things: stale listings filtered out automatically ("the primary filter out of
+everything"), and a yellow outline for a listing that matches a hide keyword but also looks good
+("that way I can reconsider those listings"). Decisions D15-D24 in `spec.md`.
+
+- **The posted instant is already on every card.** `p[data-temp]` → `data-temp="2026-09-19 01:33:33"`,
+  `data-temp-2="2026-09-18 17:33:33"` — the same moment, the first in the site's own Asia/Manila clock
+  and the second in UTC. Verified on 30/30 cards across a keyword search, a category page and two offset
+  pages. **Read `data-temp-2`, and never parse the visible string as local time**: this machine is
+  America/Denver, where that is 14 hours wrong. The fallback applies `MANILA_OFFSET_MINUTES` (480).
+- **Recency is the first rule**, above everything, and a card whose date cannot be read is never stale.
+- **The filter earns its keep on the pages behind the first one.** Measured on the user's own skill
+  search: page 1 was 0.03-1.2 days old (0 hidden), while `/jobsearch/240?…` was **20.6-23.7 days old and
+  hidden 30/30**. A first page alone would have made the feature look like it did nothing.
+- **One number covers all three presets** (`maxAgeDays`, 0 = off, 7 = last week, 30 = last month).
+- **`.ojc-recon` must be declared after `.ojc-goal` at the same specificity.** A reconsider card usually
+  carries `.ojc-goal` too — that is *why* it is good — so the goal's green outline wins the cascade
+  otherwise, and the class check still passes while nothing yellow is on screen. The live harness
+  asserts the **computed** `outlineColor`, not the class.
+- **The goal mark is the reason for the extra rule pass.** `refreshRules()` reads `.ojc-goal`, and
+  `salary-cards.js` sets it *after* the pass, because the monthly figure waits on the live ECB rate. A
+  listing that is good only because it pays well was therefore hidden, and nothing re-ran the pass —
+  our own nodes keep `isOurs()` quiet. `annotate()` now reports whether a mark moved and asks for one
+  more pass. **Measured with the seam disabled**, on a freshly inserted card paying ₱56,459/mo and
+  matching a hide keyword: `goal true, recon false, hidden true`. That is also the only form of the
+  check that can fail — on a live page a stray mutation re-runs the pass for the existing cards and
+  masks it, so the harness test inserts a fresh card and asserts on that.
+- **`✗ keyword` badges**, mirroring the green `✓` ones, on every negative match: the yellow cards and
+  the hidden ones when *Show all* is on. Any new badge class **must also be added to `OUR_CLASSES` in
+  `content.js`**, or its insertion schedules the next rule pass forever (§2.2).
+- **Keywords gained an opt-in whole-word marker** (D24). The user's positive keyword `AI` matched **30 of
+  30** cards as a substring (`daily`, `email`, `main`, `paid`, `thumbnail`, `management`), which — with
+  the reconsider rule rescuing every negative match — silently turned their entire negative list into a
+  no-op: 17 yellow, 0 hidden. `=ai` matches the whole word only. Nothing changes for keywords without
+  the marker.
+
 ### 4e. ✅ W7 — salary figures and the goals (0.6.0)
 
 Asked for as "the salary estimator"; built as a **normalizer** that refuses to invent numbers (D9–D14
@@ -354,6 +391,7 @@ salary    : 23 monthly figure(s), 3 posted-rate figure(s), 1 with no figure
 | `spec.md` W2 — the defects the audit found | ✅ 0.4.0, see §4c |
 | `spec.md` W6 — perpetual pagination | ✅ 0.5.0, see §4d |
 | `spec.md` W7 — salary figures + both goals | ✅ 0.6.0, see §4e |
+| `spec.md` W8 — recency + the yellow reconsider state | ✅ 0.7.0, see §4f |
 | **4. Deep scan engine** (`spec.md` W3) | ⬜ **next** |
 | 6. Detail-page banner (`spec.md` W4) | ⬜ |
 | Distribution (`spec.md` W5) | ⬜ unpacked for now (D2) |

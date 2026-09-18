@@ -129,6 +129,16 @@
   // ── Rules pass ───────────────────────────────────────────────────────────
   // Order, and it is observable: stale → noSalary → negative (unless good) → positive → nothing.
   // First match wins, so a count can never be computed by adding the buckets up.
+
+  /** The card's verdict badge, top-right: `✓ kw` in green, `✗ kw` in red. Prepended, so it is also the
+   *  first thing `ownText()` strips — our own words must never reach the rules that read the card. */
+  const badge = (card, cls, text) => {
+    const b = document.createElement('span');
+    b.className = cls;
+    b.textContent = text;
+    card.prepend(b);
+  };
+
   function refreshRules() {
     if (!LIST_RE.test(location.pathname)) return;
     const now = Date.now();   // one instant for the whole pass, so two cards cannot disagree
@@ -147,7 +157,7 @@
       // so an attribute the site set is never removed.
       if (c.classList.contains('ojc-recon')) c.removeAttribute('title');
       c.classList.remove('ojc-neg', 'ojc-pos', 'ojc-recon');
-      c.querySelector('.ojc-pos-badge')?.remove();
+      for (const b of c.querySelectorAll('.ojc-pos-badge, .ojc-neg-badge')) b.remove();
 
       if (old) {
         c.hidden = !settings.showHidden;
@@ -157,9 +167,11 @@
         noSal++;
       } else if (neg.length && good) {
         // A keyword you asked to hide, on a listing that also looks worth your time: shown, in yellow
-        // (D15). Not hidden — a yellow marker you have to ask to see is not a reconsideration.
+        // (D15). Not hidden — a yellow marker you have to ask to see is not a reconsideration. The
+        // badge says which keyword it was, so the state explains itself without a tooltip.
         c.hidden = false;
         c.classList.add('ojc-recon');
+        badge(c, 'ojc-neg-badge', '✗ ' + neg.join(', '));
         c.title = 'Matches a hide keyword, but also ' +
           (posM.length ? `matches "${posM.join(', ')}"` : 'pays at or above your goal') +
           ' — shown so you can reconsider it';
@@ -167,14 +179,12 @@
       } else if (neg.length) {
         c.hidden = !settings.showHidden;
         c.classList.add('ojc-neg');
+        badge(c, 'ojc-neg-badge', '✗ ' + neg.join(', '));
         kw++;
       } else if (posM.length) {
         c.hidden = false; // positive = highlight only, never hidden
         c.classList.add('ojc-pos');
-        const badge = document.createElement('span');
-        badge.className = 'ojc-pos-badge';
-        badge.textContent = '✓ ' + posM.join(', ');
-        c.prepend(badge);
+        badge(c, 'ojc-pos-badge', '✓ ' + posM.join(', '));
         pos++;
       } else {
         c.hidden = false;
@@ -228,7 +238,7 @@
   // schedule the next one, forever (spec.md §2.2).
   // Classes are listed explicitly rather than matched by "ojc-*": .ojc-pos/.ojc-neg/.ojc-goal sit on
   // the *site's* cards, and a mutation inside a highlighted card is a real change worth re-running for.
-  const OUR_CLASSES = ['ojc-pos-badge', 'ojc-salary-note', 'ojc-salary-warn'];
+  const OUR_CLASSES = ['ojc-pos-badge', 'ojc-neg-badge', 'ojc-salary-note', 'ojc-salary-warn'];
   function isOurs(node) {
     let n = node;
     while (n) {

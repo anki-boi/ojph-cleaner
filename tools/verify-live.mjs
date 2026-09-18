@@ -254,8 +254,11 @@ const ruleEval = (tab, { neg = [], pos = [], maxAgeDays = 0, noSalary = true } =
     const at = postedAt(c);
     if (at == null) noDate++;
     const ns = noSalary && !/\\d/.test(ownSal(c));
-    const nm = neg.some((k) => text.includes(k));
-    const pm = pos.some((k) => text.includes(k));
+    // Through the extension's own matcher, not .includes: the keyword syntax lives in rules.js, and a
+    // harness that re-implements it diverges the moment the syntax grows (a leading = now means
+    // whole-word). This is the same injected module, so it cannot disagree.
+    const nm = OJRules.matchKeywords(text, neg).length > 0;
+    const pm = OJRules.matchKeywords(text, pos).length > 0;
     const good = pm || c.classList.contains('ojc-goal');
     if (nm) negAnyExpected++;
     if (OJRules.isStale(at, now, maxAgeDays)) staleExpected++;
@@ -288,6 +291,9 @@ const res = JSON.parse(await withTab(PORT, URL_, async (tab) => {
       invisible: [...document.querySelectorAll('.jobpost-cat-box.latest-job-post[hidden]')]
         .filter(c => getComputedStyle(c).display === 'none').length,
       negatives: document.querySelectorAll('.jobpost-cat-box.ojc-neg').length,
+      // Every card that matched a hide keyword says which one, on the hidden cards (visible with
+      // show-all on) and on the yellow ones, where it is the reason the card is on screen at all.
+      negBadges: document.querySelectorAll('.jobpost-cat-box .ojc-neg-badge').length,
       recons: document.querySelectorAll('.jobpost-cat-box.ojc-recon').length,
       reconOutline: (() => { const c = document.querySelector('.jobpost-cat-box.ojc-recon');
         return c ? getComputedStyle(c).outlineColor : null; })(),
@@ -301,7 +307,8 @@ console.log(`  cards   : ${res.cards}${res.claimed ? ` (site claims ${res.claime
 console.log(`  chip    : ${res.chip ? res.chipText : 'MISSING — content script did not run'}`);
 console.log(`  hidden  : ${res.hidden}   (expected by rule: ${res.hiddenExpected})`);
 console.log(`  stale ${res.staleExpected} / no-salary ${res.noSalExpected} / keyword ${res.negExpected} → hidden, ` +
-  `positive ${res.posExpected} → highlighted, ${res.reconExpected} → yellow (reconsider)`);
+  `positive ${res.posExpected} → highlighted, ${res.reconExpected} → yellow (reconsider) · ` +
+  `${res.negBadges} ✗ badge(s)`);
 
 if (!res.chip) await fail('content script did not inject — check manifest permissions/host_permissions');
 
@@ -336,6 +343,11 @@ if (res.hidden !== res.invisible) {
   await fail(`${res.hidden} cards carry [hidden] but only ${res.invisible} are actually display:none — the site CSS is winning`);
 }
 if (res.negatives !== res.negExpected) await fail(`keyword hides ${res.negatives}, expected ${res.negExpected}`);
+if (res.negBadges !== res.negExpected + res.reconExpected) {
+  await fail(`${res.negBadges} card(s) carry the ✗ badge, expected ${res.negExpected + res.reconExpected} ` +
+    `(keyword hides ${res.negExpected} + reconsidered ${res.reconExpected}) — every negative match must ` +
+    `say which keyword matched`);
+}
 if (res.recons !== res.reconExpected) {
   await fail(`${res.recons} card(s) carry the yellow reconsider outline, expected ${res.reconExpected} — ` +
     `a listing that matches a hide keyword AND looks good (positive keyword, or a goal mark) must be ` +

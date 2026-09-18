@@ -70,4 +70,25 @@ assert.strictEqual(isStale(null, NOW, 7), false, 'an unreadable date must never 
 assert.strictEqual(isStale(parsePosted('nonsense'), NOW, 7), false);
 assert.strictEqual(isStale(dayAgo(40), NOW, '7'), true, 'a numeric string still counts as days');
 
+assert.deepStrictEqual(matchKeywords('anything', ['', '   ', null]), []);
+
+// ── matchKeywords: the `=` marker means "this word, not this string of letters" ──────────────
+// Plain substring matching is the documented default and stays it. The marker exists because a short
+// keyword explodes: the user's positive keyword "AI" matched 30 of 30 cards on the live board through
+// `daily`, `email`, `main`, `paid`, `thumbnail` and `management`, which — combined with the yellow
+// reconsider rule — silently turned their whole negative-keyword list into a no-op.
+assert.deepStrictEqual(matchKeywords('Check your email daily', ['ai']), ['ai'], 'substring is still the default');
+assert.deepStrictEqual(matchKeywords('Check your email daily', ['=ai']), []);
+assert.deepStrictEqual(matchKeywords('AI tools wanted', ['=ai']), ['ai'], 'the marker is not part of the keyword');
+assert.deepStrictEqual(matchKeywords('Use AI-powered tooling', ['=ai']), ['ai'], 'a hyphen is a boundary');
+assert.deepStrictEqual(matchKeywords('Daily AI digest', ['=AI']), ['AI'], 'case does not matter to the marker');
+assert.deepStrictEqual(matchKeywords('daily', ['=ai']), []);
+assert.deepStrictEqual(matchKeywords('paid ads run', ['=ads']), ['ads']);
+assert.deepStrictEqual(matchKeywords('advertisements', ['=ads']), [], 'the point: no match inside a longer word');
+assert.deepStrictEqual(matchKeywords('video editor needed', ['=editor']), ['editor'], 'whole words inside a phrase still match');
+assert.deepStrictEqual(matchKeywords('editors wanted', ['=editor']), [], 'plural is a different word');
+assert.deepStrictEqual(matchKeywords('cost is $5 (approx)', ['=$5']), ['$5'], 'a needle with punctuation is not a regex');
+assert.deepStrictEqual(matchKeywords('x', ['=    ']), [], 'a marker with nothing after it matches nothing');
+assert.deepStrictEqual(matchKeywords('email', ['=ai', 'email']), ['email'], 'the two forms mix in one list');
+
 console.log('rules: all assertions passed');

@@ -11,6 +11,7 @@ makes it safe to leave installed, and it is the property every change here must 
 | Nothing configured, `autoLoad` off | **zero** | the site's own page load is the only traffic |
 | Nothing configured, `autoLoad` on (default) | one per *scroll to the bottom* | the next result page, after a real wheel/keyboard gesture — never on an idle page, and never from a programmatic scroll |
 | A foreign-currency salary on screen | one per currency per 24 h | European Central Bank reference rates via `api.frankfurter.dev` — a public exchange rate, no data about the user, and never a stale one (no rate → no converted figure) |
+| Recency filtering (W8) | **none** | The posted instant is already in the card markup (`p[data-temp]`), so filtering on it costs nothing. Hide-scrolling to find older listings is the *user* scrolling, and the loader's budget is unchanged |
 | Deep scan (`spec.md` W3, not built) | one per loaded card, only when keywords are configured | 3 concurrent, 400 ms between waves, current view only |
 
 Perpetual pagination (W6) is deliberately conservative: it needs a real scroll since the last page
@@ -29,6 +30,7 @@ If the site changes its markup, that object is the single place to fix, and
 |---|---|---|
 | List card | `.jobpost-cat-box.latest-job-post` | 30 cards per page (observed 2026-09-18) |
 | Card salary | `dd.col` | "has salary" = the text contains a digit |
+| Card posted date | `p[data-temp]` → `data-temp-2` (UTC), fallback `data-temp` (+08:00) | W8: on 30/30 cards across a keyword search, a category page and two offset pages. Both attributes are the same instant — `2026-09-19 01:33:33` / `2026-09-18 17:33:33` on one live card — so the visible string is the site's own Asia/Manila clock, never the viewer's |
 | Detail description | `p#job-description` | ~2.9k chars on a typical job (W3) |
 | Detail salary | `p` next sibling of the `h3.fs-12` matching `/WAGE\s*\/\s*SALARY/i` | label → next-sibling-value pattern (W3) |
 | Detail page | `/jobseekers/job/{slug}-{id}` | (W3) |

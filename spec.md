@@ -8,7 +8,8 @@ dependencies · 1 live CDP harness · Chrome 153, unpacked, enabled in the autom
 
 **Status after the audit:** ✅ W1 (public face, hygiene, gates) and ✅ W2 (every defect in §2) landed
 in 0.4.0 — see `docs/HANDOFF.md` §4c for the measured before/after. ✅ W6 (perpetual pagination) landed
-in 0.5.0. ✅ W7 (salary figures + goal) landed in 0.6.0. W3 (deep scan) is next; D2–D11 are decided.
+in 0.5.0. ✅ W7 (salary figures + goal) landed in 0.6.0. ✅ W8 (recency + the yellow reconsider state)
+landed in 0.7.0. W3 (deep scan) is next; D2–D5 are still open.
 
 ---
 
@@ -37,10 +38,10 @@ discipline, sized to a ~250-line extension.
 | Layer | Files | Notes |
 |---|---|---|
 | Manifest | `manifest.json` | MV3, `permissions: ["storage"]` (load-bearing — see §1.2), host permissions on `onlinejobs.ph` only |
-| Content script | `content.js` (269 lines) | chip, in-page options panel, rule pass, mutation observer, storage sync — **no network code** |
+| Content script | `content.js` (283 lines) | chip, in-page options panel, rule pass, mutation observer, storage sync — **no network code** |
 | Loader | `pagination.js` (126 lines) | perpetual pagination: sentinel, one fetch per user scroll, stop conditions (W6) |
-| Rules | `rules.js` (28 lines) | pure `hasSalary` / `matchKeywords`, UMD, no DOM |
-| Styles | `content.css` (95 lines) | chip + panel + highlight styles, all `#ojc-*` scoped |
+| Rules | `rules.js` (91 lines) | pure `hasSalary` / `matchKeywords` (with the `=` whole-word marker), `parsePosted` / `isStale`, UMD, no DOM |
+| Styles | `content.css` (185 lines) | chip + panel + highlight styles, all `#ojc-*` scoped |
 | Options page | `options.html` / `options.js` | standalone fallback; the panel is the primary UI |
 | Tests | `test-rules.js`, `test-manifest.js` | 27 assertions, zero dependencies, `npm test` |
 | Live harness | `tools/cdp.mjs`, `tools/verify-live.mjs` | drives real Chrome over CDP against the live site |
@@ -179,6 +180,16 @@ the only thing standing between a red gate and `main`. The suite treats this as 
 | **D12** | Bare numbers | When a listing states **neither a currency nor a unit**, its size is the tell: **1-2 digits → an hourly rate, 3-4 digits → a monthly rate, 5+ digits → a monthly peso figure**, and the currency follows the same reading. Sampled live: the 1-2 digit cards were foreign writing roles at $4-7/hr, the 3-4 digit ones monthly USD rates (`1000` on a listing whose own text said "$1,000 per month"), the 5+ digit ones pesos. A stated marker or unit always wins — `Php 1000/day` stays pesos, `140-175/per hour` stays pesos | ✅ decided 2026-09-18 |
 | **D13** | Which goal judges a card | **One goal per card**: Full Time → the monthly goal (40 h/week is what full time means, so a month exists); Part Time or other → the hourly goal, using the posted rate; a listing quoting only a month → the monthly goal, as there is no rate to compare. Neither goal is ever derived from the other — deriving one would assume someone else's work week | ✅ decided 2026-09-18 |
 | **D14** | The 40 h/week disclaimer | A month computed from an hourly rate under the full-time definition **says so on the card**: `assumes 40 h/week (full time) — verify with the employer`. Do not trust the monthly figure blindly | ✅ decided 2026-09-18 |
+| **D15** | A negative-keyword card that also looks good | **Shown with a yellow outline**, never hidden. A marker you have to ask for is not a reconsideration | ✅ decided 2026-09-18 |
+| **D16** | What "good" means for that state | A positive keyword match, **or** the card is at/above one of the goals. With both goals off, only a positive can rescue a card | ✅ decided 2026-09-18 |
+| **D17** | The default recency window | **7 days** | ✅ decided 2026-09-18 |
+| **D18** | Where recency sits in the order | **First**, and first in the chip: a stale listing is hidden even if it would otherwise be yellow | ✅ decided 2026-09-18 |
+| **D19** | A card whose date cannot be read | **Never hidden**, and counted separately — the rule that runs before everything else must not be the rule that loses a listing | ✅ decided 2026-09-18 |
+| **D20** | Which clock the posted date is read in | `data-temp-2` (UTC), falling back to `data-temp` at the site's **+08:00**. Never the viewer's local zone: on this machine that is 14 hours wrong | ✅ decided 2026-09-18 |
+| **D21** | Representing last week / last month / custom | **One number**, `maxAgeDays`: `0` off, `7` last week, `30` last month, any N custom. Three settings for one threshold is the over-build | ✅ decided 2026-09-18 |
+| **D22** | The live harness and the user's settings | It must snapshot and restore `chrome.storage.local` around every run — including on SIGINT/SIGTERM — because it seeds into the user's daily browser. **This was a live data-loss bug, not a nicety** | ✅ decided 2026-09-18 |
+| **D23** | Window boundaries | Strict (`age > maxAgeDays`), so `7` means "posted within the last 7 days" — rolling, not a calendar week | ✅ decided 2026-09-18 |
+| **D24** | Keyword matching | Unchanged by default: case-insensitive substring. A leading `=` makes one keyword whole-word (`=ai`). Opt-in, because substring is both documented and right for most keywords — but a *short* keyword explodes: `AI` matched 30 of 30 live cards, which with D15 silently turned the user's entire negative list into a no-op | ✅ decided 2026-09-18 |
 
 ---
 
@@ -211,9 +222,11 @@ spec.md                this file
 - **All injected UI lives under `#ojc-` ids**, and `isOurs()` must recognise every one of them. The
   panel is a **sibling** of the chip, never a child: `renderChip()` wipes the chip's children, so a
   child panel would be destroyed mid-edit. Asserted live.
-- **Rule order is `noSalary → negative → positive`** and it is observable: with `noSalary` off, the
-  no-salary cards fall through to the keyword rule (measured: 16 keyword hides become 20). Any test
-  that predicts a count must replicate the order, not add up the buckets.
+- **Rule order is `stale → noSalary → negative (unless good) → positive`** and it is observable: with
+  `noSalary` off, the no-salary cards fall through to the keyword rule (measured: 16 keyword hides become
+  20). Any test that predicts a count must replicate the order, not add up the buckets. `good` — a
+  positive match, or a goal mark — turns a negative match into the **yellow reconsider state** (D15/D16)
+  instead of a hide.
 - **One file, one job.** No file over 300 lines (gate-enforced, W2.4) — the analogue of the suite's
   250-line route-module cap.
 
@@ -226,6 +239,7 @@ a one-line fix and the harness can name the selector that broke:
 |---|---|---|
 | List card | `.jobpost-cat-box.latest-job-post` | rule pass, harness |
 | Card salary | `dd.col` (text must contain a digit) | rule pass, harness |
+| Card posted date | `p[data-temp]` → `data-temp-2` (UTC), fallback `data-temp` (+08:00) | rule pass (W8), harness |
 | Detail description | `p#job-description` | W3 |
 | Detail salary | `p` next sibling of the `h3.fs-12` matching `/WAGE\s*\/\s*SALARY/i` | W3 |
 | List pages | `/jobseekers/jobsearch` (bare or `/offset/`), `/jobseekers/search/c/{slug}/{offset}` | content script |
@@ -283,6 +297,24 @@ listing states and refuses to invent the rest. Every rule below came from a live
 | W7.6 | Live assertions: every readable card's figure recomputed with the same parser, the no-month-without-hours policy, piece rates left alone, one rate request per foreign currency, posted text intact, goal marks exactly matching | `tools/verify-live.mjs` |
 | W7.7 | Bare numbers read by magnitude (D12): 1-2 digits hourly, 3-4 monthly, 5+ monthly pesos, with the currency inferred only when no marker exists and disclosed in the tooltip | `salary.js`, `test-salary.js` |
 | W7.8 | The hourly goal and the one-goal-per-card rule (D13), plus the 40 h/week disclaimer on the card (D14) | `salary.js`, `content.js`, `content.css`, `options.*` |
+
+### W8 — Recency and the reconsider state ✅ (0.7.0)
+
+Asked for as: stale listings filtered out automatically, "the primary filter out of everything", plus a
+yellow outline for a listing that matches a hide keyword *and* looks good, "so I can reconsider those
+listings". Decisions D15–D24.
+
+| ID | Task | Files |
+|---|---|---|
+| W8.1 | Pure `parsePosted` / `isStale`, with tests pinning the UTC-vs-Manila relationship, rollover rejection, the strict boundary, and that an unreadable date is never stale | `rules.js`, `test-rules.js` |
+| W8.2 | Recency as the first rule, read from `data-temp-2` with the Manila fallback; chip gains `stale` and `reconsider`; `maxAgeDays` default 7 | `content.js` |
+| W8.3 | The yellow reconsider state, `.ojc-recon` declared after `.ojc-goal` at equal specificity, and `✗ keyword` badges on every negative match | `content.js`, `content.css` |
+| W8.4 | One extra rule pass when a goal mark moves — the mark arrives after the pass that reads it | `salary-cards.js` |
+| W8.5 | The window in both UIs, first in the panel | `panel.js`, `options.html`, `options.js` |
+| W8.6 | Live assertions: recency parity, a watchdog on the date attributes, the **computed** outline colour, badge parity, and an inserted card that must turn yellow — the only form of the seam check that can fail | `tools/verify-live.mjs` |
+| W8.7 | The harness stops clobbering the user's settings, and stops opening a tab per `chrome.storage` read | `tools/verify-live.mjs`, `tools/cdp.mjs` |
+| W8.8 | A section that seeds its own keywords and **requires each branch to fire**, so a bare run can no longer pass without exercising the negative, positive or reconsider rule | `tools/verify-live.mjs` |
+| W8.9 | The whole-word `=` marker (D24) | `rules.js`, `test-rules.js`, `panel.js`, `options.html`, `README.md` |
 
 ### W4 — Detail-page banner (the original Task 6) → depends on W3
 
@@ -433,6 +465,7 @@ Recorded so nobody re-proposes them. Each has a trigger that would change the an
 | W2 | `content.js`, `tools/verify-live.mjs`, `tools/gate.sh`, `test-manifest.js`, `options.html`, `options.js` |
 | W6 | `pagination.js` (new), `test-pager.js` (new), `content.js`, `content.css`, `options.*`, `tools/verify-live.mjs` |
 | W7 | `salary.js` + `salary-cards.js` (new), `test-salary.js` (new), `panel.js` (new, split from `content.js`), `content.js`, `content.css`, `options.*`, `manifest.json`, `tools/verify-live.mjs` |
+| W8 | `rules.js`, `test-rules.js`, `content.js`, `content.css`, `salary-cards.js`, `panel.js`, `options.*`, `tools/verify-live.mjs`, `tools/cdp.mjs`, `README.md`, `docs/*`, `manifest.json` |
 | W3 (new) | `detail-parser.js`, `test-detail-parser.js` |
 | Existing, unchanged | `manifest.json`, `rules.js`, `test-rules.js`, `content.css`, `options.html` |
 | Reference | `spec.md` (this file), `docs/HANDOFF.md`, `plans/*` |
@@ -455,6 +488,7 @@ List URLs: `/jobseekers/jobsearch?jobkeyword=…`, `/jobseekers/jobsearch/{offse
 | `autoScan` | boolean | `false` | Deep-scan this page's cards (W3). Disabled in the UI until then (D4) | nothing yet |
 | `autoLoad` | boolean | `true` | Append the next result page when the user scrolls to the bottom (W6) | `pagination.js` |
 | `goalSalary` | number | `0` (off) | Monthly PHP goal; cards at or above it brighten (W7) | `salary.js` |
+| `maxAgeDays` | number | `7` | Hide listings posted longer ago than this many days (`0` = off, `7` = last week, `30` = last month). Read **before** every other rule; an unreadable date is never stale (W8) | rule pass |
 
 `tools/check-readme.js` fails the gate if a key here is missing from the README's table.
 
@@ -469,7 +503,7 @@ List URLs: `/jobseekers/jobsearch?jobkeyword=…`, `/jobseekers/jobsearch/{offse
 | `test-repo-hygiene.js` | ✅ | no LICENSE, README stance, SECURITY, templates, hook wiring | `node test-repo-hygiene.js` |
 | `tools/check-readme.js` | ✅ | settings documented, no stale counts | `node tools/check-readme.js` |
 | `tools/gate.sh` | ✅ | all of the above + syntax + path scan + size cap | `sh tools/gate.sh` |
-| `tools/verify-live.mjs` | ❌ live site + browser | injection, selector drift, rule parity, `[hidden]`⇒`display:none`, chip toggle, panel open/save with no reload, an inserted card filtered on arrival + bounded rebuilds, pagination (idle = no requests, one per scroll, stops at the end), salary figures (recomputed with the same parser, the hours policy, piece rates left alone, one rate request per currency, goal marks exact) | `node tools/verify-live.mjs` |
+| `tools/verify-live.mjs` | ❌ live site + browser | injection, selector drift, rule parity, `[hidden]`⇒`display:none`, chip toggle, panel open/save with no reload, an inserted card filtered on arrival + bounded rebuilds, pagination (idle = no requests, one per scroll, stops at the end), salary figures (recomputed with the same parser, the hours policy, piece rates left alone, one rate request per currency, goal marks exact); **W8**: recency parity + a watchdog on the date attributes, the computed yellow outline, `✗` badge parity, every branch forced to fire, and an inserted card that must turn yellow | `node tools/verify-live.mjs` |
 | CI (Node 20) | ✅ | `npm test` + package integrity | `.github/workflows/ci.yml` |
 
 ## 9. What "done" looks like

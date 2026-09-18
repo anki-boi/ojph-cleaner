@@ -50,22 +50,39 @@ reintroduce it.)
 ## Rule order (observable, do not reorder)
 
 ```
-noSalary → negative → positive → nothing
+stale → noSalary → negative (unless good) → positive → nothing
 ```
 
 First match wins. This is not an implementation detail: with `noSalary` off, a no-salary card that
 also matches a negative keyword is counted in the keyword bucket, so a predicted count computed by
 adding the two buckets is wrong. Measured on a live page: 5 no-salary + 16 keyword = 21, but with
 `noSalary` off the same page hides **20** as keywords. `tools/verify-live.mjs` recomputes that
-expectation from the DOM in the same order (`negAnyExpected`) rather than by arithmetic.
+expectation from the DOM in the same order (`ruleEval`) rather than by arithmetic.
+
+**Recency is first**, and deliberately above the reconsider state: a stale listing is hidden even if it
+matches a positive keyword or pays above the goal. Its timestamp comes from `data-temp-2` (UTC), falling
+back to `data-temp` at the site's own +08:00 — never the machine's local zone. A card whose date cannot
+be read is never stale, because the one rule that runs before everything else must not be the rule that
+loses a listing.
+
+**`good` is the reconsider signal** (spec.md D15/D16): a positive keyword match, or `.ojc-goal` — the
+mark `salary-cards.js` puts on a listing at or above a goal. A negative match that is also `good` is
+**shown** with a yellow outline and a `✗ keyword` badge instead of being hidden. `.ojc-goal` is owned by
+`salary-cards.js`; the rule pass only reads it, and because those marks arrive a pass late (they wait on
+the live ECB rate) `annotate()` asks for one extra pass when a mark moves. Without that, a listing that
+is good only because it pays well stays hidden.
 
 Positive keywords **never** hide. A false positive costs a real job listing, which is the one mistake
 this extension must not make.
 
 ## The injected UI contract
 
-- Everything injected is namespaced: `#ojc-chip`, `#ojc-panel`, `.ojc-pos`, `.ojc-neg`,
-  `.ojc-pos-badge`. The extension never restyles the site's own elements.
+- Everything injected is namespaced: `#ojc-chip`, `#ojc-panel`, `.ojc-pos`, `.ojc-neg`, `.ojc-recon`,
+  `.ojc-pos-badge`, `.ojc-neg-badge`. The extension never restyles the site's own elements.
+- **Every injected class must be in `isOurs()`'s `OUR_CLASSES`.** A badge added by the rule pass is a real
+  DOM mutation, and if `isOurs()` cannot recognise it the pass schedules itself forever (§2.2). Adding a
+  badge means adding it here too — `.ojc-neg-badge` cost one line in two places, and forgetting the
+  second is a 400-pass/second page.
 - **The panel is a sibling of the chip, never a child.** `renderChip()` sets `chip.innerHTML = ''` on
   every rule pass; a panel nested inside would be destroyed while the user is typing in it.
   `verify-live` asserts the panel is *not* inside the chip.

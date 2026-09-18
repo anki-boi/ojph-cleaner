@@ -274,14 +274,14 @@ should keep looking like.
 | Suite artifact | Purpose there | State here |
 |---|---|---|
 | `spec.md` | decision-ready spec + wave plan; every task has acceptance criteria and a verify command | ✅ mirrored 2026-09-18 (`spec.md`) |
-| `plans/YYYY-MM-DD_<slug>.md` | dated, approved workstreams | ✅ one plan |
+| `plans/YYYY-MM-DD_<slug>.md` | dated, approved workstreams | ✅ two plans (`plans/`) |
 | `tools/gate.sh` + `.githooks/pre-push` (`git config core.hooksPath .githooks`) | one command that must pass before a push | ✅ both, hooked in this clone |
-| `.github/workflows/ci.yml` | matrix tests + a fresh-install smoke job | ✅ Node 20 `npm test` + package-integrity step (never run on GitHub yet — the first push triggers it) |
-| `tests/` incl. `test_repo_hygiene.py` | unit tests + repo invariants | ✅ `test-rules.js`, `test-manifest.js` (node, zero deps); ⬜ `test-repo-hygiene.js` — **W1.6 in `spec.md`** |
-| README with screenshots, config table, workflow narrative | public face; every config key documented | ⬜ Task 8 |
-| `docs/{architecture,scraping,operations}.md` | durable design notes | ⬜ this file exists; add `docs/architecture.md` when Task 4 lands |
-| "README truthfulness" check inside the gate | README cannot drift from the code | ⬜ `tools/check-readme.js` (W1.7 in `spec.md`) |
-| `.editorconfig`, `.gitattributes`, `SECURITY.md`, `.github/ISSUE_TEMPLATE/` | repo hygiene | ⬜ W1.1/W1.2/W1.4 of `spec.md` |
+| `.github/workflows/ci.yml` | matrix tests + a fresh-install smoke job | ✅ Node 20 `npm test` (now incl. hygiene + README truth) + package-integrity step |
+| `tests/` incl. `test_repo_hygiene.py` | unit tests + repo invariants | ✅ `test-rules.js`, `test-manifest.js`, `test-repo-hygiene.js` (node, zero deps), `tools/check-readme.js` |
+| README with screenshots, config table, workflow narrative | public face; every config key documented | ✅ `README.md` — 3 live screenshots, settings table, install, privacy |
+| `docs/{architecture,scraping,operations}.md` | durable design notes | ✅ `docs/architecture.md` + `docs/scraping.md`; `docs/HANDOFF.md` **is** the operations runbook (a third doc would duplicate it) |
+| "README truthfulness" check inside the gate | README cannot drift from the code | ✅ `tools/check-readme.js`, run by `npm test` |
+| `.editorconfig`, `.gitattributes`, `SECURITY.md`, `.github/ISSUE_TEMPLATE/` | repo hygiene | ✅ all four (`.gitattributes` is `* text eol=lf` — see §3.11) |
 | `# ponytail:` comments marking known ceilings | flag deliberate shortcuts | ✅ keep doing it |
 | one task = one commit, `W5.3 — …` / `fix(W6.1): …` | reviewable diffs | ✅ adopt |
 

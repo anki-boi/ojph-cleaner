@@ -1,2 +1,5 @@
 .DS_Store
 Thumbs.db
+
+# local dev scratch
+_gate.mjs

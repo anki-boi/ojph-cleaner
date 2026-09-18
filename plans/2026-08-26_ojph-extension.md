@@ -2,6 +2,11 @@
 
 > **Status:** APPROVED (2026-08-26) — implementing. Rev 3: own **public** GitHub repo `anki-boi/ojph-cleaner` (code at repo root); confirmed **positive = highlight-only**; confirmed **deep scan covers only the jobs on the current page**. Rev 2 added the deep scan; rev 1 was card-text-only.
 
+> **Progress 2026-09-18:** Tasks 1, 2, 3, 5 (card-level) and 7 are done and verified live; **4, 6 and 8 are pending**. As shipped on 2026-08-26 the extension never actually ran: `manifest.json` declared no
+> `"permissions": ["storage"]`, so `chrome.storage` was `undefined` in every context and `content.js` / `background.js` threw on boot. Fixed at the root — permission declared, the dead `background.js`
+> workaround deleted, and two guards added (`test-manifest.js` for the declaration, `tools/verify-live.mjs` for real behaviour on the live site). Read **[docs/HANDOFF.md](../docs/HANDOFF.md)** first:
+> it carries the current state, the browser/CDP environment facts, the traps, and the `onlinejobs.ph-suite` conventions this repo inherits.
+
 **Goal:** On OnlineJobs.ph in Edge/Chrome: (1) instantly hide cards with no salary; (2) on a "Deep scan" button click, fetch detail pages **for the jobs on the current page only** to get full descriptions, then **hide** negative-keyword matches and **highlight** positive-keyword matches — with progress, stop button, and a local 7-day cache.
 
 **Context:** User insight: the value lives in the browsing experience, and card-level text is too thin for keyword matching — the full description is what you actually filter on (same as the suite's post-enrichment rules). Key enabler: a content script fetches same-origin detail pages from the user's own browser — no CORS, residential IP (unlike the Python scraper's datacenter 429s), everything local (IndexedDB cache; the extension's only network access is OJ.ph). The suite repo (`anki-boi/onlinejobs.ph-suite`, private) remains the tracking CRM; this extension is a standalone companion, in its own public repo.

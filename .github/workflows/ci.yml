@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Tests (no dependencies to install)
+        run: npm test
+      - name: Packages as an unpacked extension
+        run: |
+          node -e "
+            const m = require('./manifest.json');
+            const fs = require('fs');
+            for (const f of [...m.content_scripts.flatMap(c => [...c.js, ...c.css]), ...Object.values(m.icons), m.options_page])
+              if (!fs.existsSync(f)) throw new Error('missing ' + f);
+            console.log(m.name, m.version, '— package looks loadable');
+          "

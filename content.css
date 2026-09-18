@@ -149,6 +149,19 @@
   letter-spacing: .3px;
 }
 
+/* Reconsider (W8): a listing that matches a hide keyword but also looks worth your time — a positive
+   keyword match, or pay at/above one of your goals. Shown, never hidden (spec.md D15): a yellow marker
+   you have to ask to see is not a reconsideration.
+   Declared AFTER .ojc-goal and at the same specificity, because a card in this state usually carries
+   .ojc-goal as well (that is *why* it is good) — the goal's green wash and outline would otherwise win,
+   and the yellow would never appear. Verified live on the computed style. */
+.card-hover-default.ojc-recon, .ojc-recon {
+  background: rgba(224, 168, 0, .08) !important;
+  outline: 2px solid #e0a800 !important;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
 /* Pagination sentinel (W6): 1px tall, sits after the last card, and is watched to
    know when the user has reached the end of the list. */
 #ojc-sentinel { height: 1px; }

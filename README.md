@@ -32,20 +32,31 @@ extension card to pick the changes up.
 
 ## What it does
 
-Three rules, applied in this order to every listing on the page:
+Four rules, applied in this order to every listing on the page:
 
-1. **No salary → hidden.** The salary field must contain a digit. `TBD`, `N/A`, `Negotiable`, `DOE`
+1. **Posted too long ago → hidden.** Every card carries its posted instant, and a listing older than
+   your window (7 days by default) is gone before any other rule looks at it. On the live board the
+   first page of a search is always fresh — this filter earns its keep on the pages behind it, where a
+   297-job search was measured at **40-46 days old**.
+2. **No salary → hidden.** The salary field must contain a digit. `TBD`, `N/A`, `Negotiable`, `DOE`
    and an empty field all fail.
-2. **Negative keyword → hidden.** Case-insensitive substring match against the whole card.
-3. **Positive keyword → highlighted only.** Never hidden. The green outline and `✓ keyword` badge
+3. **Negative keyword → hidden.** Case-insensitive substring match against the whole card — unless the
+   listing also looks good, in which case see below.
+4. **Positive keyword → highlighted only.** Never hidden. The green outline and `✓ keyword` badge
    tell you why.
 
 The first rule that matches wins, which matters when you read a count: with *no salary* turned off,
 a no-salary card that also matches a negative keyword moves into the keyword bucket.
 
-The chip reports `N hidden (x no salary, y keywords, z highlighted)` and toggles between hiding and
-showing. Click `⚙` to open the settings panel **in the page** — saving applies to the listings
-immediately, with no reload.
+**A keyword you hate, on a job you'd want, gets a yellow outline instead of disappearing.** If a
+listing matches a negative keyword *and* either matches a positive keyword or pays at or above one of
+your goals, it stays on the page in yellow — the one state where a listing is shown *because* it is
+suspicious, so you can reconsider it without turning the whole filter off. Nothing else changes about
+it: the salary figure, the posted date and the listing itself are the site's.
+
+The chip reports `N hidden (a stale, x no salary, y keywords, z highlighted, w to reconsider)` and
+toggles between hiding and showing. Click `⚙` to open the settings panel **in the page** — saving
+applies to the listings immediately, with no reload.
 
 **Keep scrolling.** When you reach the bottom of the list the next result page is appended, so a
 297-job search is one continuous scroll instead of eight clicks on *Next*. One page per scroll, one
@@ -94,6 +105,7 @@ same storage, and both take effect on every open tab immediately.
 | `negative` | empty | One keyword per line. A listing whose text contains any of them is **hidden**. |
 | `positive` | empty | One keyword per line. A listing whose text contains any of them is **highlighted**, never hidden. |
 | `noSalary` | on | Hide listings whose salary field contains no digit (`TBD`, `N/A`, `Negotiable`, `DOE`, empty). |
+| `maxAgeDays` | 7 | Hide listings posted longer ago than this many days. `0` turns it off, `7` is the last week, `30` the last month. Applied **before** every other rule, and a listing whose date cannot be read is never hidden by it. |
 | `showHidden` | off | Reveal what was hidden, with a red dashed marker. The chip's `Show all` writes this. |
 | `autoLoad` | on | Append the next page of results when you scroll to the bottom of the list. One page per real scroll, one request per page, and it stops at the end of the results. |
 | `goalSalary` | 0 (off) | A monthly PHP figure. Cards whose converted salary is **at least** this much get a green wash and a `★ at or above your monthly goal` line. Judged on the low end of a range — a "maybe" is not a yes. |
@@ -155,7 +167,7 @@ that saving settings repaints the list without a reload.
 | Path | Purpose |
 |---|---|
 | `manifest.json` | MV3 manifest: `storage` permission, `onlinejobs.ph` host permissions, content script |
-| `rules.js` | Pure rules — `hasSalary`, `matchKeywords`. No DOM, so it is unit-tested directly |
+| `rules.js` | Pure rules — `hasSalary`, `matchKeywords`, `parsePosted`/`isStale`. No DOM, so it is unit-tested directly |
 | `content.js` | The content script: chip, in-page settings panel, rule pass, DOM observer, storage sync. Makes no network request of its own |
 | `pagination.js` | Perpetual pagination: the scroll trigger, the fetch and the stop conditions (W6) |
 | `panel.js` | The in-page options form (the ⚙ in the chip). Owns no rule logic, so it cannot change what is hidden |

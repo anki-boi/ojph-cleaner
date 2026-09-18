@@ -12,6 +12,7 @@
     autoLoad: true,  // W6: load the next result page when you scroll to the bottom of the list
     goalSalary: 0,   // W7: monthly PHP goal — listings at or above it brighten up (0 = off)
     goalHourly: 0,   // W7: hourly PHP goal — for listings that post a rate, which no month can judge
+    maxAgeDays: 7,   // W8: hide listings posted longer ago than this (0 = off). The primary filter.
   };
   let settings = { ...DEFAULTS };
 
@@ -24,6 +25,7 @@
   const SELECTORS = {
     card: '.jobpost-cat-box.latest-job-post',
     cardSalary: 'dd.col',
+    cardPosted: 'p[data-temp]',               // W8: "Posted on …", on every card
     detailDescription: 'p#job-description',  // W3 (deep scan)
     detailSalaryLabel: 'h3.fs-12',           // W3, matched against SALARY_LABEL_RE
   };
@@ -50,6 +52,19 @@
     return d ? ownText(d).trim() : '';
   };
 
+  /**
+   * When the card was posted, in epoch ms — or `null` when it does not say.
+   * Read from the attribute, not from the visible text: no injected node can carry it, so there is
+   * nothing of ours to strip, and a card whose date cannot be read is left visible (the recency rule
+   * must not be the thing that loses a listing).
+   */
+  const postedAt = (c) => {
+    const p = c.querySelector(SELECTORS.cardPosted);
+    if (!p) return null;
+    return rules.parsePosted(p.getAttribute('data-temp-2')) ??
+      rules.parsePosted(p.getAttribute('data-temp'), rules.MANILA_OFFSET_MINUTES);
+  };
+
   // Full context = card text + (after a deep scan) the fetched detail description.
   // ponytail: ctxMap is never fed until W3 lands, so fullText() is card text today —
   // the seam stays so the scan does not have to rewire the rule pass.
@@ -63,7 +78,7 @@
   let chip = null;
   let chipNote = '';
   const setNote = (text) => { chipNote = text; renderChip(); };
-  let chipCounts = { noSal: 0, kw: 0, pos: 0 };
+  let chipCounts = { stale: 0, noSal: 0, kw: 0, pos: 0, recon: 0 };
   function ensureChip() {
     if (!chip || !chip.isConnected) {
       chip = document.createElement('div');
@@ -81,12 +96,13 @@
     const el = ensureChip();
     el.style.display = '';
     el.innerHTML = '';
-    const total = chipCounts.noSal + chipCounts.kw;
+    const total = chipCounts.stale + chipCounts.noSal + chipCounts.kw;
     const b = document.createElement('b');
     b.textContent = settings.showHidden ? `${total} would be hidden` : `${total} hidden`;
     const s = document.createElement('span');
-    s.textContent = ` (${chipCounts.noSal} no salary, ${chipCounts.kw} keywords` +
-      (chipCounts.pos ? `, ${chipCounts.pos} highlighted` : '') + ')';
+    s.textContent = ` (${chipCounts.stale} stale, ${chipCounts.noSal} no salary, ${chipCounts.kw} keywords` +
+      (chipCounts.pos ? `, ${chipCounts.pos} highlighted` : '') +
+      (chipCounts.recon ? `, ${chipCounts.recon} to reconsider` : '') + ')';
     const gear = document.createElement('button');
     gear.id = 'ojc-gear';
     gear.title = 'Options';
@@ -111,21 +127,43 @@
   }
 
   // ── Rules pass ───────────────────────────────────────────────────────────
+  // Order, and it is observable: stale → noSalary → negative (unless good) → positive → nothing.
+  // First match wins, so a count can never be computed by adding the buckets up.
   function refreshRules() {
     if (!LIST_RE.test(location.pathname)) return;
-    let noSal = 0, kw = 0, pos = 0;
+    const now = Date.now();   // one instant for the whole pass, so two cards cannot disagree
+    let stale = 0, noSal = 0, kw = 0, pos = 0, recon = 0;
     for (const c of cards()) {
       const text = fullText(c);
       const neg = rules.matchKeywords(text, settings.negative);
       const posM = rules.matchKeywords(text, settings.positive);
       const ns = settings.noSalary && !rules.hasSalary(cardSalary(c));
+      const old = rules.isStale(postedAt(c), now, settings.maxAgeDays);
+      // "Good" is the other half of the reconsider rule (D16): a positive keyword, or pay at or above
+      // one of the goals. `.ojc-goal` is salary-cards.js's mark (W7) — read here, never written here.
+      const good = posM.length > 0 || c.classList.contains('ojc-goal');
 
-      c.classList.remove('ojc-neg', 'ojc-pos');
+      // Ours, so it is cleared before re-deciding — and only while our own class is still on the card,
+      // so an attribute the site set is never removed.
+      if (c.classList.contains('ojc-recon')) c.removeAttribute('title');
+      c.classList.remove('ojc-neg', 'ojc-pos', 'ojc-recon');
       c.querySelector('.ojc-pos-badge')?.remove();
 
-      if (ns) {
+      if (old) {
+        c.hidden = !settings.showHidden;
+        stale++;
+      } else if (ns) {
         c.hidden = !settings.showHidden;
         noSal++;
+      } else if (neg.length && good) {
+        // A keyword you asked to hide, on a listing that also looks worth your time: shown, in yellow
+        // (D15). Not hidden — a yellow marker you have to ask to see is not a reconsideration.
+        c.hidden = false;
+        c.classList.add('ojc-recon');
+        c.title = 'Matches a hide keyword, but also ' +
+          (posM.length ? `matches "${posM.join(', ')}"` : 'pays at or above your goal') +
+          ' — shown so you can reconsider it';
+        recon++;
       } else if (neg.length) {
         c.hidden = !settings.showHidden;
         c.classList.add('ojc-neg');
@@ -142,7 +180,7 @@
         c.hidden = false;
       }
     }
-    chipCounts = { noSal, kw, pos };
+    chipCounts = { stale, noSal, kw, pos, recon };
     self.OJCLoader?.arm();        // pagination.js watches for the end of the list (W6)
     self.OJCSalaryUI?.annotate(); // salary.js adds the monthly figure per card (W7)
     renderChip();

@@ -5,6 +5,8 @@ It hides listings that are a waste of your time — no salary listed, or a keywo
 read again — and highlights the ones you do, without ever taking a listing away for a positive
 match. Everything runs on your machine: no account, no server, no analytics.
 
+**→ [Why this exists: the four problems it attacks, and the place it refuses to guess](PROBLEMS.md)**
+
 ![The chip counts what it hid, and the panel edits the rules in place](docs/img/list-chip.png)
 
 No-salary jobs and negative keywords are gone; the chip in the bottom-right says exactly what it did

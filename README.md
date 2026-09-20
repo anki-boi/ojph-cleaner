@@ -50,6 +50,9 @@ Four rules, applied in this order to every listing on the page:
 The first rule that matches wins, which matters when you read a count: with *no salary* turned off,
 a no-salary card that also matches a negative keyword moves into the keyword bucket.
 
+A keyword you like is a **highlight, not a promotion**: it never hides a listing, and it never makes one
+high-yield either — only pay does that (see *High yield* below).
+
 **A keyword you hate, on a job you'd want, gets a yellow outline instead of disappearing.** If a
 listing matches a negative keyword *and* either matches a positive keyword or pays at or above one of
 your goals, it stays on the page in yellow — the one state where a listing is shown *because* it is
@@ -72,6 +75,46 @@ listings immediately, with no reload.
 **Keep scrolling.** When you reach the bottom of the list the next result page is appended, so a
 297-job search is one continuous scroll instead of eight clicks on *Next*. One page per scroll, one
 request per page, and it stops at the end of the results — or the moment a page adds nothing new.
+
+**Scan the whole window, then let every listing speak for itself.** The `Scan` button in the panel does
+two things in one run, and nothing until you press it:
+
+1. **Loads every result inside your recency window.** The board is sorted newest-first, so it pages until a
+   page's newest listing is already older than your window and stops there — no scrolling needed, and it
+   stops early rather than walking the whole result set.
+2. **Opens each listing and re-decides it with its full description.** A card carries only a title and a
+   salary line; the description is where the rest of the truth is — the keyword the card never mentioned,
+   the link that takes you off OnlineJobs.ph, the `HOURS PER WEEK` that turns an assumed month into a real
+   one. **Two at a time, 400 ms apart**, with a `Stop` button throughout and a hard stop at 10 pages /
+   300 listings. Everything it reads is cached for 7 days, so a second run costs nothing — and changing a
+   keyword re-tiers the page **without a single request**.
+
+**Two tiers, and a button for each.** Once listings have been read, the panel shows `High yield N` and
+`Worth N`:
+
+- **High yield** — **it pays at or above one of your goals**, and no keyword you asked to hide matched.
+  Matching a keyword you like is a bonus badge, never the reason: a listing you like the sound of that pays
+  below your goal is *not* high yield.
+- **Worth considering** — a hide keyword matched, but the listing still looks good (it pays enough, or it
+  matches a keyword you like). These are the yellow cards, shown rather than hidden.
+- **Highlighted** — a keyword you like on a listing that pays below your goal: the green outline and `✓`
+  badge, exactly as before. Visible, never hidden, and deliberately not counted as high yield.
+
+Pressing one filters the board to that tier; `All` puts it back. **Nothing is reordered** — the site's own
+list order and its next-page behaviour are untouched — and the board **scrolls to the first card of the tier
+you picked**, because hiding most of a long list otherwise leaves you looking at empty space (measured: the
+first high-yield card sat 18 000 px above the viewport after the document shrank from 92 000 px to 19 000).
+When a listing moves between tiers the card carries `↑ promoted` or `↓ demoted` until you open it.
+
+**Off-platform asks are a tag, not a filter.** A listing that asks you to apply by email, Telegram or a Google
+Form gets a `⚠ off-platform` tag beside its keyword badge. It is never hidden for it and never demoted for it
+— the tag is there so you can decide. (An earlier version demoted them, which moved 176 of 227 scanned
+listings out of High yield: a filter that had stopped filtering.) The scan also prints the listing's own
+`HOURS PER WEEK` on the card, and flags a week longer than 40 hours.
+
+**It remembers each listing.** Every scanned or opened listing keeps its verdict, its figures and its
+flags, keyed by the listing's own URL — so opening a listing re-checks it against the live page, records
+what changed, and clears the mark.
 
 **See what it actually pays.** `5.5$/hr`, `Php 1000/day`, `15-20 AUD per hour` and `PHP 49,000 - 55,000`
 are not comparable at a glance, so each card gets the converted figure above the site's own posted text —
@@ -122,7 +165,9 @@ same storage, and both take effect on every open tab immediately.
 | `autoLoad` | on | Append the next page of results when you scroll to the bottom of the list. One page per real scroll, one request per page, and it stops at the end of the results. |
 | `goalSalary` | 0 (off) | A monthly PHP figure. Cards whose converted salary is **at least** this much get a green wash and a `★ at or above your monthly goal` line. Judged on the low end of a range — a "maybe" is not a yes. |
 | `goalHourly` | 0 (off) | The same, per hour: for listings that post an hourly rate, which a monthly goal cannot judge. A card is brightened if **either** goal is met. |
-| `autoScan` | off | Deep-scan this page's listings once the described feature ships — **disabled in the UI until then** (`spec.md` W3). |
+| `autoScan` | off | Deep-scan a search page automatically as soon as it loads. Off by default: the `Scan` button does the same thing on demand, and the extension's promise is that the site sees no traffic you did not ask for. |
+| `scanWorth` | on | After the High yield listings, continue a scan into the Worth considering (yellow) ones. Off means a scan stops after the green ones. |
+| `scanAll` | off | …and then the unclassified listings as well. This is the only pass that can promote a listing that matches no keyword and no goal, and it is the most expensive one. |
 
 Every keyword is an **exact word or phrase**, case-insensitively: `ai` matches `AI tools` and
 `AI-powered` but never `email` or `daily`, and `video editor` does not match `video editors`. Add the
@@ -133,10 +178,11 @@ off altogether.
 
 ## Privacy
 
-- **No request you did not ask for.** With `autoLoad` off and no keywords configured, the extension
-  talks to nothing at all. With it on, it fetches one result page only when *you* scroll to the bottom
-  of the list on the page you are already reading — never in the background, never ahead of you, and
-  never into the detail pages of jobs (that is the deep scan, `spec.md` W3, still to come).
+- **No request you did not ask for.** With `autoLoad` off, no keywords and no scan, the extension talks
+  to nothing at all. With `autoLoad` on it fetches one result page only when *you* scroll to the bottom of
+  the list you are already reading. The deep scan — which does open each listing's own page — runs **only**
+  when you press `Scan`, two listings at a time, with a Stop button and hard caps, and everything it reads
+  is cached so that a re-run asks for nothing.
 - **One third-party call, on demand.** To convert a foreign-currency salary, the extension asks the
   European Central Bank's reference rates (via `api.frankfurter.dev`) once per currency per 24 hours,
   and only when a card on screen actually pays in that currency. No amount, no keyword and nothing
@@ -145,11 +191,13 @@ off altogether.
 - **One site.** The content script is injected only on `onlinejobs.ph`; the host permission exists to
   read that page's listing DOM. The rate request needs no permission of its own (the API allows it)
   and no other host is ever contacted.
-- **Local state.** Keywords, toggles and the cached rates live in `chrome.storage.local` on your
-  machine. There is no server, no account, and no analytics. See `SECURITY.md`.
-- **No crawling.** The loader fetches *result pages* the site would have served you anyway, one per
-  scroll. It never walks into job detail pages, and the deep scan (`spec.md` W3) will stay bounded to
-  the cards already loaded — see `docs/scraping.md` for the request budget.
+- **Local state.** Keywords, toggles, the cached rates and the remembered verdict for each listing live in
+  `chrome.storage.local`; the listing pages a scan read are cached in IndexedDB, in the site's own origin.
+  There is no server, no account, and no analytics. See `SECURITY.md`.
+- **No crawling on its own.** The loader fetches *result pages* the site would have served you anyway, one
+  per scroll. Nothing walks into a job's own page unless you press `Scan` or turn `autoScan` on, and even
+  then it is bounded to the listings inside your recency window, two at a time, with hard caps — see
+  `docs/scraping.md` for the request budget.
 
 ## Development
 
@@ -184,14 +232,25 @@ that saving settings repaints the list without a reload.
 |---|---|
 | `manifest.json` | MV3 manifest: `storage` permission, `onlinejobs.ph` host permissions, content script |
 | `rules.js` | Pure rules — `hasSalary`, `matchKeywords`, `parsePosted`/`isStale`. No DOM, so it is unit-tested directly |
-| `content.js` | The content script: chip, in-page settings panel, rule pass, DOM observer, storage sync. Makes no network request of its own |
-| `pagination.js` | Perpetual pagination: the scroll trigger, the fetch and the stop conditions (W6) |
+| `tiers.js` | The verdict table (W12): closed → stale → no salary → **high yield (pay)** → highlighted → worth considering → keyword-hide. Pure and unit-tested |
+| `records.js` | The job memory's state machine — pruning, tier moves, the `↑`/`↓` mark. Pure and unit-tested |
+| `records-cards.js` | Applies it: loads the memory, keeps a synchronous copy for the rule pass, writes only on change |
+| `detail-cache.js` | IndexedDB: the listing pages a scan has read, 7-day TTL, 1 000-entry cap, so a keyword edit costs nothing |
+| `detail-parse.js` | What a listing's own page says — one reader for the description, the overview fields and the job id |
+| `scan.js` | The deep scan (W13): page to the recency window, then 2 listings at a time, in tier order, with caps and Stop |
+| `observer.js` | The one MutationObserver, and the `isOurs()` check that stops it eating itself |
+| `closed.js` / `closed-cards.js` | The closed-listing memory (pure maths + the storage applier) |
+| `detail-text.js` / `detail.js` | What to highlight on a listing's page, and the bar that applies it (W4) |
+| `chip.js` | The status panel: counts, tiers, views, and the Scan / Show All / Settings buttons |
+| `page.js` | Every coupling to the site's list markup: the card selectors, the card's own text, its salary and its posted date |
+| `content.js` | The hub: settings, the rule pass, the counts, the tier delegation, the views. Makes no request |
+| `pagination.js` | Perpetual pagination: the scroll trigger, the fetch and the stop conditions (W6), plus the scan's `loadOne` |
 | `panel.js` | The in-page options form (the ⚙ in the chip). Owns no rule logic, so it cannot change what is hidden |
 | `salary.js` | Free-text salary → monthly figure, currency and units (W7). Pure and unit-tested |
 | `salary-cards.js` | Applies it: the live ECB rate, the figure on each card, the goal brighten |
-| `content.css` | Styles for the chip, the panel and the highlight badge (all `#ojc-*` scoped) |
+| `ui.css` / `content.css` | Floating UI (panel, chip) vs what is painted on the site (marks, borders, badges) |
 | `options.html` / `options.js` | Standalone options page (the in-page panel is the primary UI) |
-| `test-rules.js` / `test-manifest.js` | Node tests, zero dependencies |
+| `test-rules.js` / `test-tiers.js` / `test-records.js` / `test-manifest.js` | Node tests, zero dependencies |
 | `test-pager.js` | Node tests for the pagination URL/offset maths and the stop conditions |
 | `test-salary.js` | Node tests for the salary parser — the suite's real-data corpus plus formats sampled from the live board |
 | `test-repo-hygiene.js` | Repo invariants (license stance, required files, hook wiring, no CRLF) |

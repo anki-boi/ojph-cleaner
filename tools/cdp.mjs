@@ -32,7 +32,10 @@ const rpc = (ws) => {
     const res = await send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true });
     if (res?.exceptionDetails) {
       const d = res.exceptionDetails.exception?.description || res.exceptionDetails.text || 'unknown';
-      throw new Error(`page-side exception: ${String(d).split('\n')[0]}`);
+      // The TAIL of the expression, because the interesting part is the IIFE at the end — a `ruleEval` call
+      // injects all of rules.js first, and quoting the head would print the library instead of the bug.
+      const where = String(expression).replace(/\s+/g, ' ').trim().slice(-180);
+      throw new Error(`page-side exception: ${String(d).split('\n')[0]}\n  in: …${where}`);
     }
     return res?.result?.value;
   };

@@ -3,23 +3,31 @@
 /* Card and detail-page marks. The floating chip + panel styles live in ui.css (split at the
    300-line cap). */
 
+/* All of a card's badges share ONE flex row at the top-right, so a keyword badge and an off-platform tag sit
+   side by side instead of on top of each other — each was absolutely positioned at the same corner, which
+   only worked while a card could carry a single badge. */
+.ojc-badges {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  pointer-events: none;
+}
+.ojc-badges > span {
+  border-radius: 10px;
+  padding: 2px 10px;
+  font: 600 12px system-ui, sans-serif;
+  white-space: nowrap;
+}
 /* Positive match: green highlight (highlight-only — never hidden) */
 .ojc-pos {
   outline: 2px solid #7d9b6d !important;
   outline-offset: 2px;
 }
-.ojc-pos-badge {
-  position: absolute;
-  top: 6px;
-  right: 10px;
-  z-index: 1;
-  background: rgba(125, 155, 109, .2);
-  color: #4e6b41;
-  font: 600 12px system-ui, sans-serif;
-  padding: 2px 10px;
-  border-radius: 10px;
-  pointer-events: none;
-}
+.ojc-pos-badge { background: rgba(125, 155, 109, .2); color: #4e6b41; }
 
 /* Negative match: visible only when the user chose "Show all" */
 .ojc-neg {
@@ -27,22 +35,10 @@
   outline-offset: 2px;
 }
 
-/* Which keyword it was, top-right, mirroring the green ✓ badge — on a keyword-hidden card when "Show
-   all" reveals it, and on a yellow reconsider card always (there it is the reason the card is shown at
-   all, so it earns its place). Same geometry as .ojc-pos-badge; a card is never both green and red,
-   because the negative branch is decided first. */
-.ojc-neg-badge {
-  position: absolute;
-  top: 6px;
-  right: 10px;
-  z-index: 1;
-  background: rgba(192, 57, 43, .16);
-  color: #8e2b20;
-  font: 600 12px system-ui, sans-serif;
-  padding: 2px 10px;
-  border-radius: 10px;
-  pointer-events: none;
-}
+/* Which keyword it was, next to the off-platform tag — on a keyword-hidden card when "Show all" reveals it,
+   and on a yellow reconsider card always (there it is the reason the card is shown at all, so it earns its
+   place). A card is never both green and red, because the negative branch is decided first. */
+.ojc-neg-badge { background: rgba(192, 57, 43, .16); color: #8e2b20; }
 
 /* Salary annotation (W7): sits ABOVE the site's posted figures on its own line (width: fit-content keeps
    it shrink-wrapped) and is deliberately louder than them. No background: a price should read like a
@@ -108,9 +104,42 @@
   border-radius: 6px;
 }
 
+/* The listing's own weekly hours (W13.6), once a scan has read the listing — the one figure a card could
+   never show, because the board does not print it. Quiet by design: it is context for the salary above it,
+   not a verdict. The over-40 form is the exception: it is a warning (W13.7), so it carries the colour. */
+.ojc-hours {
+  display: block;
+  width: fit-content;
+  margin: 0 0 6px;
+  color: #5a6b7b;
+  font: 600 12px/1.4 system-ui, -apple-system, sans-serif;
+}
+.ojc-hours-over { color: #a3541c; }
+
 /* Pagination sentinel (W6): 1px tall, sits after the last card, and is watched to
    know when the user has reached the end of the list. */
 #ojc-sentinel { height: 1px; }
+
+/* Off-platform (W12/W14): the listing's own page asks you to apply somewhere else. A TAG on any card that
+   carries one — it never hides and never demotes (the user's rule, after the first version demoted 176 of
+   227 scanned listings out of High yield): "it should just be a tag". */
+.ojc-flag-badge { background: rgba(224, 139, 74, .18); color: #8a4b12; }
+
+/* The change mark (W12, D35): this listing's tier moved since you last looked at it. Deliberately the
+   quietest of the three badges — it is a note about history, not a verdict about the listing — and it
+   sits at the LEFT, where nothing else is competing for the eye. */
+.ojc-tier-badge {
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  z-index: 2;
+  background: rgba(31, 41, 51, .88);
+  color: #dbe4ec;
+  font: 600 11px system-ui, sans-serif;
+  padding: 2px 8px;
+  border-radius: 10px;
+  pointer-events: none;
+}
 
 /* ── Job detail page (W4) ────────────────────────────────────────────────────
    The description is plain text between <br>s, so these spans are the only way a mark can exist.

@@ -11,7 +11,7 @@
   right: 16px;
   bottom: 16px;
   z-index: 2147483000;
-  min-width: 210px;
+  min-width: 250px;
   background: #1f2933;
   color: #e6edf3;
   font: 12px/1.5 system-ui, -apple-system, sans-serif;
@@ -34,6 +34,9 @@
 #ojc-chip-caret { color: #9fb3c8; font-size: 11px; }
 #ojc-chip-body { padding: 0 10px 4px; }
 .ojc-chip-group + .ojc-chip-group { margin-top: 6px; }
+/* The note is a persistent node now (so nothing the user clicks is ever replaced), and an empty one must not
+   take space. */
+#ojc-note[hidden] { display: none; }
 .ojc-chip-group > i {
   display: block;
   color: #8a9aa8;
@@ -62,6 +65,23 @@
 .ojc-chip-kw { color: #e2705f; }
 .ojc-chip-pos { color: #8fb877; }
 .ojc-chip-recon { color: #e8b93c; }
+.ojc-chip-high { color: #8fb877; }
+/* The tier rows carry the tier's own name, not the old class name: `Worth Considering` is `worth`, and a
+   missing rule here is invisible in every test — the dot just falls back to the panel's near-white text
+   colour (found by looking at a screenshot, not by a gate). */
+.ojc-chip-worth { color: #e8b93c; }
+.ojc-chip-offplat { color: #e08b4a; }
+/* The views (W14). Three buttons, one of which is on: the whole board, or one tier of it. The active
+   tier keeps its card colour, so the panel says which tier you are looking at without a second label. */
+.ojc-view-bar { display: flex; gap: 6px; margin-top: 4px; }
+#ojc-chip .ojc-view { flex: 1; background: #2c3946; font-weight: 600; padding: 4px 6px; font-size: 11px; white-space: nowrap; }
+#ojc-chip .ojc-view:hover { background: #3d4d5c; }
+#ojc-chip .ojc-view.is-on { background: #4d82c1; }
+#ojc-chip .ojc-view-high.is-on { background: #3f7a4a; }
+#ojc-chip .ojc-view-worth.is-on { background: #8a6d1f; }
+#ojc-chip .ojc-view-all { flex: 0 0 auto; }
+#ojc-chip button.ojc-off { opacity: .45; cursor: default; }
+#ojc-chip button.ojc-off:hover { background: #3a4a5a; }
 #ojc-chip-actions {
   display: flex;
   gap: 6px;

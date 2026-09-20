@@ -16,7 +16,7 @@
   const FX_TTL_MS = 24 * 3600 * 1000;   // the server refreshes daily; older than this is not used
   const FX_RETRY_MS = 3600 * 1000;      // after a failure, wait before asking again
 
-  let running = false, rates = null, fxDate = null;
+  let running = false, pending = false, rates = null, fxDate = null;
 
   /** Live rates, cached in chrome.storage.local. Never stale, never approximated. */
   async function loadRates(currencies) {
@@ -62,18 +62,89 @@
     return own.textContent.trim();
   };
 
-  // The weekly-hours basis comes from the card's OWN words ("20 hours per week", "Part Time").
-  // Not `card.textContent`: our disclaimer says "assumes 40 h/week (full time)", so a second pass would
-  // read the assumption we just wrote as if the listing had stated it — the disclaimer would then drop
-  // itself (basis 'stated' is not 'full-time') and the goal would flip from monthly to hourly. It only
-  // survived because "40 h/week" happens not to match the stated-hours pattern; one word of rewording
-  // away from a silent, self-erasing card.
-  const basisOf = (card) => hoursPerWeekFrom(api.ownText(card));
+  // The weekly-hours basis comes from the card's OWN words ("20 hours per week", "Part Time") — or, once a
+  // deep scan has read the listing, from its structured HOURS PER WEEK (W13.5). That is what makes the month
+  // honest instead of assumed.
+  //
+  // What this deliberately does NOT do is change which goal judges the card: a part-time listing still goes
+  // to the **hourly** goal (D13), because lower pay for far fewer hours is the whole point of part-time —
+  // someone taking 15 h/week can hold two of them. The month is shown, labelled "part-time month at 15 h/week",
+  // and never confused with a full-time month.
+  //
+  // Not `card.textContent`: our disclaimer says "assumes 40 h/week (full time)", so a second pass would read
+  // the assumption we just wrote as if the listing had stated it — the disclaimer would then drop itself and
+  // the goal would flip from monthly to hourly.
+  const basisOf = (card) => {
+    const info = self.OJCRecordsUI?.hoursInfoFor?.(card);
+    return info ? { hours: info.hours, basis: 'detail', type: info.type }
+                : hoursPerWeekFrom(api.ownText(card));
+  };
+
+  /** Was this listing's own page read by a scan? Then the hours are stated, not assumed. */
+  const PART_TIME_RE = /part[\s-]?time|gig/i;
+
+  /**
+   * The listing's own weekly hours, on the card (W13.6/W13.7). Only a scan — or opening the listing
+   * yourself — can know these, so this element exists only on cards the extension has actually read, and it
+   * disappears again when the record does.
+   *
+   * Three forms, deliberately different, because they mean different things:
+   *
+   *     ⏱ 40 h/week                                 a stated full-time week
+   *     ⏱ part-time month at 15 h/week               a month that exists, but is not a full-time month
+   *     ⚠ 45 h/week — over the 40 h full-time week   longer than full time, flagged automatically
+   *
+   * The part-time wording is the user's own distinction: ₱27,000 for a 15 h week is not half of ₱54,000 for
+   * a 40 h week, it is a different job — and someone can hold two of them.
+   */
+  function hoursBadges() {
+    const records = self.OJCRecordsUI;
+    for (const card of api.cards()) {
+      const cell = card.querySelector(api.SELECTORS.cardSalary) || card;
+      let el = cell.querySelector('.ojc-hours');
+      const info = records?.hoursInfoFor?.(card);
+      if (!info) { if (el) el.remove(); continue; }
+      if (!el) {
+        el = document.createElement('div');
+        el.className = 'ojc-hours';
+        // Above the site's own posted figure, like the salary note: appended instead, it landed *below* the
+        // site's salary line and read as the first line of the description. Find the cell's first node that
+        // is not ours and put the hours in front of it.
+        const site = [...cell.childNodes].find(n =>
+          !(n.nodeType === 1 && typeof n.className === 'string' && n.className.startsWith('ojc-')));
+        cell.insertBefore(el, site || null);
+      }
+      const part = PART_TIME_RE.test(info.type || '');
+      const over = info.hours > 40;
+      el.classList.toggle('ojc-hours-over', over);
+      el.textContent = over ? `⚠ ${info.hours} h/week — over the 40 h full-time week`
+        : part ? `⏱ part-time month at ${info.hours} h/week`
+        : `⏱ ${info.hours} h/week`;
+      el.title = over
+        ? `the listing's own HOURS PER WEEK says ${info.hours} — more than a full-time week`
+        : 'stated by the listing itself (HOURS PER WEEK), not an assumption';
+    }
+  }
 
   async function annotate() {
-    if (running || !chrome.storage) return;
+    // COALESCE, never drop. A plain `if (running) return` looks harmless and is not: the first call is
+    // async (it awaits the live ECB rates), and every pass that happened while it was in flight — including
+    // the ones that arrived WITH the scan's `HOURS PER WEEK` — was thrown away. A listing then kept the
+    // figure computed before its own hours were known, until something unrelated re-ran the pass. Measured
+    // live: ten cards showing a rate-only figure while the record and the cache both held their real hours.
+    if (running) { pending = true; return; }
     running = true;
     try {
+      do {
+        pending = false;
+        await annotateOnce();
+      } while (pending);
+    } finally {
+      running = false;
+    }
+  }
+
+  async function annotateOnce() {
       const cards = api.cards();
       const parsed = cards
         .map(c => [c, parseSalary(rawSalary(c), basisOf(c).hours), basisOf(c)])
@@ -87,9 +158,19 @@
       const goalMonthly = Number(settings.goalSalary) || 0;
       const goalHourly = Number(settings.goalHourly) || 0;
 
+      // Where the hours came from, in the listing's own terms. 'detail' is the strongest of the three: the
+      // scan read the listing's structured HOURS PER WEEK, so the month rests on a stated number.
+      const HOURS_SOURCE = {
+        stated: 'as stated on the card',
+        detail: "the listing's own HOURS PER WEEK",
+        'full-time': 'full time — an assumption, verify with the employer',
+        'part-time': 'part time',
+        unstated: 'hours not stated',
+      };
+      const partTimeMonth = (basis) => basis.basis === 'detail' && PART_TIME_RE.test(basis.type || '');
       const hoursLine = (p, basis) => (p.hours
-        ? `, at ${p.hours} h/week (${basis.basis === 'stated' ? 'as stated'
-            : basis.basis + ' listing — an assumption, verify with the employer'})`
+        ? `, at ${p.hours} h/week (${HOURS_SOURCE[basis.basis] || basis.basis})` +
+          (partTimeMonth(basis) ? ' — a part-time month, not a full-time one' : '')
         : '');
       // The listing's own marker, or an honest admission that the figure was read from its magnitude.
       const fxBit = (p) => `${p.currency} → PHP at ${liveRates[p.currency]} (ECB reference, ${fxDate})`;
@@ -130,6 +211,11 @@
           warn.remove();
         }
         note.dataset.hours = p.hours ? String(p.hours) : '';
+        // Which hours the figure rests on, and where they came from — read by tools/verify-live.mjs so it
+        // checks the FIGURE against the input the extension declares, instead of guessing the input from the
+        // card's prose (a guess that produced seven phantom failures the moment a scanned listing's own
+        // HOURS PER WEEK differed from what its preview text happened to say).
+        note.dataset.basis = basis.basis;
         if (php) {
           note.textContent = formatNote(php);
           note.title = (p.currency === 'PHP'
@@ -158,6 +244,9 @@
         //   a month-only posting → the monthly goal, because there is no rate to compare against
         // Neither goal is ever derived from the other: deriving one would assume someone else's work week.
         const hourlyPhp = (p.unit === 'hour' || p.unit === 'hour?') ? ratePhp(p, liveRates) : null;
+        // One goal per card (D13): a full-time listing is judged on a month, a part-time or unspecified one on
+        // the posted rate. A month a scan made honest does NOT move a part-timer to the monthly goal — lower
+        // pay for far fewer hours is what part-time means, and 15 h/week can be two jobs.
         const judgedMonthly = basis.basis === 'full-time' || !hourlyPhp;
         const aboveMonthly = judgedMonthly && meetsGoal(php, goalMonthly);
         const aboveHourly = !judgedMonthly && meetsGoal(hourlyPhp, goalHourly);
@@ -172,9 +261,7 @@
       // returns immediately on the `running` guard above, so it cannot loop — and by then the marks
       // match the data, so the pass after it finds nothing changed and stops there.
       if (goalMarksChanged) api.refreshRules();
-    } finally {
-      running = false;
-    }
+      hoursBadges();   // the listing's own hours, once a scan has read the page (W13.6)
   }
 
   self.OJCSalaryUI = { annotate, loadRates };

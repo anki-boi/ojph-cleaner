@@ -14,12 +14,12 @@
 (() => {
   'use strict';
   if (typeof chrome === 'undefined' || !chrome.storage) return;  // node: nothing to do
-  const planner = self.OJCDetailText, salary = self.OJCSalary;
-  if (!planner || !salary) return;
+  const planner = self.OJCDetailText, salary = self.OJCSalary, dp = self.OJCDetailParse;
+  if (!planner || !salary || !dp) return;
 
-  const JOB_RE = /\/jobseekers\/job\/[^/]*-(\d+)\/?$/;   // .../job/some-slug-1733463
-  const DESC_SEL = 'p#job-description';
-  const DD_SEL = 'dl.row.no-gutters dd';
+  // One reader for a listing's own page, shared with the board's deep scan: the description, the overview
+  // fields and the job id exist in exactly one place (detail-parse.js).
+  const { JOB_RE, DESC_SEL } = dp;
   const BAR_ID = 'ojc-detail-bar';
   const HL_CLASS = { pos: 'ojc-hl-pos', neg: 'ojc-hl-neg', warn: 'ojc-hl-warn' };
   /** Why a mark is there, on hover — every one of these is a claim, so each says which rule made it. */
@@ -37,14 +37,8 @@
   const isJobPage = () => JOB_RE.test(location.pathname);
   const clean = (s) => (s || '').replace(/\s+/g, ' ').trim();
 
-  /** The overview's own label/value pairs: `dd > h3` is the label, `dd > p` the value. */
-  function overview(labelRe) {
-    for (const dd of document.querySelectorAll(DD_SEL)) {
-      const h = dd.querySelector('h3'), p = dd.querySelector('p');
-      if (h && p && labelRe.test(clean(h.textContent))) return clean(p.textContent);
-    }
-    return null;
-  }
+  /** The overview's own label/value pairs, read by the shared parser so the scan and this page cannot drift. */
+  const overview = (labelRe) => dp.overview(document, labelRe);
 
   // ── Highlighting ─────────────────────────────────────────────────────────
   /** Undo a previous run: our spans become text again, so the walk always starts from raw text. */
@@ -191,6 +185,9 @@
       try { rates = await self.OJCSalaryUI.loadRates(cur); } catch { rates = {}; }
     }
     renderBar(marks);
+    // Tell the memory what this listing says now (W12/D35): re-derive it, record a move if there was one, and
+    // clear the mark - you are looking at the listing, so there is nothing left to tell you about it.
+    try { await self.OJCRecordsUI?.recheck?.(document); } catch (e) { console.warn("[OJ Cleaner] re-check failed", e); }
   }
 
   chrome.storage.local.get('settings', (res) => {

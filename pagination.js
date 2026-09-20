@@ -52,7 +52,26 @@
     return ((ownText ? ownText(card) : card.textContent) || '').slice(0, 120).trim();
   }
 
-  return { SELECTOR, nextPageUrl, parseShown, pageOffset, jobKeyOf };
+  /**
+   * Has the list already reached the end of the recency window?
+   *
+   * The board is sorted newest-first, so the OLDEST card loaded is the tail of the list: once it is older
+   * than the window, every card on every later page is too — and the rule pass would hide all of them the
+   * moment they arrived. Fetching those pages is pure waste, so the loader stops *before* the request.
+   * (Same test the deep scan uses to know where to stop paging; one definition, two callers.)
+   *
+   * `0` means the window is off, and a card whose date cannot be read is never a reason to stop: the rule
+   * that must not lose a listing does not get to end the list either.
+   */
+  function pastHorizon(postedMs, nowMs, maxAgeDays) {
+    const max = Number(maxAgeDays);
+    if (!(max > 0)) return false;
+    const known = (postedMs || []).filter(t => typeof t === 'number' && isFinite(t));
+    if (!known.length) return false;
+    return Math.min(...known) < nowMs - max * 86400000;
+  }
+
+  return { SELECTOR, nextPageUrl, parseShown, pageOffset, jobKeyOf, pastHorizon };
 });
 
 // ── the loader (browser only) ────────────────────────────────────────────
@@ -61,65 +80,117 @@
   if (typeof chrome === 'undefined' || !chrome.storage) return; // node: only the helpers above
   const api = self.OJC;
   if (!api) return; // content.js failed to boot; nothing to page
-  const { nextPageUrl, parseShown, pageOffset, jobKeyOf } = self.OJCPager;
+  const { nextPageUrl, parseShown, pageOffset, jobKeyOf, pastHorizon } = self.OJCPager;
   const ownText = api.ownText;   // card identity must be the site's words, not our annotation
 
   const MIN_GAP_MS = 600;
   // `gesture` counts scroll events; `spent` is the last gesture that bought a page. One scroll buys
   // ONE page: without this the flag survived across a load, and a sentinel still inside the 400px
   // margin spent the same gesture over and over — one nudge pulled /30, /60, /90 in a row.
-  const pag = { busy: false, done: false, pages: 0, lastAt: 0, gesture: 0, spent: -1 };
+  const pag = { busy: false, done: false, pages: 0, lastAt: 0, gesture: 0, spent: -1, reason: '' };
   let sentinel = null, io = null, scrollHooked = false, visible = false;
+
+  /** Why the loader stopped, when the reason is one a settings change can undo. */
+  const HORIZON = 'your recency window ends here';
 
   function stop(reason) {
     if (pag.done) return;
     pag.done = true;
+    pag.reason = reason;
     if (sentinel) { sentinel.remove(); sentinel = null; }
     if (io) { io.disconnect(); io = null; }
     api.setNote('');
     console.log('[OJ Cleaner] stopped loading more —', reason);
   }
 
-  async function loadNextPage() {
+  /**
+   * Fetch and import the next result page, reporting instead of deciding.
+   *
+   * `force` is the scan's path (W13, D33): the user pressed Scan, and that press *is* the gesture the
+   * scroll path insists on — so the guard is skipped, and the politeness gap is waited out rather than
+   * refused. Everything else is identical, which is the point: there is exactly one place in this
+   * extension that grows the card list.
+   *
+   * Returns `{ ok, added, url, reason, done }`. `done` means "there is nothing more to fetch", so the
+   * scroll path may stop the loader for good; a plain miss (too soon, autoLoad off) leaves it armed.
+   */
+  async function loadOne(force = false) {
+    if (pag.busy) return { ok: false, reason: 'already loading', retry: true };
+    if (pag.done) return { ok: false, reason: 'the end of the list was already reached', done: true };
     const settings = api.getSettings();
-    if (pag.busy || pag.done || !settings.autoLoad || !api.LIST_RE.test(location.pathname)) return;
+    if (!force && !settings.autoLoad) return { ok: false, reason: 'autoLoad is off' };
+    if (!api.LIST_RE.test(location.pathname)) return { ok: false, reason: 'not a list page' };
     const now = api.cards();
-    if (!now.length) return;
+    if (!now.length) return { ok: false, reason: 'no cards on the page' };
 
     const info = parseShown(document.body.innerText);
-    // Everything the site has is already here: stop *before* spending a request. On the final
-    // partial page (e.g. offset 290 with 7 cards out of 297) the "Displaying 7" counter is the
-    // page's size, not its position, so the position has to come from the URL.
+    // Everything the site has is already here: stop *before* spending a request. On the final partial page
+    // (e.g. offset 290 with 7 cards out of 297) the "Displaying 7" counter is the page's size, not its
+    // position, so the position has to come from the URL.
     const here = pageOffset(location.pathname) + now.length;
-    if (info && info.total && here >= info.total) return stop('every result is already loaded');
-    if (Date.now() - pag.lastAt < MIN_GAP_MS) return; // fast scrolling must not machine-gun the site
+    if (info && info.total && here >= info.total) {
+      return { ok: false, reason: 'every result is already loaded', done: true };
+    }
+    // Past the recency window: the next page is entirely stale, so it is not worth a request. This is the
+    // same horizon the deep scan pages by — without it the loader happily pulled page after page of listings
+    // the rule pass would hide on arrival.
+    if (pastHorizon(api.cards().map(api.postedAt), Date.now(), settings.maxAgeDays)) {
+      return { ok: false, reason: HORIZON, done: true };
+    }
+    if (force) {
+      const wait = MIN_GAP_MS - (Date.now() - pag.lastAt);
+      if (wait > 0) await new Promise(r => setTimeout(r, wait));
+    } else if (Date.now() - pag.lastAt < MIN_GAP_MS) {
+      return { ok: false, reason: 'too soon', retry: true };
+    }
 
     pag.busy = true;
     pag.lastAt = Date.now();
-    api.setNote('loading more…');
     const container = now[0].parentElement;
     const seen = new Set(now.map(c => jobKeyOf(c, ownText)));
     try {
       const url = nextPageUrl(location.href, here);
       const res = await fetch(url, { credentials: 'same-origin' });
-      if (!res.ok) return stop(`the next page returned ${res.status}`);
+      if (!res.ok) return { ok: false, reason: `the next page returned ${res.status}`, done: true };
       const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
-      // A page of nothing but jobs we already have means we are at the end (or the site
-      // repeats itself) — never keep fetching on the strength of a count alone.
+      // A page of nothing but jobs we already have means we are at the end (or the site repeats itself) —
+      // never keep fetching on the strength of a count alone.
       const incoming = [...doc.querySelectorAll(self.OJCPager.SELECTOR)]
         .filter(c => { const k = jobKeyOf(c, ownText); return !seen.has(k) && (seen.add(k), true); });
-      if (!incoming.length) return stop('the next page held no jobs we did not already have');
+      if (!incoming.length) return { ok: false, reason: 'the next page held no jobs we did not already have', done: true };
       for (const c of incoming) container.appendChild(document.importNode(c, true));
       placeSentinel();   // the new last card is further down; the trigger must follow it
       pag.pages++;
-      api.setNote('');
-      api.refreshRules(); // the observer sees the insertion too; this makes the repaint immediate
-      console.log(`[OJ Cleaner] loaded ${incoming.length} more jobs (page ${pag.pages + 1})`);
+      return { ok: true, added: incoming.length, url };
     } catch {
-      stop('offline or blocked');
+      return { ok: false, reason: 'offline or blocked', done: true };
     } finally {
       pag.busy = false;
     }
+  }
+
+  /**
+   * A settings change can move the horizon — a wider window means there are more pages worth loading — so a
+   * loader that stopped *because of the window* is armed again. One that reached the real end of the results
+   * is not: there is nothing behind it to find.
+   */
+  function rearm() {
+    if (pag.done && pag.reason === HORIZON) { pag.done = false; pag.reason = ''; }
+    arm();
+  }
+
+  /** The scroll path (W6/D8): the guards ARE the feature, so it keeps them and stops only on a real end. */
+  async function loadNextPage() {
+    if (pag.busy || pag.done || !api.getSettings().autoLoad) return;
+    api.setNote('loading more…');
+    const r = await loadOne(false);
+    api.setNote('');
+    if (!r.ok) {
+      if (r.done) stop(r.reason);
+      return;
+    }
+    api.refreshRules(); // the observer sees the insertion too; this makes the repaint immediate
+    console.log(`[OJ Cleaner] loaded ${r.added} more jobs (page ${pag.pages + 1})`);
   }
 
   /** The sentinel belongs after the LAST card, not where it was first inserted: appending a page
@@ -186,5 +257,13 @@
     hookGestures();
   }
 
-  self.OJCLoader = { arm, stop: () => stop('turned off') };
+  self.OJCLoader = {
+    arm,
+    rearm,
+    stop: () => stop('turned off'),
+    loadOne,                                   // the scan's door into the same fetch path (W13)
+    isDone: () => pag.done,
+    stopReason: () => pag.reason,
+    pagesLoaded: () => pag.pages,
+  };
 })();

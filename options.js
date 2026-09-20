@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const DEFAULTS = { negative: [], positive: [], noSalary: true, rescueNoSalary: false, showHidden: false, autoScan: false, autoLoad: true, goalSalary: 0, goalHourly: 0, maxAgeDays: 7 };
+  const DEFAULTS = { negative: [], positive: [], noSalary: true, rescueNoSalary: false, showHidden: false, autoScan: false, scanWorth: true, scanAll: false, autoLoad: true, goalSalary: 0, goalHourly: 0, maxAgeDays: 7 };
   const toLines = (arr) => (arr || []).join('\n');
   const fromLines = (s) => [...new Set(s.split('\n').map(x => x.trim()).filter(Boolean))];
 
@@ -18,6 +18,8 @@
     $('goalSalary').value = s.goalSalary || '';
     $('goalHourly').value = s.goalHourly || '';
     $('autoScan').checked = s.autoScan;
+    $('scanWorth').checked = s.scanWorth !== false;
+    $('scanAll').checked = !!s.scanAll;
   });
 
   $('save').onclick = () => {
@@ -32,6 +34,8 @@
       goalSalary: Math.max(0, Math.round(Number($('goalSalary').value) || 0)),
       goalHourly: Math.max(0, Math.round(Number($('goalHourly').value) || 0)),
       autoScan: $('autoScan').checked,
+      scanWorth: $('scanWorth').checked,
+      scanAll: $('scanAll').checked,
     };
     chrome.storage.local.set({ settings }, () => {
       const el = $('saved');

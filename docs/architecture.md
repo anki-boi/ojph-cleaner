@@ -7,13 +7,53 @@ one rule: **pure logic never touches the DOM**.
 manifest.json          ── injects on onlinejobs.ph only
    │
    ├─ rules.js         pure: hasSalary(), matchKeywords()      ← test-rules.js
-   ├─ content.js       the hub: settings, rule pass, chip, observer (no network)
+   ├─ tiers.js         pure: the verdict table (W12)            ← test-tiers.js
+   ├─ records.js       pure: the job memory's state machine     ← test-records.js
+   ├─ page.js          the site's list markup, in one place
+   ├─ content.js       the hub: settings, rule pass, counts, views (no network)
+   ├─ observer.js      the MutationObserver, and isOurs()
    ├─ salary.js        money: the parser and formatters (pure)    ← test-salary.js
-   ├─ salary-cards.js  applies it: ECB rate, card figures, goals
-   ├─ pagination.js    loading: sentinel + next result page (W6)  ← test-pager.js
+   ├─ salary-cards.js  applies it: ECB rate, card figures, hours, goals
+   ├─ detail-parse.js  one reader for a listing's own page
+   ├─ detail-cache.js  IndexedDB: the listing's own words (7-day TTL)
+   ├─ records-cards.js applies the memory: verdicts, change marks
+   ├─ scan.js          the deep scan (W13)
+   ├─ pagination.js    loading: the sentinel + the scan's loadOne  ← test-pager.js
+   ├─ closed.js/.cards.js  the closed-listing memory
+   ├─ detail-text.js   pure: the highlight planner               ← test-detail.js
+   ├─ detail.js        the listing's own page
+   ├─ chip.js          the status panel (persistent buttons)
    └─ panel.js         the in-page options form (no rule logic at all)
 options.html/js        standalone settings page (same storage, same effect)
 ```
+
+## The verdict table (W12–W14)
+
+One pure function decides what every card is (`tiers.js`), and the order is the product:
+
+```
+closed → stale → no salary (unless rescued) → HIGH YIELD → worth considering → highlighted → keyword-hide → nothing
+```
+
+- **HIGH YIELD is about pay.** `money && !neg` — a goal met, and no keyword you asked to hide. A keyword you
+  like is a bonus badge, never the reason: the user's correction, after a version where it was the reason,
+  was *"having matched positive keywords does not make the job listing high-yield. It's either passing salary
+  or passing salary with positive keywords"*.
+- **Worth considering** is `good && neg`: a hide keyword on a listing that still looks good (pay, or a keyword
+  you like). Shown in yellow, never hidden.
+- **Highlighted** is `pos` with no goal met — the green outline this extension has always drawn, in its own
+  bucket so the chip can count it and the High yield view can exclude it.
+- **Off-platform asks and over-40-hour weeks are tags**, not inputs: `detail.flags` and `detail.warns`, shown
+  on the card and recorded in the listing's stats, and they never move a card between tiers.
+
+With no `detail` — a page the scan has never touched — the table reduces to 0.8.0's verdicts exactly, which is
+what makes the whole feature additive: an unscanned page behaves as it always did.
+
+The memory (`records.js` + `records-cards.js`) holds one record per listing: its tier, the facts behind it,
+its own `HOURS PER WEEK` and WAGE, when it was last derived (`at`), last looked at (`checkedAt`), and whether
+it has moved since you saw it (`prev`/`seen`). The raw description lives in IndexedDB for 7 days, so a keyword
+edit re-derives the whole page with zero requests. **`canon()` is load-bearing**: `chrome.storage` hands keys
+back in its own order, so every comparison of a record against itself after a round trip sorts its keys first.
 
 ## Layers, and why the split is where it is
 

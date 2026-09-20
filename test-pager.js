@@ -2,7 +2,7 @@
 // The loader itself needs a DOM and the live site; these are the parts that decide *which URL*
 // gets fetched and *when to stop*, which is where a runaway request loop would come from.
 const assert = require('assert');
-const { nextPageUrl, parseShown, pageOffset } = require('./pagination.js');
+const { nextPageUrl, parseShown, pageOffset, pastHorizon } = require('./pagination.js');
 
 const BASE = 'https://www.onlinejobs.ph';
 
@@ -65,5 +65,29 @@ assert.strictEqual(pageOffset(null), 0);
 assert.strictEqual(nextPageUrl('/jobseekers/jobsearch/290?jobkeyword=x', 290 + 7),
   '/jobseekers/jobsearch/297?jobkeyword=x',
   'a final partial page asks for the position after it, not for page 1 again');
+
+
+// ── pastHorizon: stop paging once the tail is older than the recency window ──
+// The user's report, verbatim: "your pagination is kinda overkill since you still paginate even though you
+// have reached the history threshold". The board is newest-first, so the OLDEST card loaded is the tail: once
+// it is outside the window, every later page is stale and would be hidden on arrival.
+const DAY = 86400000;
+const NOW = Date.UTC(2026, 8, 18, 12, 0, 0);
+const ago = (d) => NOW - d * DAY;
+assert.strictEqual(pastHorizon([ago(0.1), ago(1.2)], NOW, 7), false, 'all fresh → keep paging');
+assert.strictEqual(pastHorizon([ago(0.1), ago(7.1)], NOW, 7), true, 'the tail is past 7 days → stop');
+assert.strictEqual(pastHorizon([ago(6.9)], NOW, 7), false, 'inside the window → keep paging');
+assert.strictEqual(pastHorizon([ago(6.9)], NOW, 7), false);
+// Boundary: exactly 7 days old is still inside a "posted within the last 7 days" window (rules.isStale is strict).
+assert.strictEqual(pastHorizon([ago(7)], NOW, 7), false);
+// 0 = the window is off, so there is no horizon to reach.
+assert.strictEqual(pastHorizon([ago(900)], NOW, 0), false);
+assert.strictEqual(pastHorizon([ago(900)], NOW, null), false);
+// An unreadable date is never a reason to end the list (the recency rule must not be the rule that loses one).
+assert.strictEqual(pastHorizon([null, undefined, ago(900)], NOW, 7), true, 'the readable one still decides');
+assert.strictEqual(pastHorizon([null, undefined], NOW, 7), false, 'nothing readable → never stop');
+assert.strictEqual(pastHorizon([], NOW, 7), false);
+assert.strictEqual(pastHorizon(undefined, NOW, 7), false);
+assert.strictEqual(pastHorizon([NaN, Infinity], NOW, 7), false, 'a non-finite timestamp is not a date');
 
 console.log('pager: all assertions passed');

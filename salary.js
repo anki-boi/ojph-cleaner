@@ -84,9 +84,18 @@
     return null;
   };
 
-  /** '40,000' → 40000 · '7,5' → 7.5 (PH decimal comma) · '1,500' → 1500 (thousands) */
+  /**
+   * '40,000' → 40000 · '7,5' → 7.5 (a European decimal comma) · '1,50' → 1.5 · '35,0000' → 350000.
+   *
+   * A comma group of ONE OR TWO digits is a decimal comma; anything longer is a thousands separator,
+   * however the poster grouped it. That last case is not hypothetical: the live board carries
+   * `35,0000 - 40,0000` (a mis-typed 350 000), and reading a 4-digit group as decimals turned a
+   * ₱350,000/month job into "$35/hour" — ₱395,249/mo after conversion, which the user spotted at once:
+   * "this is obviously already in pesos since the salary stated is 5 digits and above". Magnitude is what
+   * the currency heuristic reads (D12), so losing it here loses the whole judgement.
+   */
   function num(tok) {
-    return parseFloat(tok.replace(/,(\d+)/g, (_, d) => (d.length === 3 ? d : '.' + d)));
+    return parseFloat(tok.replace(/,(\d+)/g, (_, d) => (d.length <= 2 ? '.' + d : d)));
   }
 
   /**

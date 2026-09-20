@@ -159,4 +159,27 @@ assert.strictEqual(meetsGoal({ min: 30000, max: 90000 }, 40000), false, 'a maybe
 assert.strictEqual(meetsGoal({ min: 90000, max: 90000 }, 0), false, 'goal 0 = feature off');
 assert.strictEqual(meetsGoal(null, 40000), false, 'no monthly figure → nothing to compare');
 
+// ── the thousands comma, however the poster grouped it (live bug, 2026-09-19) ──
+// A LIVE listing wrote `35,0000 - 40,0000` — a mis-typed 350 000. Reading the 4-digit group as decimals made
+// the number 35, which then read as "$35/hour" and showed ₱395,249/mo for a ₱350,000/month job. The user
+// spotted it at once: "this is obviously already in pesos since the salary stated is 5 digits and above".
+const livePhp = { USD: 62.738 };
+assert.deepStrictEqual(
+  (() => { const p = parseSalary('35,0000 - 40,0000', null); return { min: p.min, max: p.max, currency: p.currency, unit: p.unit }; })(),
+  { min: 350000, max: 400000, currency: 'PHP', unit: 'month' },
+  'a 5-6 digit peso figure must survive a misplaced comma and stay pesos');
+assert.deepStrictEqual(
+  (() => { const p = parseSalary('35,000', null); return { min: p.min, currency: p.currency }; })(),
+  { min: 35000, currency: 'PHP' }, 'the ordinary case still works');
+// A 1-2 digit group after the comma is still a decimal comma (the European convention).
+assert.strictEqual(parseSalary('7,5', null).min, 7.5);
+assert.strictEqual(parseSalary('1,50', null).min, 1.5);
+assert.strictEqual(parseSalary('1,500', null).min, 1500, 'three digits is still thousands');
+assert.strictEqual(parseSalary('1,2345', null).min, 12345, 'and so is four, when a poster groups it that way');
+assert.strictEqual(parseSalary('2,000,000', null).min, 2000000);
+// The whole shape of the bug: the figure the user actually saw on the card.
+assert.deepStrictEqual(
+  (() => { const p = parseSalary('35,0000 - 40,0000', null); return toPhp(p, livePhp); })(),
+  { min: 350000, max: 400000 }, 'and it converts as pesos, not as dollars');
+
 console.log('salary: all assertions passed');

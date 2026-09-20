@@ -39,11 +39,13 @@ different keywords.</p>
   <label><input type="checkbox" id="rescueNoSalary"> …but keep a no-salary job that matches a keyword I like, or pays at or above one of my goals. <em>Off by default: a listing with no figure at all is usually one you did not want to read.</em></label>
   <label><input type="checkbox" id="showHidden"> Show hidden jobs (red dashed marker)</label>
   <label><input type="checkbox" id="autoLoad"> Load the next page of jobs when I scroll to the bottom of the list (one page per scroll, stops at the end)</label>
+  <label><input type="checkbox" id="autoScan"> Deep-scan this search page as soon as it loads — loads every result inside your recency window, then opens each listing to re-decide it. <em>Off by default: the promise of this extension is that the site sees no traffic you did not ask for. The Scan button in the panel does the same thing on demand.</em></label>
+  <label><input type="checkbox" id="scanWorth"> …and then scan the <strong>Worth considering</strong> listings too (the yellow ones). Off means the scan stops after High yield.</label>
+  <label><input type="checkbox" id="scanAll"> …and then the unclassified listings as well. <em>This is the only pass that can promote a listing matching no keyword and no goal, and it is the most expensive one.</em></label>
   <label for="goalSalary">Brighten jobs paying at least this much per month (₱, 0 = off). Judged on the low end of a range, converted with live ECB rates.</label>
   <input type="number" id="goalSalary" min="0" step="1000" placeholder="e.g. 40000">
   <label for="goalHourly">…or at least this much per hour (₱, 0 = off). Applies to listings that post an hourly rate, which a monthly goal cannot judge.</label>
   <input type="number" id="goalHourly" min="0" step="10" placeholder="e.g. 300">
-  <label><input type="checkbox" id="autoScan" disabled> Auto deep-scan each search page <em>— not built yet (<code>spec.md</code> W3). The checkbox is disabled until it does something; the setting itself is kept as saved.</em></label>
 </div>
 
 <button id="save">Save</button><span id="saved">Saved ✓</span>

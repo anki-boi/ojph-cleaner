@@ -392,6 +392,42 @@ salary    : 23 monthly figure(s), 3 posted-rate figure(s), 1 with no figure
 
 ---
 
+### 4h. ✅ W12–W14 — the job memory, the deep scan, the two views (0.9.0)
+
+Asked for as: *"paginates until end of 'Hide jobs older than', then a deeper scan that opens every job listing
+two at a time and enhances the current filters… reclassify so they can be demoted or promoted… show the true
+high yields first, with buttons to switch between High yields and Worth considering… remembers the states and
+stats for each job listing link"*. Every measured number below is from that work.
+
+- **The scan is button-triggered and bounded**: pages to the recency horizon, then opens listings 2 at a time,
+  400 ms between pairs, with a Stop button and caps of 10 pages / 300 listings / 10 minutes. `autoScan` exists
+  and is off. Measured on a live 298-card search: 9 result pages, 225 listings in ~2 minutes, all cached.
+- **The tiers are about PAY.** The user's correction mid-build: a positive keyword is a highlight, not a
+  promotion. High yield = a goal met with no hide keyword; Worth considering = a hide keyword that still looks
+  good; Highlighted = a keyword you like below your goal. Off-platform asks and over-40-hour weeks are tags.
+- **What the scan buys**: the description's keywords, the off-platform tags, the listing's own `HOURS PER WEEK`
+  (which makes a part-time month honest — `⏱ part-time month at 15 h/week` — and the goal still judged on the
+  rate, because lower pay for fewer hours is the point of part-time), closures it passes, and a `↑`/`↓` mark
+  when a listing moves.
+- **The views filter and then SCROLL**: without scrolling the first card of the tier into view, hiding most of a
+  244-card list leaves the viewport looking at empty space (18 000 px away, measured).
+
+**Five traps, each of which cost real time, and each of which is now impossible to ship again:**
+
+| Trap | Symptom | Fix |
+|---|---|---|
+| A **chip rebuilt wholesale** on every rule pass | A real click's `mousedown` lands on `<button id="ojc-gear">`, the pass replaces it, the `mouseup` lands on its replacement, and the browser dispatches the click on their **common ancestor** — so the handler never runs. Measured on an idle page: pointerdown/mousedown/mouseup all reported `ojc-gear`, no click event at all. The user reported it as "clicking the settings button is broken" | The chip's interactive nodes (head, 3 action buttons, 3 view buttons) are created **once** and only updated; the rows are still rebuilt. `verify-live` now clicks the gear and Save with **real hit-tested mouse events**, and pauses 250 ms in the middle so a pass can land between the halves |
+| **`chrome.storage.local` reorders object keys** | `JSON.stringify(before) === JSON.stringify(after)` is false for an unchanged record — so the write-echo was adopted as another tab's write, the next pass compared the adopted record against the one it would write, found them different, and wrote again: **2 184 record writes and ~75 rule passes per second, forever, on an idle page** | `records.canon()`: a key-order-insensitive JSON used by both `sameFacts` (did anything change?) and the echo check (is this mine?). `test-records.js` pins it |
+| **A guard that DROPS instead of coalescing** | `annotate()` is async (it awaits the live ECB rates) and every pass that arrived while it ran was discarded — including the one carrying the scan's `HOURS PER WEEK`. Ten cards kept a rate-only figure while both the record and the cache held their real hours | `if (running) { pending = true; return; }` and a `do { … } while (pending)` loop |
+| **Hydration happened once, at boot** | `load()` read the cache for the cards in the DOM at that instant. The site's list can render after `document_idle`, and a page whose cards were not there yet hydrated **nothing** — so the whole scan result silently did not apply to any card on that load | `hydrateNew()`, called from the rule pass: one Set lookup per card, an IDB read only when a card's facts are genuinely missing |
+| **A `\d` inside page-side code in a `tab.evaluate` template literal** | The backslash is eaten (an unknown escape drops it), so `\d` arrives as `d` and the page throws `SyntaxError: Unterminated group` — the backtick trap's sibling, fourth occurrence in this repo | No escapes in page-side code: use `[0-9]`, `[ \\t]`, `[/]`. `cdp.mjs` now appends the **tail of the failing expression** to the exception, because that is the only thing that makes it findable |
+
+**And one data-loss trap the harness itself had:** the snapshot that protects the user's settings is written to
+one rolling file, so a run the OS **SIGKILLs** (no handler can run) leaves its own seed in place, the next run
+snapshots *that* as the user's state, and the real settings are gone with nothing to restore from. That is how
+this session lost the profile's original 1 negative + 1 positive keyword list. `saveDatedSnapshot()` now keeps
+the five most recent snapshots, and `verify-live --restore` can put any of them back.
+
 ### 4g. ✅ W4 / W9 / W10 / W11 — the job's own page, the closed memory, the rescue (0.8.0)
 
 Four things landed together because the detail page is what made the others worth building. Full decision
@@ -446,30 +482,23 @@ Traps this work added to section 3's list, each of which cost real time:
 | `spec.md` W4 — the job's own page (highlights, figures, off-platform) | ✅ 0.8.0, see §4g |
 | `spec.md` W9 — closed-listing memory (6-month cap) | ✅ 0.8.0, see §4g |
 | `spec.md` W10 — the opt-in no-salary rescue | ✅ 0.8.0, see §4g |
-| **4. Deep scan engine** (`spec.md` W3) | ⬜ **next** |
+| **`spec.md` W12–W14 — the job memory, the deep scan, the tiers and the views** | ✅ 0.9.0, see §4h |
 | 6. Detail-page banner (`spec.md` W4) | ⬜ |
 | Distribution (`spec.md` W5) | ⬜ unpacked for now (D2) |
 
 The plan of record is now **`spec.md`** (waves, task IDs, acceptance criteria). This table is kept as
 the original Task 1–8 numbering so older notes still line up.
 
-**Task 4 is the meaningful one.** Card-level text is too thin: in the live run above, negative
-keywords only bit because the search term itself (`bookkeeper`) appears in every card, while
-`crypto` and `insurance` matched **nothing** across 30 cards. The rules need the full description:
+**The deep scan is built** (§4h, W13): it fetches the pages inside your recency window (not just the current
+page — the user asked for the horizon, and the button press is the gesture that pays for it), then opens each
+listing 2 at a time with a Stop button and hard caps. It stayed close to this brief in every other respect:
+description from `p#job-description`, the WAGE/SALARY `p` beside its `h3`, an IndexedDB cache with a 7-day TTL
+and a 1 000-entry cap, and a progress line. `ctxMap` was the seam it was meant to feed, and it was replaced by
+`records-cards.js` + `tiers.js` — the rules pass now sees the description's facts through the memory, which is
+also what makes them survive a page reload.
 
-- fetch `/jobseekers/job/<slug>-<id>` for the **current page's cards only** (never paginate);
-  3 concurrent + 400 ms between waves; 429 or a network error leaves that card unscanned, never
-  blocks the site;
-- description from `p#job-description`; salary = the `p` that is the **next sibling** of the
-  `h3.fs-12` whose text matches `/WAGE\s*\/\s*SALARY/i`;
-- IndexedDB cache keyed on job URL, 7-day TTL, 1 000-entry cap, oldest evicted;
-- progress plus a stop button; the button exists **only when keywords are configured**;
-- `content.js` already merges fetched text into `fullText()` through `ctxMap`, so the rules pass
-  needs no change — it simply starts seeing more text.
-
-**Suggested first move:** write the detail parser as a pure function in a new file with node tests
-first (the same split as `rules.js` + `test-rules.js`), then wire the fetch layer, then add a
-detail-page assertion to `tools/verify-live.mjs` so the parser has a live guard as well.
+**What is genuinely left:** distribution (W5, needs the D2 decision re-made now that the extension talks to
+more of the site than a keyword search), and whatever the next real browsing session turns up.
 
 ---
 
@@ -528,6 +557,22 @@ paths out of tracked source (the gate enforces this).
   required now that `storage` is declared. `verify-live` asserts it in one tab session.
 - Everything stays local: no server, no analytics, no third-party calls.
 - The chip's counts stay truthful — asserted live by `tools/verify-live.mjs`.
+- **The chip's interactive nodes are persistent.** `render()` updates the head, the three action buttons and the
+  three view buttons; only the non-clickable rows are rebuilt. Rebuilding a button between a real click's
+  mousedown and mouseup means the browser never fires the click at all (measured: pointerdown/mousedown/mouseup
+  on `ojc-gear`, no click event). `verify-live` clicks the gear and Save with real mouse events, with a pause in
+  the middle.
+- **Every record comparison goes through `records.canon()`.** `chrome.storage.local` reorders keys, and a plain
+  `JSON.stringify` comparison of a record against itself after a round trip is false — which produced ~75 rule
+  passes per second, forever, on an idle page. If you add a field to a record, it is compared in `sameFacts`.
+- **`annotate()` coalesces, never drops.** It is async; a dropped re-run is a note left showing a figure from
+  before the scan's hours arrived.
+- **The scan runs only when the user asks.** `autoScan` is off by default, nothing else may start it, and its
+  budget is 2 listings at a time with ≥400 ms between pairs (asserted as a rate in `verify-live`: no three
+  listing fetches inside 350 ms).
+- **PAY decides High yield.** A keyword you like is a highlight; a positive match on a listing below your goal
+  is its own `pos` verdict, not a high-yield one. Off-platform asks and over-40-hour weeks are tags and never
+  demote.
 
 ---
 

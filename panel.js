@@ -75,9 +75,13 @@
         <div class="ojc-sec">
           <i>Loading</i>
           <label class="ojc-check"><input type="checkbox" id="ojc-autoLoad"><span>Load more jobs when I scroll to the bottom</span></label>
-          <label class="ojc-check ojc-off" title="Saved now, acted on once the deep scan ships (spec.md W3)">
-            <input type="checkbox" id="ojc-autoScan" disabled><span>Auto deep-scan this page <em class="ojc-soon">not built yet</em></span>
-          </label>
+        </div>
+        <div class="ojc-sec">
+          <i>Deep scan</i>
+          <p class="ojc-hint">Opens each listing to re-decide it with its full description. 2 at a time, High yield first, and nothing is fetched until you press Scan.</p>
+          <label class="ojc-check"><input type="checkbox" id="ojc-autoScan"><span>Scan this page as soon as it loads</span></label>
+          <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-scanWorth"><span>…then the Worth considering listings too</span></label>
+          <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-scanAll"><span>…and the unclassified ones, which this pass can promote</span></label>
         </div>
       </div>
       <div id="ojc-panel-foot">
@@ -116,6 +120,8 @@
     $p('#ojc-goal').value = s.goalSalary || '';
     $p('#ojc-goal-hourly').value = s.goalHourly || '';
     $p('#ojc-autoScan').checked = s.autoScan;
+    $p('#ojc-scanWorth').checked = s.scanWorth !== false;
+    $p('#ojc-scanAll').checked = !!s.scanAll;
   }
 
   /** Mirror settings into an open panel without clobbering a field being typed in. */
@@ -135,7 +141,6 @@
    * Save applies the rules immediately — the storage write is durability, not the trigger.
    */
   function save() {
-    const current = api.getSettings();
     api.setSettings({
       maxAgeDays: num($p('#ojc-maxAge').value),
       negative: fromLines($p('#ojc-neg').value),
@@ -146,9 +151,11 @@
       autoLoad: $p('#ojc-autoLoad').checked,
       goalSalary: num($p('#ojc-goal').value),
       goalHourly: num($p('#ojc-goal-hourly').value),
-      // Read from settings, not the input: the control is disabled until W3, and a disabled checkbox
-      // would otherwise silently reset a stored value to false.
-      autoScan: current.autoScan,
+      // Read from settings, not the input: a control that is disabled or absent must never silently reset a
+      // stored value to false.
+      autoScan: $p('#ojc-autoScan').checked,
+      scanWorth: $p('#ojc-scanWorth').checked,
+      scanAll: $p('#ojc-scanAll').checked,
     });
     api.refreshRules();
     api.persist();

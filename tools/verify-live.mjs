@@ -39,6 +39,15 @@ const RULES_SRC = fs.readFileSync(new URL('../rules.js', import.meta.url), 'utf8
 // (`-1733463` at the end of two different slug spellings), and the closed rule now runs FIRST, so a
 // predicted total that ignores it is wrong by exactly the number of remembered listings.
 const CLOSED_SRC = fs.readFileSync(new URL('../closed.js', import.meta.url), 'utf8');
+// W12's verdict table and state machine, injected for the same reason `rules.js` is: the tier the harness
+// expects must come out of the SAME function the extension ran, not a re-implementation of it. The tier
+// table has eight branches and a compatibility rule (no detail ⇒ 0.8.0's verdicts), which is exactly the
+// kind of thing two copies get wrong in opposite directions.
+const TIERS_SRC = fs.readFileSync(new URL('../tiers.js', import.meta.url), 'utf8');
+const RECORDS_SRC = fs.readFileSync(new URL('../records.js', import.meta.url), 'utf8');
+// detail-text.js is the off-platform detector (W4). Injected so the harness derives a scanned listing's
+// facts with the SAME planner the extension used — an ask is only an ask if this file says so.
+const DETAILTEXT_SRC = fs.readFileSync(new URL('../detail-text.js', import.meta.url), 'utf8');
 
 const fail = async msg => {
   console.error('verify-live: FAIL — ' + msg);
@@ -64,6 +73,28 @@ const settle = ms => new Promise(r => setTimeout(r, ms));
  * fixtures. `node tools/verify-live.mjs --restore` recovers from that file by hand after a hard kill.
  */
 const SNAP_FILE = path.join(os.tmpdir(), 'ojc-verify-live-snapshot.json');
+const SNAP_KEEP = 5;
+/**
+ * Keep a timestamped copy of every snapshot, newest five only.
+ *
+ * The rolling file is written at the start of each run, so a run that the OS kills (which no handler can
+ * catch) leaves its own seed in place and the NEXT run snapshots that seed as if it were the user's state —
+ * the failure mode the comment on `restoreStorage` describes, one layer deeper. Dated copies mean there is
+ * always something older to go back to.
+ */
+function saveDatedSnapshot(snap) {
+  try {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    fs.writeFileSync(path.join(os.tmpdir(), `ojc-snapshot-${stamp}.json`), JSON.stringify(snap, null, 1));
+    const dir = os.tmpdir();
+    const files = fs.readdirSync(dir).filter(f => /^ojc-snapshot-.*\.json$/.test(f)).sort();
+    for (const old of files.slice(0, Math.max(0, files.length - SNAP_KEEP))) {
+      try { fs.unlinkSync(path.join(dir, old)); } catch { /* best effort */ }
+    }
+  } catch (e) {
+    console.error(`verify-live: WARNING — could not keep a dated snapshot (${e.message})`);
+  }
+}
 const RESTORE_ONLY = process.argv.includes('--restore');
 let SNAPSHOT = null, EXT = null, STORE = null, restoring = false;
 
@@ -122,7 +153,9 @@ for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
 // dutifully "restored" it — the damage quietly becoming the baseline. These two handlers are the
 // difference between a gate that is safe to run and one that eats the profile it checks.
 const crash = (what) => (err) => {
-  console.error(`verify-live: ${what} — ${err && err.stack ? err.stack.split('\n')[0] : err}`);
+  // The WHOLE message, not just its first line: cdp.mjs appends the tail of the page-side expression that
+  // threw, and that is the only thing that makes a SyntaxError in a `tab.evaluate` template literal findable.
+  console.error(`verify-live: ${what} — ${err && err.message ? err.message : err}`);
   console.error('verify-live: the run died outside fail(); putting the storage back before exiting');
   restoreStorage().then(() => STORE?.close()).finally(() => process.exit(1));
 };
@@ -143,6 +176,33 @@ async function activate(tab) {
   }
   return false;
 }
+/**
+ * Click a button the way a human does: hit-tested mousedown, a pause, then mouseup.
+ *
+ * `element.click()` cannot tell a button from a button that is REPLACED between the two halves of a click,
+ * and that difference shipped: the chip used to be rebuilt wholesale on every rule pass, so a mousedown on
+ * Settings landed on one node, the pass replaced it, the mouseup landed on its replacement, and the browser
+ * dispatched the click on their common ancestor instead of on the handler. Measured live on an idle page:
+ * pointerdown, mousedown and mouseup all reported `ojc-gear`, and no click event ever fired — which is why
+ * the user reported "clicking the settings button is broken" while every synthetic click in this file passed.
+ *
+ * The pause in the middle is the point: it gives a rule pass the chance to land between the two halves, which
+ * is exactly what a real user's click has to survive.
+ */
+const realClick = async (tab, selector, holdMs = 250) => {
+  const at = JSON.parse(await tab.evaluate(`(() => { const e = document.querySelector(${JSON.stringify(selector)});
+    if (!e) return JSON.stringify({ missing: true });
+    const r = e.getBoundingClientRect();
+    return JSON.stringify({ x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) }); })()`));
+  if (at.missing) return false;
+  await tab.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at.x, y: at.y, button: 'none' });
+  await tab.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: at.x, y: at.y, button: 'left', buttons: 1, clickCount: 1 });
+  await settle(holdMs);
+  await tab.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: at.x, y: at.y, button: 'left', buttons: 0, clickCount: 1 });
+  await settle(500);
+  return true;
+};
+
 const HIDDEN_HINT = 'the browser tab stayed hidden, so Chrome throttled it — bring the Chrome window ' +
   'to the front (or launch it with --disable-background-timer-throttling ' +
   '--disable-backgrounding-occluded-windows --disable-renderer-backgrounding, see docs/HANDOFF.md §2)';
@@ -198,6 +258,12 @@ console.log(`extension : ${EXT_NAME} v${EXT_VERSION} ${state} (${EXT_PATH})`);
 // The user's own storage, taken before the first write below, so every exit path can put it back.
 SNAPSHOT = await readStorage();
 fs.writeFileSync(SNAP_FILE, JSON.stringify(SNAPSHOT, null, 1));   // survives a hard kill
+// …and a DATED copy, because the rolling file is overwritten by the next run's snapshot — so a run that is
+// SIGKILLed (no handler can run) leaves its seeded settings in place, the next run dutifully snapshots THOSE,
+// and the user's real keywords are gone with nothing to recover from. That is not hypothetical: it is how
+// this session lost the 1 negative + 1 positive keyword list the profile started with. The five most recent
+// copies are kept, and any of them can be restored by hand (or with --restore).
+saveDatedSnapshot(SNAPSHOT);
 // Print what the snapshot actually CONTAINS, not just its keys: a snapshot of a profile a previous run
 // had already seeded is indistinguishable from a good one by key name, and the run that discovered this
 // reported "snapshot taken (closedJobs, fx, settings)" while holding the harness's own fixtures.
@@ -239,14 +305,68 @@ console.log(`settings  : ${JSON.stringify(settings)}`);
  * computed by adding the buckets up. `reconExpected` is the yellow state: a hide keyword on a listing
  * that also looks good (a positive match, or a goal mark the salary pass put on it).
  */
-const ruleEval = (tab, { neg = [], pos = [], maxAgeDays = 0, noSalary = true, closedIds = [] } = {}) => tab.evaluate(`${RULES_SRC}
+/**
+ * The verdict every card should have, recomputed from the DOM — with the extension's own code.
+ *
+ * `rules.js`, `tiers.js`, `records.js` and `closed.js` are injected (the same UMD factories the
+ * content script uses), so this is a parity check and not a second opinion: the eight-branch verdict
+ * table, the date maths and the job-id extraction all come from the code under test.
+ *
+ * Two things make it match the extension exactly, and both have a live failure behind them:
+ *
+ *   1. **The record's keyword facts are only trusted when the record was derived under the same keyword
+ *      lists** (`records.settingsKey`). The board does that (D36), so a harness that skipped it would
+ *      predict tiers the board cannot reach and report phantom failures.
+ *   2. **`posExpected` is the ✓ badge count, not a bucket count**: a card can be High yield because it
+ *      pays above a goal with no keyword at all, and those carry no badge.
+ */
+/**
+ * Put the page's cached descriptions (the extension's own IndexedDB store) into the page world once, so
+ * `ruleEval` can re-derive a scanned listing's facts from the cache exactly as records-cards.js does.
+ * One read per page, not one per poll: section 4b polls 40 times and would otherwise re-read 60 rows 40 times.
+ */
+const primeCache = (tab) => tab.evaluate(`new Promise((res) => {
+  const ids = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')]
+    .map(c => { const a = c.querySelector('a[href*="/job/"]'); return a ? a.getAttribute('href') : null; })
+    .filter(Boolean).map(h => (h.match(/[0-9]+\\/?$/) || [])[0]).filter(Boolean);
+  const out = {};
+  if (!ids.length) { self.__ojcCache = out; return res(0); }
+  const r = indexedDB.open('ojc', 1);
+  r.onerror = () => { self.__ojcCache = out; res(0); };
+  r.onsuccess = () => {
+    const store = r.result.transaction('details', 'readonly').objectStore('details');
+    let pending = ids.length;
+    const finish = () => { if (--pending === 0) { self.__ojcCache = out; res(Object.keys(out).length); } };
+    for (const id of ids) {
+      const q = store.get(String(id));
+      q.onsuccess = () => {
+        // The SAME 7-day TTL the extension applies (detail-cache getMany): a stale row is one the
+        // extension will not read, and a harness that reads it anyway predicts a figure the board has
+        // deliberately stopped using — five phantom "wrong figure" failures, all of them the harness's.
+        const row = q.result;
+        if (row && Date.now() - Number(row.at || 0) <= 604800000) {
+          out[String(id)] = { desc: row.desc, hours: row.fields ? row.fields.hoursPerWeek : null };
+        }
+        finish();
+      };
+      q.onerror = finish;
+    }
+  };
+})`);
+
+const ruleEval = (tab, { neg = [], pos = [], maxAgeDays = 0, noSalary = true, closedIds = [], records = {}, rescue = false } = {}) => tab.evaluate(`${RULES_SRC}
+${DETAILTEXT_SRC}
+${TIERS_SRC}
+${RECORDS_SRC}
 ${CLOSED_SRC}
 (() => {
-  const neg = ${JSON.stringify(neg.map((k) => k.toLowerCase()))};
-  const pos = ${JSON.stringify(pos.map((k) => k.toLowerCase()))};
+  const settings = { negative: ${JSON.stringify(neg)}, positive: ${JSON.stringify(pos)} };
   const maxAgeDays = ${JSON.stringify(Number(maxAgeDays) || 0)};
   const noSalary = ${JSON.stringify(noSalary !== false)};
+  const rescue = ${JSON.stringify(!!rescue)};
   const closedIds = new Set(${JSON.stringify(closedIds.map(String))});
+  const saved = OJCRecords.prune(${JSON.stringify(records)}, Date.now(), OJCRecords.HISTORY_DAYS * 86400000);
+  const sk = OJCRecords.settingsKey(settings);
   const now = Date.now();
   const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
   // Our own injected nodes are removed before any text is matched — the 40 h/week disclaimer says
@@ -271,46 +391,67 @@ ${CLOSED_SRC}
     return OJRules.parsePosted(p.getAttribute('data-temp-2')) ??
       OJRules.parsePosted(p.getAttribute('data-temp'), OJRules.MANILA_OFFSET_MINUTES);
   };
-  let staleExpected = 0, noSalExpected = 0, negExpected = 0, posExpected = 0, reconExpected = 0;
-  let closedExpected = 0;
-  let noDate = 0, noUtc = 0, negAnyExpected = 0;
+  const idOf = (c) => { const a = c.querySelector('a[href*="/job/"]'); return a ? OJClosed.jobIdFrom(a.getAttribute('href')) : null; };
+  const tiers = { closed: 0, stale: 0, nosal: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0 };
+  let noDate = 0, noUtc = 0, negBadges = 0, posBadges = 0, flagBadges = 0, scanned = 0, overHours = 0;
   for (const c of cards) {
     const text = ownText(c);
     const p = c.querySelector('p[data-temp]');
     if (!p || !p.getAttribute('data-temp-2')) noUtc++;
     const at = postedAt(c);
     if (at == null) noDate++;
-    // The closed rule is first in the real pass, so a remembered card is counted here and NOWHERE else —
-    // the else-if chain is the whole point: the buckets can never be added up to predict the total.
-    const link = c.querySelector('a[href*="/job/"]');
-    const closed = !!(link && closedIds.has(String(OJClosed.jobIdFrom(link.getAttribute('href')))));
-    const ns = noSalary && !/\\d/.test(ownSal(c));
-    // Through the extension's own matcher, not .includes: the keyword syntax lives in rules.js, and a
-    // harness that re-implements it diverges the moment the syntax grows (a leading = now means
-    // whole-word). This is the same injected module, so it cannot disagree.
-    const nm = OJRules.matchKeywords(text, neg).length > 0;
-    const pm = OJRules.matchKeywords(text, pos).length > 0;
-    const good = pm || c.classList.contains('ojc-goal');
-    if (nm) negAnyExpected++;
-    if (closed) closedExpected++;
-    else if (OJRules.isStale(at, now, maxAgeDays)) staleExpected++;
-    else if (ns) noSalExpected++;
-    else if (nm && good) reconExpected++;
-    else if (nm) negExpected++;
-    else if (pm) posExpected++;
+    const id = idOf(c);
+    const rec = id ? saved[String(id)] : null;
+    // The extension re-derives a record's facts from the CACHED description under the CURRENT settings (D36)
+    // and only falls back to the stored facts when the cache is gone — and only then if those were derived
+    // under these same keyword lists. Both branches are mirrored here. Skipping the first one made the
+    // harness predict card-level verdicts for cards the board had genuinely deep-scanned, and it reported a
+    // phantom failure the moment a single record existed.
+    const row = rec ? (self.__ojcCache || {})[String(id)] : null;
+    const detail = row && row.desc
+      ? OJCTiers.detailFacts(row.desc, settings, OJRules.matchKeywords, OJCDetailText.plan, row.hours)
+      : (rec && rec.detail && rec.sk === sk ? rec.detail : null);
+    if (rec) scanned++;
+    if (rec && rec.fields && Number(rec.fields.hoursPerWeek) > 40) overHours++;
+    const card = { ...OJCTiers.cardFacts(text, settings, OJRules.matchKeywords), goal: c.classList.contains('ojc-goal') };
+    const tier = OJCTiers.decide({
+      closed: !!(id && closedIds.has(String(id))),
+      stale: OJRules.isStale(at, now, maxAgeDays),
+      noSalary: noSalary && !/\\d/.test(ownSal(c)),
+      rescue, card, detail,
+    });
+    tiers[tier]++;
+    const nm = card.neg.length > 0 || !!(detail && detail.neg && detail.neg.length);
+    const pm = card.pos.length > 0 || !!(detail && detail.pos && detail.pos.length);
+    const flagged = !!(detail && (detail.flags || []).length);
+    // One badge per KIND, mirroring content.js: a ✓ only on High yield, a ✗ on every card a hide keyword
+    // matched (worth and kw), a ⚠ on anything off-platform that is still on screen.
+    // The ✓ badge goes on High yield AND on Highlighted: a keyword you like is badged wherever it lands.
+    if ((tier === 'high' || tier === 'pos') && pm) posBadges++;
+    if ((tier === 'kw' || tier === 'worth') && nm) negBadges++;
+    // The off-platform tag goes on EVERY card that carries one, whatever its tier — it is a tag, not a verdict.
+    if (['high', 'worth', 'kw', 'none'].includes(tier) && flagged) flagBadges++;
   }
-  return JSON.stringify({ cards: cards.length, staleExpected, noSalExpected, negExpected, posExpected,
-    reconExpected, closedExpected, negAnyExpected, noDate, noUtc,
-    hiddenExpected: closedExpected + staleExpected + noSalExpected + negExpected });
+  return JSON.stringify({ cards: cards.length, tiers,
+    closedExpected: tiers.closed, staleExpected: tiers.stale, noSalExpected: tiers.nosal,
+    negExpected: tiers.kw, reconExpected: tiers.worth, highExpected: tiers.high, posTierExpected: tiers.pos,
+    flagTagExpected: flagBadges,
+    posExpected: posBadges, negBadgeExpected: negBadges, flagBadgeExpected: flagBadges,
+    hiddenExpected: tiers.closed + tiers.stale + tiers.nosal + tiers.kw,
+    scannedCards: scanned, overHours, noDate, noUtc });
 })()`);
 
 /** The ids the memory is holding, for the rule parity above. One read, one shape. */
 const readClosedIds = async () => Object.keys((await readStorage()).closedJobs || {});
+/** The remembered verdicts, for the same reason: the rule pass reads them, so a prediction that ignores
+ *  them is wrong — and the extension's own `sk` check decides which of their facts are still usable. */
+const readRecords = async () => (await readStorage()).jobRecords || {};
 
 // ── 3. live page ─────────────────────────────────────────────────────────
 const res = JSON.parse(await withTab(PORT, URL_, async (tab) => {
   await settle(3500);
-  const counts = JSON.parse(await ruleEval(tab, { neg, pos, maxAgeDays: MAX_AGE, closedIds: await readClosedIds() }));
+  await primeCache(tab);   // the cached descriptions, before anything recomputes from them
+  const counts = JSON.parse(await ruleEval(tab, { neg, pos, maxAgeDays: MAX_AGE, closedIds: await readClosedIds(), records: await readRecords() }));
   return tab.evaluate(`(() => {
     const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
     return JSON.stringify({
@@ -332,7 +473,18 @@ const res = JSON.parse(await withTab(PORT, URL_, async (tab) => {
       recons: document.querySelectorAll('.jobpost-cat-box.ojc-recon').length,
       reconOutline: (() => { const c = document.querySelector('.jobpost-cat-box.ojc-recon');
         return c ? getComputedStyle(c).outlineColor : null; })(),
-      highlights: document.querySelectorAll('.ojc-pos-badge').length
+      highlights: document.querySelectorAll('.ojc-pos-badge').length,
+      flagBadges: document.querySelectorAll('.ojc-flag-badge').length,
+      hoursBadges: document.querySelectorAll('.ojc-hours').length,
+      hoursOver: document.querySelectorAll('.ojc-hours-over').length,
+      tierBadges: document.querySelectorAll('.ojc-tier-badge').length,
+      // The verdict the pass wrote on each card (data-ojc-tier) — the board's own claim, which the
+      // recomputation above has to agree with bucket by bucket.
+      domTiers: (() => {
+        const t = { closed: 0, stale: 0, nosal: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0, unset: 0 };
+        for (const c of cards) t[c.dataset.ojcTier || 'unset']++;
+        return t;
+      })()
     });
   })()`).then((page) => JSON.stringify({ ...JSON.parse(page), ...counts }));
 }, 500));
@@ -379,11 +531,21 @@ if (res.hidden !== res.invisible) {
   await fail(`${res.hidden} cards carry [hidden] but only ${res.invisible} are actually display:none — the site CSS is winning`);
 }
 if (res.negatives !== res.negExpected) await fail(`keyword hides ${res.negatives}, expected ${res.negExpected}`);
-if (res.negBadges !== res.negExpected + res.reconExpected) {
-  await fail(`${res.negBadges} card(s) carry the ✗ badge, expected ${res.negExpected + res.reconExpected} ` +
-    `(keyword hides ${res.negExpected} + reconsidered ${res.reconExpected}) — every negative match must ` +
-    `say which keyword matched`);
+if (res.negBadges !== res.negBadgeExpected) {
+  await fail(`${res.negBadges} card(s) carry the ✗ badge, expected ${res.negBadgeExpected} — every card a hide ` +
+    `keyword matched must say which keyword matched, whichever bucket it landed in (hidden ${res.negExpected}, ` +
+    `reconsidering ${res.reconExpected})`);
 }
+// The verdict table itself, bucket by bucket: what the pass wrote on the cards against what the same
+// table says it should be. This is the assertion that would have caught the whole of W12 being wired
+// backwards — a wrong bucket is invisible in the total, because the total counts hidden cards only.
+for (const t of ['closed', 'stale', 'nosal', 'high', 'pos', 'worth', 'kw', 'none']) {
+  if (res.domTiers[t] !== res.tiers[t]) {
+    await fail(`${res.domTiers[t]} card(s) are "${t}", the rule says ${res.tiers[t]} — ` +
+      `on the page ${JSON.stringify(res.domTiers)}, by the rule ${JSON.stringify(res.tiers)}`);
+  }
+}
+if (res.domTiers.unset) await fail(`${res.domTiers.unset} card(s) carry no data-ojc-tier — the rule pass did not classify every card`);
 if (res.recons !== res.reconExpected) {
   await fail(`${res.recons} card(s) carry the yellow reconsider outline, expected ${res.reconExpected} — ` +
     `a listing that matches a hide keyword AND looks good (positive keyword, or a goal mark) must be ` +
@@ -397,6 +559,11 @@ if (res.recons && !/rgb\(224, 168, 0\)/.test(res.reconOutline || '')) {
     `green is winning the cascade`);
 }
 if (res.highlights !== res.posExpected) await fail(`highlights ${res.highlights}, expected ${res.posExpected}`);
+// The off-platform tag: a tag, not a tier (the user's rule). Counted on every visible card that carries one.
+if (res.flagBadges !== res.flagTagExpected) {
+  await fail(`${res.flagBadges} card(s) carry the off-platform tag, expected ${res.flagTagExpected} — it tags every ` +
+    `card that asks you to apply elsewhere, whatever tier it is in`);
+}
 
 // ── 4. chip "Show all" must reveal, and re-hide, everything it hid ───────
 // Both toggles happen in ONE tab, and the number to restore is read from that tab before anything is
@@ -451,6 +618,11 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
 {
   const r = JSON.parse(await withTab(PORT, URL_, async (tab) => {
     await settle(3000);
+    await primeCache(tab);
+    // Read the remembered verdicts ONCE: nothing in this section scans, so the map cannot change between
+    // polls — and a storage read inside a 40×250 ms poll loop is 120 reads for one answer.
+    const closedIds = await readClosedIds();
+    const records = await readRecords();
     /** Seed, then wait until the listing agrees with the recomputed rule — never sleep and hope. */
     const measure = async (partial) => {
       const next = { ...settings, ...partial, maxAgeDays: 0 };
@@ -462,7 +634,7 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
         pos: document.querySelectorAll('.ojc-pos-badge').length })`;
       let counts, dom;
       for (let i = 0; i < 40; i++) {
-        counts = JSON.parse(await ruleEval(tab, { neg: next.negative, pos: next.positive, maxAgeDays: 0, closedIds: await readClosedIds() }));
+        counts = JSON.parse(await ruleEval(tab, { neg: next.negative, pos: next.positive, maxAgeDays: 0, closedIds, records }));
         dom = JSON.parse(await tab.evaluate(read));
         const agreed = dom.hidden === counts.hiddenExpected && dom.neg === counts.negExpected &&
           dom.recon === counts.reconExpected && dom.pos === counts.posExpected && counts.cards > 0;
@@ -577,7 +749,8 @@ if (res.noSalExpected > 0) {
     const before = await snap();
     const wasOpen = await tab.evaluate(
       `!!document.getElementById('ojc-panel') && !document.getElementById('ojc-panel').hidden`);
-    await tab.evaluate(`document.querySelector('#ojc-gear').click()`);    await settle(200);
+    // A real click: the chip must survive a rule pass between the two halves (see realClick).
+    await realClick(tab, '#ojc-gear');
     const opened = JSON.parse(await tab.evaluate(`(()=>{const p=document.getElementById('ojc-panel');
       if (!p) return JSON.stringify({exists:false});
       const fields=['#ojc-maxAge','#ojc-neg','#ojc-pos','#ojc-noSalary','#ojc-showHidden','#ojc-autoScan','#ojc-save'];
@@ -585,14 +758,14 @@ if (res.noSalExpected > 0) {
         fields:fields.every(s=>!!p.querySelector(s)),
         neg:p.querySelector('#ojc-neg').value, noSalary:p.querySelector('#ojc-noSalary').checked,
         showHidden:p.querySelector('#ojc-showHidden').checked});})()`));
-    // change a setting in the panel and Save — no reload between these reads
-    await tab.evaluate(`(()=>{document.querySelector('#ojc-noSalary').checked=false;
-      document.querySelector('#ojc-save').click()})()`);
+    // change a setting in the panel and Save — with a real click, and no reload between these reads
+    await tab.evaluate(`document.querySelector('#ojc-noSalary').checked = false; 1`);
+    await realClick(tab, '#ojc-save');
     await settle(300);
     const pickOff = JSON.parse(await pick());
     const noSalaryOff = await snap();
-    await tab.evaluate(`(()=>{document.querySelector('#ojc-noSalary').checked=true;
-      document.querySelector('#ojc-save').click()})()`);
+    await tab.evaluate(`document.querySelector('#ojc-noSalary').checked = true; 1`);
+    await realClick(tab, '#ojc-save');
     await settle(300);
     return JSON.stringify({ before, wasOpen, pickBefore, pickOff, pickOn: JSON.parse(await pick()), opened, noSalaryOff, noSalaryOn: await snap() });
   }, 500));
@@ -646,10 +819,16 @@ if (res.noSalExpected > 0) {
       const container = document.querySelector('.jobpost-cat-box.latest-job-post')?.parentElement;
       if (!container) return JSON.stringify({ card: false });
       const chip = document.getElementById('ojc-chip');
+      if (!chip) return JSON.stringify({ card: !!container, chip: false });
+      // Count PASSES, from the counter the extension writes on the chip (data-ojc-pass). Counting mutation
+      // records instead made the bound unreadable: one pass rewrites a dozen rows, so "65 mutations" was
+      // five passes or one, and the number moved every time the panel gained a row.
       let passes = 0;
+      const startPass = Number(chip.dataset.ojcPass || 0);
       const mo = new MutationObserver(ms => {
-        for (const m of ms) if (m.target && m.target.id === 'ojc-chip') passes++;
+        for (const m of ms) if (m.type === 'attributes' && m.attributeName === 'data-ojc-pass') passes++;
       });
+      mo.observe(chip, { attributes: true, attributeFilter: ['data-ojc-pass'] });
       mo.observe(document.body, { childList: true, subtree: true });
 
       // a card with no salary field: the rule must hide it as soon as it appears
@@ -664,10 +843,14 @@ if (res.noSalExpected > 0) {
       const t0 = Date.now();
       while (!probe.hidden && Date.now() - t0 < 4000) await new Promise(r => setTimeout(r, 100));
       const hidden = probe.hidden;
+      // One more beat, so a pass that is still queued when the card lands is counted: the goal-mark re-run
+      // arrives a pass after the one that saw the card.
+      await new Promise(r => setTimeout(r, 700));
       const windowMs = Date.now() - t0;
+      const total = Number(chip.dataset.ojcPass || 0) - startPass;
       mo.disconnect();
       probe.remove();
-      return JSON.stringify({ card: true, chip: !!chip, hidden, passes, windowMs });
+      return JSON.stringify({ card: true, chip: true, hidden, passes: total, observed: passes, windowMs });
     })()`);
   }, 500));
 
@@ -676,11 +859,14 @@ if (res.noSalExpected > 0) {
   if (!loop.hidden) {
     await fail('a card inserted after boot was not hidden — the mutation observer is not filtering new cards');
   }
-  if (loop.passes > 20) {
-    await fail(`one external DOM mutation caused ${loop.passes} chip rebuilds in ${loop.windowMs} ms ` +
+  // A bound, not a count: one inserted card should cost a handful of passes (the pass that sees it, the one
+  // the goal mark asks for, and whatever the live page mutates meanwhile). A pass that schedules the next one
+  // forever — the §2.2 loop, measured at 1 614 rebuilds in 4 s — blows straight past this.
+  if (loop.passes > 12) {
+    await fail(`one external DOM mutation caused ${loop.passes} rule passes in ${loop.windowMs} ms ` +
       `— the rule pass is re-scheduling itself (isOurs() must judge the mutation target)`);
   }
-  console.log(`observer  : new no-salary card hidden on arrival · ${loop.passes} chip rebuilds in ` +
+  console.log(`observer  : new no-salary card hidden on arrival · ${loop.passes} rule pass(es) in ` +
     `${loop.windowMs} ms (bounded)`);
 }
 
@@ -697,6 +883,7 @@ if (res.noSalExpected > 0) {
     tab.on('Network.requestWillBeSent', p => reqs.push({ url: p.request.url, type: p.type }));
     if (!await activate(tab)) await fail(`the pagination check cannot run: ${HIDDEN_HINT}`);
     await settle(3500);
+    await primeCache(tab);
 
     // The page facts this section needs, and NOT a fourth opinion on what the rules will do: the
     // prediction comes from `ruleEval` above, the one copy that injects rules.js and closed.js. The
@@ -704,14 +891,25 @@ if (res.noSalExpected > 0) {
     // the closed rule, so it reported "11 hidden but the rule says 10" the moment the memory held a
     // listing on this page — a phantom failure invented by the harness, not by the extension.
     const snapshot = async () => ({
-      ...JSON.parse(await tab.evaluate(`(() => {
+      // rules.js is injected so `isStale` and `parsePosted` are the extension's own, not a second copy of
+      // the date maths (the same reason ruleEval injects it).
+      ...JSON.parse(await tab.evaluate(`${RULES_SRC}
+(() => {
         const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
         const shown = document.body.innerText.match(/Displaying\\s+(\\d+)\\s+out of\\s+(\\d+)/i);
         const off = (location.pathname.match(/\\/(\\d+)$/) || [])[1];
+        const oldest = cards.map(c => { const p = c.querySelector('p[data-temp]');
+          return p ? (OJRules.parsePosted(p.getAttribute('data-temp-2')) ??
+            OJRules.parsePosted(p.getAttribute('data-temp'), OJRules.MANILA_OFFSET_MINUTES)) : null; })
+          .filter(t => typeof t === 'number');
+        const oldestAge = oldest.length ? Math.round((Date.now() - Math.min(...oldest)) / 86400000 * 10) / 10 : null;
         return JSON.stringify({ cards: cards.length, hidden: cards.filter(c => c.hidden).length,
-          total: shown ? +shown[2] : null, offset: off ? +off : 0 });
+          total: shown ? +shown[2] : null, offset: off ? +off : 0,
+          // Is the tail already outside the window? Then the loader must refuse the next page.
+          pastWindow: oldest.length > 0 && OJRules.isStale(Math.min(...oldest), Date.now(), ${MAX_AGE}),
+          oldestAge });
       })()`)),
-      expect: JSON.parse(await ruleEval(tab, { neg, pos, maxAgeDays: MAX_AGE, closedIds: await readClosedIds() })).hiddenExpected,
+      expect: JSON.parse(await ruleEval(tab, { neg, pos, maxAgeDays: MAX_AGE, closedIds: await readClosedIds(), records: await readRecords() })).hiddenExpected,
     });
     const fetches = () => reqs
       .filter(x => x.type === 'Fetch' || x.type === 'XHR')
@@ -758,6 +956,18 @@ if (res.noSalExpected > 0) {
     }
     console.log(`pagination: last page (${r.idle.offset}+${r.idle.cards}=${r.idle.total}) — idle and ` +
       `scrolled both spent 0 requests, nothing to load`);
+  } else if (r.idle.pastWindow) {
+    // The loader is allowed — required, in fact — to stop before a page it knows is entirely stale: the
+    // oldest card loaded is the tail of a newest-first list, so everything after it is outside the window
+    // and would be hidden on arrival (the user's own report: "your pagination is kinda overkill since you
+    // still paginate even though you have reached the history threshold").
+    if (r.afterOne.cards !== r.idle.cards || r.afterOne.requests !== r.idle.requests) {
+      await fail(`the window ends at ${r.idle.cards} cards (oldest ${r.idle.oldestAge}d > ${MAX_AGE}d) but ` +
+        `scrolling fetched ${r.afterOne.requests} more page(s) and grew the list to ${r.afterOne.cards} ` +
+        '— past the recency window there is nothing worth a request');
+    }
+    console.log(`pagination: window reached at ${r.idle.cards} cards (tail ${r.idle.oldestAge}d old, ` +
+      `window ${MAX_AGE}d) — scrolling spent 0 requests`);
   } else {
     if (r.afterOne.cards <= r.idle.cards) {
       await fail(`scrolling to the bottom loaded no more cards (${r.idle.cards} → ${r.afterOne.cards}) ` +
@@ -796,7 +1006,34 @@ if (res.noSalExpected > 0) {
     });
     await settle(5000);
     await tab.evaluate(`${salarySrc}\nwindow.__salary = window.OJCSalary; 1`);
-    const body = JSON.parse(await tab.evaluate(`(() => {
+    // The scan's own HOURS PER WEEK, straight from the page's cache — the same source the extension reads.
+    // Without it this section recomputed every part-time card as a rate-only card ("hours unstated") and
+    // reported five mismatches against cards that legitimately show a part-time month (W13.5).
+    await primeCache(tab);
+    // Only for listings that HAVE a remembered verdict: records-cards.js hydrates the cache per card id
+    // that already has a record, so a cached page nobody has judged must not change the figure either.
+    const recordsNow = await readRecords();
+    const recordIds = Object.keys(recordsNow);
+    const recordHours = {};
+    for (const [id, rec] of Object.entries(recordsNow)) {
+      const h = Number(rec && rec.fields && rec.fields.hoursPerWeek);
+      if (Number.isFinite(h) && h > 0) recordHours[id] = h;
+    }
+    await tab.evaluate(`window.RECORD_HOURS = ${JSON.stringify(recordHours)}; 1`);
+    const scanHours = JSON.parse(await tab.evaluate(`(() => {
+      const allowed = new Set(${JSON.stringify(recordIds)});
+      const out = {};
+      for (const id of Object.keys(self.__ojcCache || {})) {
+        const row = self.__ojcCache[id];
+        if (allowed.has(id) && row && Number(row.hours) > 0) out[id] = Number(row.hours);
+      }
+      return JSON.stringify(out);
+    })()`));
+    // …handed to the page-side expression by name, since that world has no `scanHours` of its own.
+    await tab.evaluate(`window.SCAN_HOURS = ${JSON.stringify(scanHours)}; 1`);
+    // closed.js is injected for its job-id reader — the same one the extension and the cache use.
+    const body = JSON.parse(await tab.evaluate(`${CLOSED_SRC}
+(() => {
       const { parseSalary, toPhp, ratePhp, formatNote, formatRate, meetsGoal } = window.__salary;
       const rows = [];
       const currencies = new Set();
@@ -808,7 +1045,28 @@ if (res.noSalExpected > 0) {
         const posted = own.textContent.trim();
         const shown = d.querySelector('.ojc-salary-note');
         const warn = d.querySelector('.ojc-salary-warn');
-        const basis = window.__salary.hoursPerWeekFrom(card.textContent);
+        // The listing's own hours win over the card's prose, exactly as records-cards.js decides it: a scan
+        // that read HOURS PER WEEK = 10 makes the month honest, and the card says "part-time month at 10 h/week".
+        const jobId = (() => { const a = card.querySelector('a[href*="/job/"]'); return a ? OJClosed.jobIdFrom(a.getAttribute('href')) : null; })();
+        // The hours the extension SAYS it used, declared on the note it wrote (salary-cards.js sets
+        // data-hours and data-basis). The harness used to guess this from the card's prose, and guessed wrong
+        // the moment a scanned listing's own HOURS PER WEEK differed from what its preview text happened to
+        // say — seven phantom failures. The FIGURE is still recomputed here with the same parser; only the
+        // input is declared rather than guessed, and the declaration itself is checked below.
+        const ownCard = (() => { const o = card.cloneNode(true);
+          for (const injected of o.querySelectorAll('[class^="ojc-"]')) injected.remove();
+          return o.textContent; })();
+        const declaredHours = shown && shown.dataset.hours ? Number(shown.dataset.hours) : null;
+        const declaredBasis = (shown && shown.dataset.basis) || null;
+        const fromCache = jobId && SCAN_HOURS[jobId] ? SCAN_HOURS[jobId] : null;
+        const fromRecord = jobId && window.RECORD_HOURS[jobId] ? window.RECORD_HOURS[jobId] : null;
+        const fromText = (window.__salary.hoursPerWeekFrom(ownCard) || {}).hours ?? null;
+        // Is that declaration legitimate? Either the scan cache really says those hours, or the card's own
+        // words do — and a card with neither must declare none.
+        const basisOk = declaredHours === null
+          ? (fromCache === null && fromText === null)
+          : (declaredHours === fromCache || declaredHours === fromText || declaredHours === fromRecord);
+        const basis = { hours: declaredHours, basis: declaredBasis };
         const parsed = parseSalary(posted, basis.hours);
         if (parsed && parsed.currency !== 'PHP') currencies.add(parsed.currency);
         const rate = shown?.dataset.rate ? Number(shown.dataset.rate) : null;
@@ -817,11 +1075,18 @@ if (res.noSalExpected > 0) {
         const per = ratePhp(parsed, rates);       // the posted rate, even when a month exists
         // ONE goal per card (D13): full-time is judged monthly, part-time/other by the hour
         const hourlyPhp = per && (parsed.unit === 'hour' || parsed.unit === 'hour?') ? per : null;
+        // One goal per card (D13): a full-time listing is judged monthly, a part-time one by the hour — the
+        // honest month a scan bought does NOT move it to the monthly goal (lower pay for fewer hours is the
+        // point of part-time). The card shows the month; the goal judges the rate.
         const judgedMonthly = basis.basis === 'full-time' || !hourlyPhp;
         const expectGoal = judgedMonthly
           ? (meetsGoal(php, ${GOAL}) ? 'monthly' : '')
           : (meetsGoal(hourlyPhp, ${GOAL_HOURLY}) ? 'hourly' : '');
         rows.push({ posted, currency: parsed ? parsed.currency : null, hasNote: !!shown,
+          basisOk, declaredHours, declaredBasis, fromCache, fromText, fromRecord, basisSource: fromCache !== null ? 'cache' : (fromText !== null ? 'card-text' : 'neither'),
+          // No backslashes on purpose: this is page-side code inside a template literal, where a \d escape
+          // loses its backslash and arrives as a plain d (a SyntaxError at evaluate time).
+          ownHours: (ownCard.match(/([0-9]{1,3})[ \t]*(?:hours?|hrs?)[ \t]*(?:[/]|per[ \t]+)?[ \t]*(?:week|wk)/i) || [])[0] || null,
           perUnit: parsed ? parsed.perUnit : false, monthly: parsed ? parsed.monthly : false,
           hours: basis.hours, hoursBasis: basis.basis, unit: parsed ? parsed.unit : null,
           note: shown ? shown.textContent : null, title: shown ? shown.title : null,
@@ -843,12 +1108,29 @@ if (res.noSalExpected > 0) {
     await fail(`${missing.length} of ${parseable.length} readable cards got no note ` +
       `(e.g. posted ${JSON.stringify(missing[0].posted)}) — the annotation did not run on them`);
   }
+  // The declaration itself: the hours a card used must be hours it could have known. This is the policy
+  // check that a guessed input used to do by accident — now it is explicit, and the figure check below is
+  // about arithmetic alone.
+  const badBasis = r.rows.filter(x => x.declaredBasis && !x.basisOk);
+  if (badBasis.length) {
+    await fail(`${badBasis.length} card(s) declare hours that neither the scan cache nor the card's own words ` +
+      `support: ` + badBasis.slice(0, 3).map(x => `${JSON.stringify(x.posted)} declares ${x.declaredHours}` +
+      `h, cache says ${x.fromCache}, record says ${x.fromRecord}, card text says ${x.fromText}`).join(' | '));
+  }
+  const missingHours = r.rows.filter(x => x.hasNote && !x.declaredBasis && (x.fromCache !== null || x.fromText !== null || x.fromRecord !== null));
+  if (missingHours.length) {
+    await fail(`${missingHours.length} card(s) had hours available (cache ${missingHours[0].fromCache}, ` +
+      `card text ${missingHours[0].fromText}) but their note declares none — the listing's own hours must ` +
+      `reach the figure`);
+  }
+
   // the exact text: recomputed from the DOM with the same parser and the same hours basis
   const wrongText = parseable.filter(x => x.expect && x.note !== x.expect);
   if (wrongText.length) {
     await fail(`${wrongText.length} card(s) show a figure the parser does not produce: ` +
       wrongText.slice(0, 3).map(x => `posted ${JSON.stringify(x.posted)} → shown ${JSON.stringify(x.note)}, ` +
-        `parser says ${JSON.stringify(x.expect)} (hours ${x.hours ?? 'unstated'})`).join(' | '));
+        `parser says ${JSON.stringify(x.expect)} (hours ${x.hours ?? 'unstated'} via ${x.basisSource}` +
+        `${x.ownHours ? `, the card's own text said ${JSON.stringify(x.ownHours)}` : ', no hours phrase in the card text'})`).join(' | '));
   }
   // THE POLICY: a monthly figure requires stated hours (or a monthly/weekly/yearly amount).
   const inventedMonths = parseable.filter(x => /\/mo$/.test(x.note || '') && !x.monthly);
@@ -1221,6 +1503,343 @@ if (res.noSalExpected > 0) {
   await storeEval(`chrome.storage.local.get('closedJobs').then(r => { const m = r.closedJobs || {}; delete m[${JSON.stringify(jobId)}]; return chrome.storage.local.set({ closedJobs: m }); })`);
   console.log(`closed    : ${jobId} learned from the page ("${banner.split('|')[0].trim()}") and hidden on the board ` +
     `(hidden=${r.hidden}, badge ${JSON.stringify(r.badge)}), chip: ${JSON.stringify(r.chip)}`);
+}
+
+// ── 12. the deep scan, the tiers and the views (spec.md W12–W14) ─────────
+// The scan is the only feature here that spends requests on pages the user did not open, so its budget is
+// ASSERTED rather than trusted: nothing is fetched before the button is pressed (counted from CDP, because
+// the content script's fetch is invisible to a page-world patch), never more than two listings at once, and
+// a second run of the same page costs nothing because everything it read was cached.
+//
+// The tiers are asserted the same way the rules are: the board writes its verdict on every card
+// (`data-ojc-tier`), and `ruleEval` recomputes it from the DOM *and the remembered records* with the
+// extension's own table. That is the check that catches the whole feature being wired backwards, and it
+// cannot pass by agreeing with itself — the two sides read different sources.
+{
+  const SCAN = { ...settings, negative: ['crypto'], positive: ['assistant'], maxAgeDays: 3,
+                 scanWorth: true, scanAll: false };
+  await storeEval(`chrome.storage.local.set({ settings: ${JSON.stringify(SCAN)} }).then(()=>1)`, 500);
+  const recordsBefore = await readRecords();
+  /** The ids in the page's own IndexedDB store — same origin as the content script's cache. */
+  const cacheKeys = (tab) => tab.evaluate(`new Promise(res => {
+    const r = indexedDB.open('ojc', 1);
+    r.onsuccess = () => { const q = r.result.transaction('details', 'readonly').objectStore('details').getAllKeys();
+      q.onsuccess = () => res(JSON.stringify(q.result)); };
+    r.onerror = () => res('[]'); })`);
+  const cacheDrop = (tab, ids) => tab.evaluate(`new Promise(res => {
+    const r = indexedDB.open('ojc', 1);
+    r.onsuccess = () => { const t = r.result.transaction('details', 'readwrite'); const s = t.objectStore('details');
+      for (const id of ${JSON.stringify(ids)}) s.delete(String(id));
+      t.oncomplete = () => res(1); t.onerror = () => res(0); };
+    r.onerror = () => res(0); })`);
+
+  const FACT = `(() => {
+    const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
+    const byTier = {};
+    for (const c of cards) byTier[c.dataset.ojcTier || 'unset'] = (byTier[c.dataset.ojcTier || 'unset'] || 0) + 1;
+    const btn = document.getElementById('ojc-scan');
+    const view = (v) => { const b = document.querySelector('.ojc-view[data-view="' + v + '"]');
+      return b ? { label: b.textContent.trim(), on: b.classList.contains('is-on') } : null; };
+    return JSON.stringify({ cards: cards.length, byTier,
+      visible: cards.filter(c => !c.hidden).length, hidden: cards.filter(c => c.hidden).length,
+      tierBadges: document.querySelectorAll('.ojc-tier-badge').length,
+      hoursBadges: document.querySelectorAll('.ojc-hours').length,
+      hoursOver: document.querySelectorAll('.ojc-hours-over').length,
+      scanBtn: btn ? { label: btn.textContent.trim(), disabled: btn.disabled } : null,
+      views: { high: view('high'), worth: view('worth'), all: view('all') },
+      note: (document.getElementById('ojc-note') || {}).textContent || null });
+  })()`;
+  const btnLabel = `(() => { const b = document.getElementById('ojc-scan'); return b ? b.textContent.trim() : null; })()`;
+
+  const r = JSON.parse(await withTab(PORT, URL_, async (tab) => {
+    await tab.send('Network.enable');
+    await tab.send('Page.enable');
+    // Anything the extension throws while this section runs is captured verbatim: a click handler that
+    // throws leaves the panel and the board exactly as they were, which looks identical to a click that was
+    // never delivered — and that is not something to guess about twice.
+    const errors = [];
+    tab.on('Runtime.exceptionThrown', p => errors.push(
+      String((p.exceptionDetails.exception && p.exceptionDetails.exception.description) || p.exceptionDetails.text).split('\n').slice(0, 2).join(' | ')));
+    let inflight = 0, peak = 0;
+    const live = new Map();          // requestId → url, so a breach can name the requests that overlapped
+    const starts = [];               // when each listing fetch STARTED — the politeness bound that is measurable
+    let peakSet = [];
+    const urls = [];
+    tab.on('Network.requestWillBeSent', p => {
+      if (!/\/jobseekers\/job\//.test(p.request.url)) return;
+      starts.push(p.timestamp);
+      inflight++; urls.push(p.request.url);
+      // `type` and `initiator` are what separate the extension's own fetch from the site's own prefetch of a
+      // job page, which would otherwise look identical in this count.
+      live.set(p.requestId, p.request.url + ' [' + p.type + ' ' + (p.initiator && p.initiator.type) + ']');
+      if (inflight > peak) { peak = inflight; peakSet = [...live.values()]; }
+    });
+    const done = (p) => { if (p && live.has(p.requestId)) { live.delete(p.requestId); inflight = Math.max(0, inflight - 1); } };
+    tab.on('Network.loadingFinished', done);
+    tab.on('Network.loadingFailed', done);
+    if (!await activate(tab)) await fail(`the scan check cannot run: ${HIDDEN_HINT}`);
+    await settle(3500);
+
+    const before = JSON.parse(await tab.evaluate(FACT));
+    const idle = urls.length;                       // nothing may have been fetched yet
+    const cache = await cacheKeys(tab);
+
+    // (a) press Scan, and let it finish
+    await tab.evaluate(`document.getElementById('ojc-scan').click()`);
+    const labels = [];
+    let sawStop = false;
+    for (let i = 0; i < 240; i++) {
+      await settle(1500);
+      const l = await tab.evaluate(btnLabel);
+      labels.push(l);
+      if (l && l !== 'Scan') sawStop = true;
+      if (l === 'Scan') break;
+    }
+    await settle(1500);
+    const afterFirst = JSON.parse(await tab.evaluate(FACT));
+    const firstRun = urls.length;
+    // The records that exist right now: any listing the first run managed to READ has one, so a second run
+    // fetching that id again is a cache miss. This is the assertion below, and it holds whether or not the
+    // first run finished — the site's own 429 does not get to make the check inapplicable.
+    const readAfterFirst = await readRecords();
+
+    // (b) a second run must not re-read what the first one read: every listing it has a record for is cached,
+    // and a listing it could NOT read (429, HTTP error, no description) has no record, so retrying exactly
+    // those is correct rather than a regression.
+    if (afterFirst.scanBtn && !afterFirst.scanBtn.disabled) {
+      await tab.evaluate(`document.getElementById('ojc-scan').click()`);
+      for (let i = 0; i < 240; i++) {
+        await settle(1000);
+        if (await tab.evaluate(btnLabel) === 'Scan') break;
+      }
+      await settle(1000);
+    }
+    const secondRun = urls.length;
+    const idsOf = (list) => list.map(u => (u.match(/-?([0-9]+)\/?$/) || [])[1]).filter(Boolean);
+    const firstIds = idsOf(urls.slice(0, firstRun));
+    const secondIds = idsOf(urls.slice(firstRun));
+    const refetched = secondIds.filter(id => readAfterFirst[id]);
+    const scannedOnce = firstIds.filter(id => readAfterFirst[id]);
+
+    // (c) the views filter the board to one tier, and All puts it back
+    const views = {};
+    for (const v of ['high', 'worth']) {
+      await tab.evaluate(`document.querySelector('.ojc-view[data-view="${v}"]').click()`);
+      await settle(500);
+      views[v] = JSON.parse(await tab.evaluate(`(() => {
+        const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
+        const vis = cards.filter(c => !c.hidden);
+        const b = document.querySelector('.ojc-view[data-view="${v}"]');
+        return JSON.stringify({ visible: vis.length, wrong: vis.filter(c => c.dataset.ojcTier !== '${v}').length,
+          button: b.textContent.trim(), on: b.classList.contains('is-on'),
+          // Self-diagnosing: if a view ever fails to take, these say whether the panel was rebuilt, doubled,
+          // or is showing a different tier than the one that was clicked.
+          chips: document.querySelectorAll('#ojc-chip').length,
+          allViews: [...document.querySelectorAll('.ojc-view')].map(x => (x.dataset.view || '?') + (x.classList.contains('is-on') ? '*' : '')).join(' '),
+          note: (document.getElementById('ojc-note') || {}).textContent || null }); })()`));
+    }
+    await tab.evaluate(`document.querySelector('.ojc-view[data-view="all"]').click()`);
+    await settle(500);
+    views.all = JSON.parse(await tab.evaluate(`(() => {
+      const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
+      return JSON.stringify({ visible: cards.filter(c => !c.hidden).length,
+        on: document.querySelector('.ojc-view[data-view="all"]').classList.contains('is-on') }); })()`));
+
+    return JSON.stringify({ before, afterFirst, idle, firstRun, secondRun, peak, peakSet, sawStop, refetched,
+      scannedOnce, labels: labels.filter(Boolean).slice(0, 8), cache, views, starts, errors });
+  }, 500));
+
+  if (!r.before.scanBtn) await fail('no Scan button in the panel — the deep scan is not wired in');
+  if (r.before.scanBtn.disabled) {
+    await fail(`the Scan button is disabled although this run seeded a keyword and a goal — ` +
+      `the panel says there is nothing to scan for`);
+  }
+  if (r.idle !== 0) await fail(`${r.idle} listing page(s) fetched before the Scan button was pressed — nothing may run unprompted`);
+  if (!r.sawStop) await fail('pressing Scan never showed the running state ("Stop …") — the button did not start a scan');
+  if (!r.firstRun) await fail(`the scan fetched no listing at all — this page has nothing to scan, or the queue is empty`);
+  // The politeness budget, measured the only way it can be measured from outside: how often a listing fetch
+  // STARTS. In-flight counting is what this check used to do, and it read 3 on a perfectly obedient scan —
+  // CDP reports `loadingFinished` after our `await res.text()` has already resolved, so the tail of one wave
+  // overlaps the head of the next in that count. The property the user asked for ("two at a time") is a rate:
+  // two per wave, waves ≥400 ms apart, so no three fetches may start inside a 350 ms window. A runaway — the
+  // failure this replaced ("never paginate") was meant to prevent — trips it immediately.
+  const starts = r.starts || [];
+  for (let i = 0; i < starts.length; i++) {
+    const inWindow = starts.filter(t => t >= starts[i] && t - starts[i] < 0.35).length;
+    if (inWindow > 2) {
+      await fail(`the scan started ${inWindow} listing fetches within 350 ms (at ${starts[i].toFixed(2)}s) — ` +
+        `the budget is 2 at a time with ≥400 ms between pairs. In-flight peak was ${r.peak}: ` +
+        r.peakSet.map(u => u.replace(/^https:\/\/www\.onlinejobs\.ph/, '')).join(' | '));
+    }
+  }
+  // The cache: a re-run must never re-read a listing the first run already READ. Counting fetches instead
+  // was wrong twice over — an unreadable listing (an HTTP error, or the site's own 429 half-way through)
+  // has no record and SHOULD be retried, and a run the site cut short legitimately continues next time.
+  // Asking "did it fetch anything it already has a verdict for?" is exact, and it applies to every run.
+  if (r.refetched.length) {
+    await fail(`the second scan re-fetched ${r.refetched.length} listing(s) it already had a verdict for ` +
+      `(${r.refetched.slice(0, 3).join(', ')}) — everything a scan reads is cached for 7 days`);
+  }
+  if (!r.scannedOnce.length) {
+    await fail(`the first scan fetched ${r.firstRun} listing(s) and remembered none of them — nothing was cached, ` +
+      `so the second run had to read them all again`);
+  }
+  // The tiers after the scan, recomputed with the extension's own table AND the remembered records.
+  const parity = JSON.parse(await withTab(PORT, URL_, async (tab) => {
+    if (!await activate(tab)) await fail(`the tier parity check cannot run: ${HIDDEN_HINT}`);
+    await settle(3500);
+    await primeCache(tab);   // the scan's own cache, re-read after it wrote
+    const closedIds = await readClosedIds();
+    const records = await readRecords();
+    const dom = `(() => { const t = { closed: 0, stale: 0, nosal: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0, unset: 0 };
+      for (const c of document.querySelectorAll('.jobpost-cat-box.latest-job-post')) t[c.dataset.ojcTier || 'unset']++;
+      return JSON.stringify(t); })()`;
+    let counts, tiers, domTiers;
+    for (let i = 0; i < 24; i++) {
+      counts = JSON.parse(await ruleEval(tab, { neg: SCAN.negative, pos: SCAN.positive, maxAgeDays: SCAN.maxAgeDays,
+        closedIds, records }));
+      domTiers = JSON.parse(await tab.evaluate(dom));
+      tiers = counts.tiers;
+      if (['closed', 'stale', 'nosal', 'high', 'pos', 'worth', 'kw', 'none'].every(t => domTiers[t] === tiers[t])) break;
+      await settle(250);
+    }
+    return JSON.stringify({ tiers, domTiers, counts, scanned: counts.scannedCards, overHours: counts.overHours });
+  }, 500));
+  for (const t of ['closed', 'stale', 'nosal', 'high', 'pos', 'worth', 'kw', 'none']) {
+    if (parity.domTiers[t] !== parity.tiers[t]) {
+      await fail(`after the scan, ${parity.domTiers[t]} card(s) are "${t}" but the rule says ${parity.tiers[t]} ` +
+        `(page ${JSON.stringify(parity.domTiers)} vs rule ${JSON.stringify(parity.tiers)}) — the remembered ` +
+        `description facts and the board disagree, which is what the record's settings signature exists to prevent`);
+    }
+  }
+  if (parity.domTiers.unset) await fail(`${parity.domTiers.unset} card(s) have no verdict after the scan`);
+  if (!parity.scanned) {
+    await fail('no card on the page was recognised as deep-scanned — the records are not reaching the rule pass');
+  }
+
+  // What the scan remembered, and in what shape.
+  const records = await readRecords();
+  const newIds = Object.keys(records).filter(id => !(id in recordsBefore));
+  if (!newIds.length) await fail('the scan fetched listings but remembered none of them (chrome.storage.local.jobRecords is empty)');
+  const badShape = newIds.filter(id => {
+    const rec = records[id];
+    return !rec || typeof rec.tier !== 'string' || typeof rec.sk !== 'number' ||
+      !rec.detail || !Array.isArray(rec.detail.pos) || !Array.isArray(rec.detail.neg) ||
+      !Array.isArray(rec.detail.flags) || typeof rec.at !== 'number';
+  });
+  if (badShape.length) await fail(`${badShape.length} scan record(s) are incomplete: ${JSON.stringify(records[badShape[0]])}`);
+  if (!parity.overHours) {
+    console.log('scan      : no listing on this page states a week longer than 40 h — the over-40 flag is ' +
+      'proved by test-tiers.js (unit) and by the live run that found a 45 h/week listing');
+  }
+
+  // The views: exactly one tier on screen, and the count on the button is that tier's size.
+  for (const v of ['high', 'worth']) {
+    if (!r.views[v].on) await fail(`clicking the ${v} view did not mark it active (views: ${JSON.stringify(r.views)}; ` +
+      `chips ${r.views[v].chips}, buttons "${r.views[v].allViews}", note ${JSON.stringify(r.views[v].note)}` +
+      `${r.errors.length ? `; page errors: ${r.errors.slice(0, 2).join(' // ')}` : ''})`);
+    if (r.views[v].wrong) {
+      await fail(`${r.views[v].wrong} card(s) in the ${v} view are not "${v}" — the view must show one tier only`);
+    }
+    const n = +((r.views[v].button.match(/(\d+)\s*$/) || [])[1] ?? NaN);
+    if (r.views[v].visible !== n) {
+      await fail(`the ${v} view shows ${r.views[v].visible} card(s) but its button says ${n}`);
+    }
+  }
+  if (!r.views.all.on) await fail('the All view is not marked active after clicking it');
+  if (r.views.all.visible !== r.afterFirst.visible) {
+    await fail(`All shows ${r.views.all.visible} cards, the board had ${r.afterFirst.visible} before the views were ` +
+      `used — a tier view must not lose cards`);
+  }
+
+  // ── the change mark: a listing whose tier moved says so, until you open it ──
+  const seeded = JSON.parse(await withTab(PORT, URL_, async (tab) => {
+    if (!await activate(tab)) await fail(`the change-mark check cannot run: ${HIDDEN_HINT}`);
+    await settle(3500);
+    // closed.js is injected for its job-id reader: \\d inside a template literal LOSES its backslash (an
+    // unknown escape drops it), so a hand-written id regex here arrives as /-?(d+)/ and the page throws a
+    // SyntaxError — the same trap as a backtick in page-side code, one escape over.
+    return tab.evaluate(`${CLOSED_SRC}
+(() => {
+      const c = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')]
+        .find(x => x.dataset.ojcTier && x.dataset.ojcTier !== 'kw' && x.querySelector('a[href*="/jobseekers/job/"]'));
+      if (!c) return JSON.stringify({ ok: false });
+      const a = c.querySelector('a[href*="/jobseekers/job/"]');
+      return JSON.stringify({ ok: true, href: a.href, id: OJClosed.jobIdFrom(a.getAttribute('href')),
+        tier: c.dataset.ojcTier, title: (c.querySelector('h4, h3, a') || {}).textContent || '' });
+    })()`);
+  }, 500));
+  if (!seeded.ok) await fail('no card on this page can carry a change mark — cannot test the mark');
+  // A record claiming a tier the card cannot have (`kw`, with no hide keyword configured) forces a move on
+  // the next pass. That is the only way to test the mark without waiting for a live listing to change.
+  await storeEval(`chrome.storage.local.get(['jobRecords', 'settings']).then(r => {
+    const m = r.jobRecords || {};
+    m[${JSON.stringify(seeded.id)}] = { tier: 'kw', prev: null, seen: true, changedAt: null,
+      at: Date.now(), checkedAt: Date.now(), card: null, detail: null, fields: null,
+      sk: ${JSON.stringify(0)} };
+    return chrome.storage.local.set({ jobRecords: m });
+  })`);
+  const marked = JSON.parse(await withTab(PORT, URL_, async (tab) => {
+    if (!await activate(tab)) await fail(`the change-mark check cannot run: ${HIDDEN_HINT}`);
+    await settle(3500);
+    return tab.evaluate(`(() => {
+      const c = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')]
+        .find(x => (x.querySelector('a[href*="/jobseekers/job/"]') || {}).href === ${JSON.stringify(seeded.href)});
+      if (!c) return JSON.stringify({ found: false });
+      const b = c.querySelector('.ojc-tier-badge');
+      return JSON.stringify({ found: true, badge: b ? b.textContent.trim() : null, tier: c.dataset.ojcTier });
+    })()`);
+  }, 500));
+  if (!marked.found) await fail(`the card we seeded a stale verdict for is no longer on the board (${seeded.href})`);
+  if (!marked.badge) {
+    await fail(`a listing whose remembered tier (kw) differs from its real one (${marked.tier}) carries no change ` +
+      `mark — the ↑/↓ badge is what tells the user a listing was re-decided`);
+  }
+  // Opening the listing clears it: you are looking at it, so there is nothing left to tell you.
+  const cleared = JSON.parse(await withTab(PORT, seeded.href, async (tab) => {
+    await settle(3000);
+    return tab.evaluate(`(() => JSON.stringify({ url: location.pathname, bar: !!document.getElementById('ojc-detail-bar') }))()`);
+  }, 500));
+  const recAfter = (await readRecords())[String(seeded.id)];
+  if (!cleared.bar) await fail(`the listing page ${cleared.url} rendered no detail bar — the re-check cannot have run`);
+  if (recAfter && recAfter.seen !== true) {
+    await fail(`opening listing ${seeded.id} did not clear its change mark (record seen=${recAfter.seen}, ` +
+      `prev=${recAfter.prev}, tier=${recAfter.tier})`);
+  }
+  if (!recAfter) await fail(`opening listing ${seeded.id} deleted its record instead of updating it`);
+
+  // Leave the profile as it was: the cache entries this section created, and the harness's settings.
+  await withTab(PORT, URL_, async (tab) => {
+    let now;
+    try { now = JSON.parse(await cacheKeys(tab)); }
+    catch (e) {
+      // A tab Chrome will not give IndexedDB access (an interstitial after a few hundred requests, say) is not
+      // a reason to crash the run: the entries are a cache with a 7-day TTL, and the snapshot still restores
+      // everything the user can see.
+      console.log(`cache     : could not read the page cache to clean up (${e.message}) — the TTL will evict it`);
+      return 1;
+    }
+    const mine = now.filter(id => !JSON.parse(r.cache).includes(id));
+    if (mine.length) await cacheDrop(tab, mine);
+    return 1;
+  }, 300);
+  await storeEval(`chrome.storage.local.get('jobRecords').then(r => {
+    const m = r.jobRecords || {};
+    delete m[${JSON.stringify(seeded.id)}];
+    return chrome.storage.local.set({ jobRecords: m });
+  })`);
+  await storeEval(`chrome.storage.local.set({ settings: ${JSON.stringify(settings)} }).then(()=>1)`, 400);
+
+  console.log(`scan      : ${r.firstRun} listing(s) fetched, peak ${r.peak} in flight · ` +
+    `2nd run +${r.secondRun - r.firstRun} (${r.refetched.length} of them re-reads) · ${newIds.length} remembered · ${parity.domTiers.high} high / ${parity.domTiers.pos} highlighted / ` +
+    `${parity.domTiers.worth} worth / ${parity.counts.flagTagExpected} off-platform tag(s) · ${r.afterFirst.note || ''}`);
+  console.log(`views     : high ${r.views.high.visible}/${r.views.high.button.match(/\d+$/)} · ` +
+    `worth ${r.views.worth.visible}/${r.views.worth.button.match(/\d+$/)} · all ${r.views.all.visible} ` +
+    `(−${r.afterFirst.visible - r.views.all.visible} hidden) · none in the wrong tier`);
+  console.log(`memory    : ${seeded.id} seeded as "kw" → marked "${marked.badge}" (real tier ${marked.tier}), ` +
+    `then cleared by opening the listing (seen=${recAfter.seen})`);
+  if (parity.overHours) console.log(`hours     : ${parity.overHours} listing(s) state a week longer than 40 h — flagged on the card`);
+  if (newIds.length) console.log(`cache     : ${newIds.length} new description(s) cached, then dropped again (the run leaves no trace)`);
 }
 
 console.log('verify-live: PASS');

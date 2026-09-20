@@ -175,7 +175,7 @@ the only thing standing between a red gate and `main`. The suite treats this as 
 | **D2** | Distribution | Unpacked only until W3+W1 land; a Web Store listing needs a privacy justification for `host_permissions` on `onlinejobs.ph` and a stable version story | ⬜ **needs you** |
 | **D3** | Deep-scan cache store | **IndexedDB** as planned (1 000 entries × ~3 KB, 7-day TTL, oldest evicted). `chrome.storage.local` is simpler but shares its quota with settings and rewrites the whole blob | ⬜ **needs you** |
 | **D4** | `autoScan` until W3 | Visible, **disabled**, labelled "needs the deep scan (not built yet)" | ✅ decided 2026-09-18 |
-| **D5** | Deep-scan politeness budget | 3 concurrent, 400 ms between waves, **current page's cards only** — never paginate. A 429 or a network error leaves that card unscanned and **stops the fleet**, never retries harder. | ⬜ **needs you** |
+| **D5** | Deep-scan politeness budget | **2 concurrent, 400 ms between pairs, and the scan paginates through the pages *it* loaded** (D33). It never walks the site for you: it stops at your recency horizon. A 429 or a network error leaves the rest unscanned and never retries harder. **Amended 2026-09-19** — the original said 3 concurrent and "current page's cards only", which the user's own feature request replaced | ✅ decided 2026-09-19 |
 | **D6** | Positive keywords | Highlight only, never hide | ✅ do not regress (§1.2) |
 | **D7** | `# ponytail:` ceilings | Keep marking deliberate shortcuts with a named ceiling | ✅ do not regress |
 | **D8** | Perpetual pagination | **Yes, but scroll-driven.** The next *result* page is fetched when the user scrolls to the bottom — one page per real scroll gesture, one request per page, 600 ms apart, stopping on the first sign of an end. It is the same request the user would have made by clicking *Next*, so the politeness story survives; what stays rejected is the *deep scan* paginating, and any background prefetch on an idle page | ✅ decided 2026-09-18 |
@@ -199,8 +199,17 @@ the only thing standing between a red gate and `main`. The suite treats this as 
 | **D26** | "Off-platform" as a signal | **Application asks only** (`apply here/via`, `fill out the form`, `send your resume`, `email your…`, `DM me`). A messaging or booking tool counts only in the same sentence as an ask, because 3 of 7 phrase hits in a live 18-listing sample were Telegram as *job content* | ✅ decided 2026-09-18 |
 | **D27** | The redacted link | OnlineJobs.ph replaces an application URL with `----------` **even when you are signed in** (3 of 18 listings). That dash run is itself a red signal: it is sometimes the only surviving trace of an off-platform apply | ✅ decided 2026-09-18 |
 | **D28** | The monthly figure on a detail page | Computed from the listing's **own `HOURS PER WEEK`** when it states one (14 of 18 listings do). `TBD` falls back to 40 h/week **with the disclaimer**, and only for full-time/unstated listings: part-time with no stated hours claims no month at all, because that is a 2× error, not a rounding one. A per-unit rate never claims one | ✅ decided 2026-09-18 |
-| **D29** | Closed-listing memory | Learned **only** when you open a listing whose page says it closed, kept 180 days, and never used to fetch anything. A crawler that tested every card would fetch every listing — the property `docs/scraping.md` protects. Consequence: a saved job you have never opened cannot be known closed | ✅ decided 2026-09-18 |
+| **D29** | Closed-listing memory | Learned **only** when you open a listing whose page says it closed, **or when a deep scan you started passes one** (D37 — the page is fetched either way), kept 180 days, and never used to fetch anything on its own. A crawler that tested every card would fetch every listing — the property `docs/scraping.md` protects. Consequence: a saved job you have never opened cannot be known closed | ✅ amended 2026-09-19 |
 | **D30** | The no-salary rescue | **Opt-in, off by default** (`rescueNoSalary`). When on, a no-salary listing that also looks good falls through to the keyword rules instead of being hidden — `good` being the same predicate the reconsider state already uses, so nothing new defines what "looks good" means | ✅ decided 2026-09-18 |
+| **D31** | The two tiers | **High yield = passing salary** (a goal met), with or without a keyword you like. **Worth considering = a hide keyword matched, on a listing that still looks good.** A keyword you like on a listing below your goal is a third state, **Highlighted** — the green outline this extension always drew, counted and filtered separately. The user's correction, verbatim: *"having matched positive keywords does not make the job listing high-yield. It's either passing salary or passing salary with positive keywords"* | ✅ decided 2026-09-19 |
+| **D32** | How the tier buttons change the board | **Filter, never reorder** — and **scroll the first card of the chosen tier into view**, because hiding most of a 244-card list leaves the viewport pointing at empty space | ✅ decided 2026-09-19 |
+| **D33** | The scan's budget | **Button-triggered, never automatic** (`autoScan` is off by default): pages to the recency horizon, then opens listings **2 at a time, 400 ms between pairs**, with `Stop` and hard caps of 10 pages / 300 listings / 10 minutes | ✅ decided 2026-09-19 |
+| **D34** | What a scan covers | High yield first, then Worth considering (and Highlighted with them), then — only with `scanAll` — the unclassified and keyword-hidden cards. A second run of the same page reads the cache and spends nothing | ✅ decided 2026-09-19 |
+| **D35** | What a re-check does | Silent update plus a change mark (`↑ promoted` / `↓ demoted`) that clears when you open the listing | ✅ decided 2026-09-19 |
+| **D36** | A settings change after a scan | **Re-derive from the cached description — zero requests.** The record carries a signature of the keyword lists it was derived under, so stored facts are only trusted while they still match; otherwise the card falls back to its own text | ✅ decided 2026-09-19 |
+| **D37** | Closures the scan passes | **Learned**, exactly as opening the listing would — the page is already fetched, and refusing to read its own notice would be superstition rather than politeness | ✅ decided 2026-09-19 |
+| **D38** | Off-platform asks | A **tag**, not a gate: shown beside the keyword badge on every card that carries one, never hidden and never demoted for it. An earlier version demoted, which moved 176 of 227 scanned listings out of High yield | ✅ decided 2026-09-19 |
+| **D39** | A week longer than 40 hours | **Flagged on the card** (`⚠ 45 h/week — over the 40 h full-time week`) and never demoted for | ✅ decided 2026-09-19 |
 
 ---
 
@@ -211,11 +220,19 @@ the only thing standing between a red gate and `main`. The suite treats this as 
 ```
 manifest.json          MV3 entry; storage permission + onlinejobs.ph host permissions only
 rules.js               pure rules (no DOM): hasSalary, matchKeywords        ← unit-tested
-content.js             DOM + state: chip, panel, rule pass, observer, storage sync (no network)
-pagination.js          the only network code: scroll-triggered result loading (W6)  ← unit-tested
-content.css            #ojc-* scoped styles only
+tiers.js               the verdict table: closed → stale → no salary → high yield (PAY) →
+                       highlighted → worth considering → keyword → nothing  ← unit-tested
+records.js             the job memory's state machine (prune, cap, change)  ← unit-tested
+page.js                every coupling to the site's LIST markup (selectors, ownText, salary, date)
+detail-parse.js        one reader for a listing's own page (description, overview, closed)
+detail-cache.js        IndexedDB: the listing's own words, 7-day TTL, 1 000-entry cap
+records-cards.js       applies the memory: sync copy for the rule pass, writes only on change
+scan.js                the deep scan (W13): page to the horizon, then 2 listings at a time
+content.js             DOM + state: chip counts, rule pass, views, storage sync (no network)
+observer.js            the one MutationObserver, and the isOurs() check that stops it looping
+pagination.js          the only network code: scroll-triggered result loading, and the scan's loadOne
+content.css / ui.css   what is painted on the site 
 options.html/.js       standalone fallback page (the panel is primary)
-detail-parser.js       (W3) pure detail-page parser                        ← unit-tested
 test-*.js              node tests, zero dependencies
 tools/gate.sh          one command: syntax + tests + hygiene + README truth + path scan
 tools/verify-live.mjs  the real end-to-end check over CDP against the live site
@@ -381,6 +398,45 @@ rethrown. The same session exposed that an **uncaught exception skipped the stor
 harness's "every exit path" claim was false and a crash left the user's settings replaced; `fail()` is
 now backed by `uncaughtException` / `unhandledRejection` handlers.
 
+### W12 — The job memory and the verdict table ✅ (0.9.0)
+
+Asked for as: *"the extension remembers the states and stats for each job listing link and every time each
+listing is opened, it double checks if there are any changes"*. Decisions D31–D36.
+
+| ID | Task | Files |
+|---|---|---|
+| W12.1 | `tiers.js`: the verdict table as one pure function, with an unscanned page reproducing 0.8.0's counts exactly | `tiers.js`, `test-tiers.js` |
+| W12.2 | `records.js`: the memory's state machine — 180-day prune, 1 000-entry cap, change detection, and the idempotence that keeps a re-derivation from rewriting storage | `records.js`, `test-records.js` |
+| W12.3 | `detail-cache.js`: IndexedDB for the listing's own words, 7-day TTL, cap, oldest evicted | `detail-cache.js` |
+| W12.4 | `records-cards.js`: the applier — a synchronous copy for the rule pass, writes only on change, the `↑`/`↓` mark | `records-cards.js` |
+| W12.5 | `detail-parse.js`: one reader for a listing's own page, shared by the board's scan and the listing's page | `detail-parse.js`, `detail.js` |
+| W12.6 | `page.js`: every coupling to the site's list markup, split out when `content.js` passed 300 lines | `page.js`, `content.js`, `observer.js` |
+
+### W13 — The deep scan ✅ (0.9.0)
+
+D33/D34/D37, and the two things the user added while it was being built: the listing's own hours must reach
+the figure ("a part-time monthly rate at xx hours weekly"), and a week longer than 40 hours is flagged.
+
+| ID | Task | Files |
+|---|---|---|
+| W13.1 | `loadOne()` in the pagination loader — the same fetch path, driven by a button instead of a scroll | `pagination.js`, `test-pager.js` |
+| W13.2 | Phase 1: page to the recency horizon, with the newest-first watchdog | `scan.js` |
+| W13.3 | Phase 2: 2 at a time, High yield first then Worth considering, per-wave re-tiering, Stop, caps | `scan.js` |
+| W13.4 | The scan learns closures it passes (D37) | `scan.js`, `closed-cards.js` |
+| W13.5 | The listing's own `HOURS PER WEEK` replaces the assumed month, labelled **part-time month at N h/week** — and the goal stays per D13, because lower pay for fewer hours is the point of part-time | `salary-cards.js`, `records-cards.js` |
+| W13.6 | The hours badge on the card, and the over-40 warning (`⚠ 45 h/week — over the 40 h full-time week`) | `salary-cards.js`, `content.css` |
+| W13.7 | `autoScan` enabled, `scanWorth`, `scanAll` | `panel.js`, `options.*`, `README.md` |
+
+### W14 — The tiers, the views and the re-check ✅ (0.9.0)
+
+| ID | Task | Files |
+|---|---|---|
+| W14.1 | The view filter and the chip's Views row; **scrolling the first card of the chosen tier into sight** (without it the view looks broken on a long list) | `content.js`, `chip.js` |
+| W14.2 | `detail.js` re-checks a listing when you open it, records the move, and clears the mark | `detail.js`, `records-cards.js` |
+| W14.3 | The chip's buttons became **persistent nodes**: a rebuild between mousedown and mouseup means the browser never fires the click | `chip.js` |
+| W14.4 | Off-platform asks became a **tag** rather than a demotion (the user's call), and a positive keyword stopped making a listing high-yield — pay decides that | `tiers.js`, `content.js`, `chip.js`, `test-tiers.js` |
+| W14.5 | The live harness: tier parity per bucket, the scan's rate bound, the cache re-run, the views, the change mark, the declared hours basis | `tools/verify-live.mjs`, `tools/cdp.mjs` |
+
 ### W5 — Distribution (the original Task 8) → depends on W1, W3
 
 | ID | Task |
@@ -500,7 +556,7 @@ Recorded so nobody re-proposes them. Each has a trigger that would change the an
 
 | Rejected | Why | Revisit if |
 |---|---|---|
-| Paginating *inside the deep scan* | The scan's job is to describe what the user is looking at; walking the site for them is a crawler | never |
+| Paginating *without a button press* — a prefetch, a timer, or a page the user did not ask for | Walking the site for them is a crawler. A scan the user starts is a different thing, and it is bounded (D33) | never |
 | Assuming a 40-hour week for a listing that does not state one | It turns part-time jobs into full-time money — measured live at ~2× on 7 of 12 hourly cards | never (D10) |
 | Inferring a monthly figure from a piece rate (`$5 per entry`) | There is no honest monthly equivalent; the tiny-number heuristic produced ₱50,186/mo for a per-entry gig | never (D11) |
 | A default or fallback FX rate when the live one fails | A stale ₱ number is a wrong number, and money decisions get made on it | the ECB feed disappears entirely |
@@ -548,16 +604,26 @@ List URLs: `/jobseekers/jobsearch?jobkeyword=…`, `/jobseekers/jobsearch/{offse
 | `positive` | string[] | `[]` | Highlight matching cards (never hide) | rule pass |
 | `noSalary` | boolean | `true` | Hide cards whose salary text contains no digit | rule pass |
 | `showHidden` | boolean | `false` | Reveal what was hidden (chip toggle writes this) | rule pass, chip |
-| `autoScan` | boolean | `false` | Deep-scan this page's cards (W3). Disabled in the UI until then (D4) | nothing yet |
+| `autoScan` | boolean | `false` | Deep-scan a list page as soon as it loads (W13). Off by default: the `Scan` button does the same thing on demand, and the extension's promise is that the site sees no traffic you did not ask for | `scan.js` |
+| `scanWorth` | boolean | `true` | After the High yield listings, continue the scan into Worth considering and Highlighted ones (W13, D34) | `scan.js` |
+| `scanAll` | boolean | `false` | …and then the unclassified and keyword-hidden listings. The only pass that can promote a listing matching no keyword and no goal, and the most expensive one | `scan.js` |
 | `autoLoad` | boolean | `true` | Append the next result page when the user scrolls to the bottom (W6) | `pagination.js` |
 | `goalSalary` | number | `0` (off) | Monthly PHP goal; cards at or above it brighten (W7) | `salary.js` |
 | `maxAgeDays` | number | `7` | Hide listings posted longer ago than this many days (`0` = off, `7` = last week, `30` = last month). Read **before** every other rule; an unreadable date is never stale (W8) | rule pass |
 | `rescueNoSalary` | boolean | `false` | With `noSalary` on: a listing that states no pay but matches a keyword you like (or beats a goal) is shown instead of hidden (W10, D30) | rule pass |
 
-Not in `settings`: `closedJobs` (`chrome.storage.local.closedJobs = { "<jobId>": { at } }`) — the closed-listing
-memory (W9, D29). It lives in its own key because it is data the extension collects, not a preference the
-user sets, and because `options.js`'s Save writes the whole `settings` object: a key in there is a key a
-Save can silently drop.
+Not in `settings`: two maps the extension collects rather than preferences the user sets, and both in their own
+keys because `options.js`'s Save writes the whole `settings` object — a key in there is a key a Save can
+silently drop.
+
+- `closedJobs` (`chrome.storage.local.closedJobs = { "<jobId>": { at } }`) — the closed-listing memory
+  (W9, D29), pruned at 180 days.
+- `jobRecords` (`chrome.storage.local.jobRecords = { "<jobId>": { tier, prev, seen, at, checkedAt, sk,
+  card, detail, fields } }`) — what the deep scan and every later re-check decided about a listing (W12,
+  D35): the tier, the facts behind it, its own `HOURS PER WEEK` and WAGE, when it was last looked at, and
+  whether it has moved since you saw it. Pruned at 180 days, capped at 1 000 entries, and the raw
+  description it was derived from lives in IndexedDB (`detail-cache.js`, 7-day TTL, 1 000 entries) so a
+  keyword edit re-derives the whole page with **zero requests** (D36).
 
 `tools/check-readme.js` fails the gate if a key here is missing from the README's table.
 
@@ -566,13 +632,15 @@ Save can silently drop.
 | Check | Offline? | Covers | Command |
 |---|---|---|---|
 | `test-rules.js` | ✅ | salary parsing, keyword matching, case, duplicates | `node test-rules.js` |
-| `test-pager.js` | ✅ | next-page URL for all four list-URL shapes; "Displaying N out of M" parsing and its nulls | `node test-pager.js` |
-| `test-salary.js` | ✅ | the suite's real-data corpus plus live formats; the hours policy (no month without stated hours), piece rates, day rates, currency codes after digits | `node test-salary.js` |
+| `test-tiers.js` | ✅ | every branch of the verdict table, the unscanned parity rule, the tier movements a scan can cause, and that off-platform / over-40 are tags and never demote | `node test-tiers.js` |
+| `test-records.js` | ✅ | the memory's prune, entry cap, change state machine, idempotence, and `canon` (key order is not data) | `node test-records.js` |
+| `test-pager.js` | ✅ | next-page URL for all four list-URL shapes; "Displaying N out of M" parsing and its nulls; the recency horizon that stops the loader before a wholly stale page | `node test-pager.js` |
+| `test-salary.js` | ✅ | the suite's real-data corpus plus live formats; the hours policy (no month without stated hours), piece rates, day rates, currency codes after digits, and the thousands comma however the poster grouped it (`35,0000`) | `node test-salary.js` |
 | `test-manifest.js` | ✅ | every `chrome.*` namespace granted; referenced files exist; no orphan source | `node test-manifest.js` |
 | `test-repo-hygiene.js` | ✅ | no LICENSE, README stance, SECURITY, templates, hook wiring | `node test-repo-hygiene.js` |
 | `tools/check-readme.js` | ✅ | settings documented, no stale counts | `node tools/check-readme.js` |
 | `tools/gate.sh` | ✅ | all of the above + syntax + path scan + size cap | `sh tools/gate.sh` |
-| `tools/verify-live.mjs` | ❌ live site + browser | injection, selector drift, rule parity, `[hidden]`⇒`display:none`, chip toggle, panel open/save with no reload, an inserted card filtered on arrival + bounded rebuilds, pagination (idle = no requests, one per scroll, stops at the end), salary figures (recomputed with the same parser, the hours policy, piece rates left alone, one rate request per currency, goal marks exact); **W8**: recency parity + a watchdog on the date attributes, the computed yellow outline, `✗` badge parity, every branch forced to fire, and an inserted card that must turn yellow; **W4**: the detail bar's figure recomputed from the DOM with the same parser and the same cached rate, plus an inserted off-platform paragraph that must fire the link, email, redaction and ask detectors; **W9**: a closure injected before the extension boots, then asserted recorded and hidden on the board (and removed again by hand *and* by the snapshot — it teaches the memory a listing that is not closed) | `node tools/verify-live.mjs` |
+| `tools/verify-live.mjs` | ❌ live site + browser | injection, selector drift, rule parity, `[hidden]`⇒`display:none`, chip toggle, panel open/save with no reload, an inserted card filtered on arrival + bounded rebuilds, pagination (idle = no requests, one per scroll, stops at the end), salary figures (recomputed with the same parser, the hours policy, piece rates left alone, one rate request per currency, goal marks exact); **W8**: recency parity + a watchdog on the date attributes, the computed yellow outline, `✗` badge parity, every branch forced to fire, and an inserted card that must turn yellow; **W4**: the detail bar's figure recomputed from the DOM with the same parser and the same cached rate, plus an inserted off-platform paragraph that must fire the link, email, redaction and ask detectors; **W9**: a closure injected before the extension boots, then asserted recorded and hidden on the board (and removed again by hand *and* by the snapshot — it teaches the memory a listing that is not closed); **W12/W13/W14**: every card's tier against the same verdict table recomputed with the remembered records, a scripted scan (nothing fetched before the button, 2 fetches per 350 ms at most, a second run re-reading only what the first could not), the declared hours basis against the cache and the card's words, the two tier views filtering exactly, and a seeded tier that must show `↑ promoted` and lose it when the listing is opened. **Real, hit-tested clicks** for the panel's gear and Save: `element.click()` cannot see a button that is replaced between mousedown and mouseup, which is how "clicking the settings button is broken" shipped past every synthetic click in this file | `node tools/verify-live.mjs` |
 | CI (Node 20) | ✅ | `npm test` + package integrity | `.github/workflows/ci.yml` |
 
 ## 9. What "done" looks like

@@ -161,7 +161,9 @@ Foreign currencies use the ECB's live reference rate, and if that rate cannot be
 left unconverted rather than showing a stale ₱ figure.
 
 Set a monthly goal and/or an hourly one and every job **at or above it brightens up** — a green wash,
-the figure in stronger green, and a `★ at or above your monthly/hourly goal` line. One goal judges each
+the figure in stronger green, and a `★ at or above your monthly/hourly goal` line. The more the pay
+beats the goal, the stronger the mark: `★★` at 25 %+ above it, `★★★` at 50 %+ above it (the super-green
+threshold). One goal judges each
 card: **Full Time is judged monthly, Part Time and everything else by the hour**, and a listing that
 quotes only a month is judged monthly because there is no rate to compare. Both are judged on the low
 end of a range, so a "maybe" is not a yes. The hourly goal exists because a listing that only posts

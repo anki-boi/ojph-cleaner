@@ -10,7 +10,7 @@
   if (typeof chrome === 'undefined' || !chrome.storage) return; // node: nothing to do
   const api = self.OJC;
   if (!api) return;
-  const { parseSalary, toPhp, ratePhp, formatNote, formatRate, meetsGoal, hoursPerWeekFrom, pickFresh } = self.OJCSalary;
+  const { parseSalary, toPhp, ratePhp, formatNote, formatRate, meetsGoal, goalBand, hoursPerWeekFrom, pickFresh } = self.OJCSalary;
 
   const FX_URL = 'https://api.frankfurter.dev/v2/rates'; // ECB reference rates (v1 is deprecated)
   const FX_TTL_MS = 24 * 3600 * 1000;   // the server refreshes daily; older than this is not used
@@ -266,9 +266,12 @@
         // The margin over the goal that judges the card, judged on the same low end — this is the fact the
         // super-green rule reads (tiers.js: pay ≥ 150 % of the goal). On the card, not the note, so the
         // board and the live harness read the same attribute.
-        if (aboveMonthly && goalMonthly > 0) card.dataset.goalBy = String((php.min - goalMonthly) / goalMonthly);
-        else if (aboveHourly && goalHourly > 0) card.dataset.goalBy = String((hourlyPhp - goalHourly) / goalHourly);
-        else delete card.dataset.goalBy;
+        // One fact, two consumers: the fraction the pay clears the goal by (null when it clears none) —
+        // tiers.js reads it for the super-green rule, and the note's band shows it (the premium bands).
+        const by = aboveMonthly && goalMonthly > 0 ? (php.min - goalMonthly) / goalMonthly
+                 : aboveHourly && goalHourly > 0 ? (hourlyPhp - goalHourly) / goalHourly : null;
+        if (by == null) delete card.dataset.goalBy; else card.dataset.goalBy = String(by);
+        note.dataset.band = goalBand(by);
       }
       // One extra rule pass, and only when a mark actually moved. The `annotate()` this re-enters
       // returns immediately on the `running` guard above, so it cannot loop — and by then the marks

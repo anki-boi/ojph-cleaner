@@ -90,6 +90,13 @@
   font: 600 12px/1.5 system-ui, sans-serif;
   letter-spacing: .3px;
 }
+/* The premium bands: the green tracks HOW MUCH the pay clears the goal by, not just that it does.
+   b25 = 25 %+ above it, b50 = 50 %+ above it (the super-green threshold). Only the content differs;
+   the base rule above supplies the style. */
+.ojc-goal .ojc-salary-note[data-goal='monthly'][data-band='b25']::after { content: '★★ 25 %+ above your monthly goal'; }
+.ojc-goal .ojc-salary-note[data-goal='monthly'][data-band='b50']::after { content: '★★★ 50 %+ above your monthly goal'; }
+.ojc-goal .ojc-salary-note[data-goal='hourly'][data-band='b25']::after { content: '★★ 25 %+ above your hourly goal'; }
+.ojc-goal .ojc-salary-note[data-goal='hourly'][data-band='b50']::after { content: '★★★ 50 %+ above your hourly goal'; }
 
 /* Reconsider (W8): a listing that matches a hide keyword but also looks worth your time — a positive
    keyword match, or pay at/above one of your goals. Shown, never hidden (spec.md D15): a yellow marker

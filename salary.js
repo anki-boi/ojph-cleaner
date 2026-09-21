@@ -205,6 +205,15 @@
   const meetsGoal = (php, goalPhp) => !!php && goalPhp > 0 && php.min >= goalPhp;
 
   /**
+   * The premium band for a margin over the goal, as a fraction of the goal itself.
+   *   ''    below the bands (the plain goal mark still applies, when it does)
+   *   'b25' the pay is 25 % or more ABOVE the goal
+   *   'b50' the pay is 50 % or more above it — the super-green threshold
+   * Only the bands exist here, because the plain "at or above" case needs no mark of its own.
+   */
+  const goalBand = (by) => (!Number.isFinite(by) || by < 0.25) ? '' : (by >= 0.5 ? 'b50' : 'b25');
+
+  /**
    * Which cached FX rates are still alive, against the two clocks the loader uses: a rate is servable
    * until it is `ttlMs` old (the 24-hour TTL — the split is exactly AT the TTL, not just below it), and a
    * failed currency is not retried again until `retryMs` has passed (so a currency that failed this
@@ -227,6 +236,6 @@
     return { fresh, needed };
   }
 
-  return { parseSalary, toPhp, ratePhp, formatNote, formatRate, meetsGoal, hoursPerWeekFrom, pickFresh,
+  return { parseSalary, toPhp, ratePhp, formatNote, formatRate, meetsGoal, goalBand, hoursPerWeekFrom, pickFresh,
            WEEKS_PER_MONTH, FULL_TIME_HOURS };
 });

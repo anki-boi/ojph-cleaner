@@ -9,7 +9,7 @@
 // fallback exists for unstated hours — not 40, and not 20 for "Part Time", which states no number at all.
 const assert = require('assert');
 const {
-  parseSalary, toPhp, ratePhp, formatNote, formatRate, meetsGoal, hoursPerWeekFrom, pickFresh,
+  parseSalary, toPhp, ratePhp, formatNote, formatRate, meetsGoal, goalBand, hoursPerWeekFrom, pickFresh,
 } = require('./salary.js');
 
 /** [min, max, currency] of the monthly figure, or [null, null, null] when no month is claimed. */
@@ -211,5 +211,16 @@ assert.strictEqual(parseSalary('2,000,000', null).min, 2000000);
 assert.deepStrictEqual(
   (() => { const p = parseSalary('35,0000 - 40,0000', null); return toPhp(p, livePhp); })(),
   { min: 350000, max: 400000 }, 'and it converts as pesos, not as dollars');
+
+// The premium bands (0.12): stepped on the margin over the goal, null- and NaN-safe in the safe
+// direction (no readable margin is no band, never a guessed one).
+assert.strictEqual(goalBand(0.24), '', 'just under a quarter is no band');
+assert.strictEqual(goalBand(0.25), 'b25', 'a quarter exactly is the lower band');
+assert.strictEqual(goalBand(0.49), 'b25');
+assert.strictEqual(goalBand(0.5), 'b50', 'half again exactly is the upper band');
+assert.strictEqual(goalBand(2), 'b50');
+assert.strictEqual(goalBand(null), '');
+assert.strictEqual(goalBand(NaN), '');
+assert.strictEqual(goalBand(undefined), '');
 
 console.log('salary: all assertions passed');

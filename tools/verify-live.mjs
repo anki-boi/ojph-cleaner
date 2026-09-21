@@ -1120,6 +1120,8 @@ if (res.noSalExpected > 0) {
           note: shown ? shown.textContent : null, title: shown ? shown.title : null,
           warn: warn ? warn.textContent : null,
           goal: card.classList.contains('ojc-goal') ? (shown?.dataset.goal || 'unknown') : '',
+          band: shown ? (shown.dataset.band || '') : '',
+          goalBy: card.dataset.goalBy !== undefined ? Number(card.dataset.goalBy) : null,
           expect: php ? formatNote(php) : per ? formatRate(per, parsed.unit) : null,
           expectGoal,
           postedStillThere: shown ? d.textContent.includes(posted) : true });
@@ -1273,6 +1275,20 @@ if (res.noSalExpected > 0) {
   if (monthlyMarks.some(x => !x.monthly)) {
     await fail('a card with no monthly figure was marked against the MONTHLY goal');
   }
+  // The premium bands: a band mark only where the margin really reaches that band, and every card
+  // that reaches a band carries the mark — checked both directions, so a wrong band is a failure either way.
+  const banded = parseable.filter(x => x.band);
+  for (const x of banded) {
+    const need = x.band === 'b50' ? 0.5 : 0.25;
+    if (!(x.goalBy >= need)) {
+      await fail(`a ${x.band} band on a card whose margin over its goal is ${x.goalBy} — the band needs ≥ ${need}: ${JSON.stringify(x.posted)}`);
+    }
+  }
+  for (const x of parseable) {
+    if (x.expectGoal && x.goalBy >= 0.25 && !x.band) {
+      await fail(`a card that clears its goal by ${x.goalBy} carries no premium band: ${JSON.stringify(x.posted)}`);
+    }
+  }
   // the posted text keeps its place: the figure is added above it, never instead of it
   const swallowed = parseable.filter(x => !x.postedStillThere);
   if (swallowed.length) {
@@ -1281,7 +1297,7 @@ if (res.noSalExpected > 0) {
   console.log(`salary    : ${months.length} monthly figure(s), ${rates.length} posted-rate figure(s), ` +
     `${pieces.length} piece rate(s) left alone, ${silent.length} with no figure · ` +
     `${r.fxRequests} live rate request(s) for ${r.currencies.join('/') || 'no'} foreign currency · ` +
-    `${monthlyMarks.length} above ₱${GOAL}/mo, ${hourlyMarks.length} above ₱${GOAL_HOURLY}/hr`);
+    `${monthlyMarks.length} above ₱${GOAL}/mo, ${hourlyMarks.length} above ₱${GOAL_HOURLY}/hr · ${banded.length} premium band mark(s)`);
 }
 
 // ── 9. our own annotation must not feed the rules ───────────────────────

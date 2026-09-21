@@ -53,5 +53,23 @@
       self.OJRules.parsePosted(p.getAttribute('data-temp'), self.OJRules.MANILA_OFFSET_MINUTES);
   };
 
-  self.OJCPage = { LIST_RE, SELECTORS, cards, ownText, cardSalary, postedAt };
+  /**
+   * The duplicate key for a re-posted job: its title and company, normalized (the re-post shares both,
+   * and nothing else on a card can match by accident). The employment badge inside the title is markup,
+   * not title, so it is stripped. Returns null when the title cannot be read — and a card with no key is
+   * never a duplicate, in the safe direction.
+   */
+  const dupKeyOf = (c) => {
+    const h = c.querySelector('dt h4');
+    const p = c.querySelector(SELECTORS.cardPosted);
+    if (!h) return null;
+    const hh = h.cloneNode(true);
+    hh.querySelectorAll('[class*="badge"]').forEach(b => b.remove());
+    const title = (hh.textContent || '').replace(/[ \t]+/g, ' ').trim().toLowerCase();
+    if (!title) return null;
+    const company = p ? ownText(p).split(/[•·]/)[0].replace(/[ \t]+/g, ' ').trim().toLowerCase() : '';
+    return title + '|' + company;
+  };
+
+  self.OJCPage = { LIST_RE, SELECTORS, cards, ownText, cardSalary, postedAt, dupKeyOf };
 })();

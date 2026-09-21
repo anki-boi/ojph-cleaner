@@ -112,6 +112,10 @@ two things in one run, and nothing until you press it:
 - **Highlighted** — a keyword you like on a listing that pays below your goal: the green outline and `✓`
   badge, exactly as before. Visible, never hidden, and deliberately not counted as high yield.
 
+Two marks annotate a card without changing its tier: `● fresh` on a high-yield card posted in the last
+24 hours, and `⚠ duplicate` on the OLDER copy when the board re-posts the same title and company — each
+counted in the panel when present.
+
 Pressing one filters the board to that tier; `All` puts it back. **Nothing is reordered** — the site's own
 list order and its next-page behaviour are untouched — and the board **scrolls to the first card of the tier
 you picked**, because hiding most of a long list otherwise leaves you looking at empty space (measured: the

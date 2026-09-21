@@ -6,7 +6,7 @@
   // rule pass below reads as it always did, and spread into the API so every consumer (pagination,
   // salary-cards, the harness) keeps working unchanged.
   const page = self.OJCPage;
-  const { LIST_RE, cards, ownText, cardSalary, postedAt } = page;
+  const { LIST_RE, cards, ownText, cardSalary, postedAt, dupKeyOf } = page;
 
   const DEFAULTS = {
     negative: [],    // keyword list → hide (exact word/phrase, case-insensitive)
@@ -70,11 +70,9 @@
     Number(settings.goalSalary) > 0 || Number(settings.goalHourly) > 0) ? true : false;
 
   // ── Rules pass ───────────────────────────────────────────────────────────
-  // The verdict itself lives in tiers.js (one pure decision table, unit-tested). This function's job is
-  // the DOM: read each card, hand the facts over, paint what comes back, and count it.
-  //
-  // Order, and it is observable: closed → stale → noSalary → high / worth → keyword → flagged → nothing.
-  // First match wins, so a count can never be computed by adding the buckets up.
+  // The verdict lives in tiers.js (one pure decision table, unit-tested); this function's job is the DOM:
+  // read each card, hand the facts over, paint what comes back, and count. First match wins, so a count
+  // can never be computed by adding the buckets up (closed → stale → noSalary → high/worth → keyword).
 
   /** The card's verdict badges: `✓ kw` green, `✗ kw` red, `⚠ off-platform`. Prepended, so they are also
    *  the first thing `ownText()` strips — our own words must never reach the rules that read the card. */
@@ -101,9 +99,9 @@
     return box;
   };
 
-  /** The verdict per card, for the scan's priority order and for the live harness. The data attribute is
-   *  the same fact in the DOM, where a human (and tools/verify-live.mjs) can read it: `dataset.why` was
-   *  deleted in W2 for having four writes and no readers — this one has both. */
+  /** The verdict per card, for the scan's priority order and the live harness — the same fact in the DOM
+   *  (data attribute), where a human and tools/verify-live.mjs can read it. (`dataset.why` had four
+   *  writes and no readers, so it was deleted in W2; this one has both.) */
   const tierMap = new WeakMap();
   const cardFactsOf = (c) => ({
     ...tiers.cardFacts(ownText(c), settings, rules.matchKeywords),
@@ -119,8 +117,11 @@
     // card, an IDB read only when something is genuinely missing.
     records?.hydrateNew?.();
     const closed = self.OJCClosed;
-    const counts = { closed: 0, stale: 0, noSal: 0, kw: 0, high: 0, pos: 0, worth: 0, offPlat: 0, fresh: 0 };
-    for (const c of cards()) {
+    const counts = { closed: 0, stale: 0, noSal: 0, kw: 0, high: 0, pos: 0, worth: 0, offPlat: 0, fresh: 0, dup: 0 };
+    const list = cards();
+    // Duplicates are relational — no single card can know it is the older copy without the rest of the board.
+    const dupSet = rules.findDuplicates(list.map(c => ({ key: dupKeyOf(c), at: postedAt(c) })));
+    for (let i = 0; i < list.length; i++) { const c = list[i];
       const { pos, neg } = tiers.cardFacts(ownText(c), settings, rules.matchKeywords);
       const detail = records?.detailFor(c) || null;
       const cardFacts = { pos, neg, goal: c.classList.contains('ojc-goal'), goalBy: c.dataset.goalBy !== undefined ? Number(c.dataset.goalBy) : null };
@@ -140,7 +141,7 @@
       // an attribute the site set is never removed.
       if (c.classList.contains('ojc-recon')) c.removeAttribute('title');
       c.classList.remove('ojc-neg', 'ojc-pos', 'ojc-recon', 'ojc-closed');
-      for (const b of c.querySelectorAll('.ojc-pos-badge, .ojc-neg-badge, .ojc-closed-badge, .ojc-tier-badge, .ojc-flag-badge, .ojc-fresh')) b.remove();
+      for (const b of c.querySelectorAll('.ojc-pos-badge, .ojc-neg-badge, .ojc-closed-badge, .ojc-tier-badge, .ojc-flag-badge, .ojc-fresh, .ojc-dup')) b.remove();
 
       const flags = (detail && detail.flags) || [];
       // Everything the two texts matched, so the card lists ALL the keywords behind the verdict (the user's
@@ -162,6 +163,12 @@
         badge(box, 'ojc-flag-badge', '⚠ off-platform', OFF_PLATFORM + ' (' + flags.join(', ') + ')');
         counts.offPlat++;
       };
+      const tagDup = () => {
+        if (!dupSet.has(i)) return;
+        badge(box, 'ojc-dup', '⚠ duplicate', 'the same title and company, posted again — this is the older copy');
+        counts.dup++;
+      };
+
       if (tier === 'closed') {
         c.hidden = !settings.showHidden;
         closed.mark(c);
@@ -215,6 +222,7 @@
         c.hidden = false;
         tagOff();
       }
+      if (!c.hidden) tagDup();   // a tag like off-platform: it annotates whatever tier the card landed in
       // The remembered verdict: recomputed for a listing the scan has met, so a moved tier is recorded and
       // marked. `note` returns null for a card with no record and for an unchanged one — no storage write.
       records?.note(c, tier, cardFacts);
@@ -243,13 +251,10 @@
   // ── Settings ─────────────────────────────────────────────────────────────
   // The panel's Save is a form: it writes the whole object.
   function persist() { chrome.storage.local.set({ settings }); }
-  // A chip toggle changes one field, so it writes one field — by reading the stored object and merging,
-  // which is the part that matters: every tab holds a copy loaded when it booted, so a full-object write
-  // from here reverts settings a user changed in another tab (found by a red verify-live run, where the
-  // panel's "no salary" setting came back after another tab's delayed write landed).
-  //
-  // NOT `chrome.storage.local.set({ 'settings.showHidden': v })`: dotted paths work for get/remove but
-  // `set` silently drops them — the chip's label flipped while storage kept the old value.
+  // A chip toggle changes one field, so it writes ONE field: every tab holds a copy loaded at boot, so a
+  // full-object write here reverts settings changed in another tab (found live: the panel's "no salary"
+  // came back after another tab's delayed write). Merging the stored object is the fix. NOT a dotted
+  // path — `set` silently drops 'settings.showHidden' (the label flipped while storage kept the old value).
   async function persistField(key, value) {
     const { settings: stored } = await chrome.storage.local.get('settings');
     await chrome.storage.local.set({ settings: { ...DEFAULTS, ...(stored || {}), [key]: value } });

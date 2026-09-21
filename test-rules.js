@@ -1,6 +1,6 @@
 // test-rules.js — node tests for rules.js (run: node test-rules.js)
 const assert = require('assert');
-const { hasSalary, matchKeywords, parsePosted, isStale, MANILA_OFFSET_MINUTES } = require('./rules.js');
+const { hasSalary, matchKeywords, parsePosted, isStale, findDuplicates, MANILA_OFFSET_MINUTES } = require('./rules.js');
 
 // hasSalary: digit present
 assert.strictEqual(hasSalary('$500/month'), true);
@@ -115,5 +115,20 @@ assert.deepStrictEqual(R2.textToLists(R2.listsToText(['a', 'a', 'b'], ['c'])),
 assert.deepStrictEqual(R2.textToLists('just one list\nno headers'),
   { negative: ['just one list', 'no headers'], positive: [] }, 'no headers = all hiding');
 assert.deepStrictEqual(R2.textToLists(''), { negative: [], positive: [] });
+
+// findDuplicates (0.12): the newest DATED card per key is canonical; older dated cards sharing the key
+// are the re-posts. Undated cards are never flagged, and same-instant pairs are not re-posts — the safe
+// direction, matching how the recency rule leaves an undateable card alone.
+assert.deepStrictEqual([...findDuplicates([])], []);
+assert.deepStrictEqual([...findDuplicates([{ key: 'a', at: 100 }])], [], 'one card is its own canonical copy');
+assert.deepStrictEqual([...findDuplicates(
+  [{ key: 'a', at: 100 }, { key: 'a', at: 200 }, { key: 'b', at: 50 }, { key: 'a', at: null }])],
+  [0], 'the older dated A card is the duplicate; the undated one and the other key are not');
+assert.deepStrictEqual([...findDuplicates([{ key: 'a', at: 200 }, { key: 'a', at: 200 }])], [],
+  'posted at the same instant is not a re-post');
+assert.deepStrictEqual([...findDuplicates([{ key: 'a', at: null }, { key: 'a', at: null }])], [],
+  'no readable date, no verdict — a card with no date can never be called the older copy');
+assert.deepStrictEqual([...findDuplicates([null, { key: '', at: 100 }, { key: 'a', at: 100 }])], [],
+  'a blank key is no key');
 
 console.log('rules: all assertions passed');

@@ -136,6 +136,9 @@
    is already decided; this says the window to claim it is open. The quiet blue-green, not a verdict colour. */
 .ojc-fresh { background: rgba(47, 106, 145, .16); color: #1f5e8a; }
 
+/* Duplicate (0.12): the same title and company posted again — the OLDER copy is marked, so the board
+   shows the newest listing clean. The quietest mark of the three: a note about the board, not the listing. */
+.ojc-dup { background: rgba(107, 107, 119, .16); color: #5a5a6b; }
 
 /* The change mark (W12, D35): this listing's tier moved since you last looked at it. Deliberately the
    quietest of the three badges — it is a note about history, not a verdict about the listing — and it

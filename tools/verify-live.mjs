@@ -366,7 +366,7 @@ const primeCache = (tab) => tab.evaluate(`new Promise((res) => {
   };
 })`);
 
-const ruleEval = (tab, { neg = [], pos = [], maxAgeDays = 0, noSalary = true, closedIds = [], records = {}, rescue = false } = {}) => tab.evaluate(`${RULES_SRC}
+const ruleEval = (tab, { neg = [], pos = [], maxAgeDays = 0, noSalary = true, closedIds = [], records = {}, rescue = false, showHidden = false } = {}) => tab.evaluate(`${RULES_SRC}
 ${DETAILTEXT_SRC}
 ${TIERS_SRC}
 ${RECORDS_SRC}
@@ -376,6 +376,7 @@ ${CLOSED_SRC}
   const maxAgeDays = ${JSON.stringify(Number(maxAgeDays) || 0)};
   const noSalary = ${JSON.stringify(noSalary !== false)};
   const rescue = ${JSON.stringify(!!rescue)};
+  const showHidden = ${JSON.stringify(!!showHidden)};
   const closedIds = new Set(${JSON.stringify(closedIds.map(String))});
   const saved = OJCRecords.prune(${JSON.stringify(records)}, Date.now(), OJCRecords.HISTORY_DAYS * 86400000);
   const sk = OJCRecords.settingsKey(settings);
@@ -404,9 +405,24 @@ ${CLOSED_SRC}
       OJRules.parsePosted(p.getAttribute('data-temp'), OJRules.MANILA_OFFSET_MINUTES);
   };
   const idOf = (c) => { const a = c.querySelector('a[href*="/job/"]'); return a ? OJClosed.jobIdFrom(a.getAttribute('href')) : null; };
+  // The duplicate key, mirroring page.js: title + company, normalized, employment badge stripped.
+  // (No \\s or \\b here: this is page-side code inside a template literal, where an escape loses its
+  // backslash — a literal tab in the character class is the same match.)
+  const dupKeyOf = (c) => {
+    const h = c.querySelector('dt h4');
+    if (!h) return null;
+    const hh = h.cloneNode(true);
+    hh.querySelectorAll('[class*="badge"]').forEach(b => b.remove());
+    const title = (hh.textContent || '').replace(/[ \t]+/g, ' ').trim().toLowerCase();
+    if (!title) return null;
+    const p = c.querySelector('p[data-temp]');
+    const company = p ? ownText(p).split(/[•·]/)[0].replace(/[ \t]+/g, ' ').trim().toLowerCase() : '';
+    return title + '|' + company;
+  };
+  const dupSet = OJRules.findDuplicates(cards.map(c => ({ key: dupKeyOf(c), at: postedAt(c) })));
   const tiers = { closed: 0, stale: 0, nosal: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0 };
-  let noDate = 0, noUtc = 0, negBadges = 0, posBadges = 0, flagBadges = 0, scanned = 0, overHours = 0, fresh = 0;
-  for (const c of cards) {
+  let noDate = 0, noUtc = 0, negBadges = 0, posBadges = 0, flagBadges = 0, scanned = 0, overHours = 0, fresh = 0, dups = 0;
+  for (let i = 0; i < cards.length; i++) { const c = cards[i];
     const text = ownText(c);
     const p = c.querySelector('p[data-temp]');
     if (!p || !p.getAttribute('data-temp-2')) noUtc++;
@@ -436,6 +452,11 @@ ${CLOSED_SRC}
     tiers[tier]++;
     // Fresh mirrors content.js: high yield, posted within a day, on the SAME posted instant as the recency rule.
     if (tier === 'high' && at != null && now - at < 24 * 3600 * 1000) fresh++;
+    // Duplicates mirror content.js: the older copy is tagged whenever the card is VISIBLE (the view is all).
+    const visibleTiers = showHidden
+      ? ['high', 'pos', 'worth', 'none', 'closed', 'stale', 'nosal', 'kw']
+      : ['high', 'pos', 'worth', 'none'];
+    if (dupSet.has(i) && visibleTiers.includes(tier)) dups++;
     const nm = card.neg.length > 0 || !!(detail && detail.neg && detail.neg.length);
     const pm = card.pos.length > 0 || !!(detail && detail.pos && detail.pos.length);
     const flagged = !!(detail && (detail.flags || []).length);
@@ -449,7 +470,7 @@ ${CLOSED_SRC}
   }
   return JSON.stringify({ cards: cards.length, tiers,
     closedExpected: tiers.closed, staleExpected: tiers.stale, noSalExpected: tiers.nosal,
-    negExpected: tiers.kw, reconExpected: tiers.worth, highExpected: tiers.high, posTierExpected: tiers.pos, freshExpected: fresh,
+    negExpected: tiers.kw, reconExpected: tiers.worth, highExpected: tiers.high, posTierExpected: tiers.pos, freshExpected: fresh, dupExpected: dups,
     flagTagExpected: flagBadges,
     posExpected: posBadges, negBadgeExpected: negBadges, flagBadgeExpected: flagBadges,
     hiddenExpected: tiers.closed + tiers.stale + tiers.nosal + tiers.kw,
@@ -493,6 +514,7 @@ const res = JSON.parse(await withTab(PORT, URL_, async (tab) => {
       hoursBadges: document.querySelectorAll('.ojc-hours').length,
       hoursOver: document.querySelectorAll('.ojc-hours-over').length,
       freshBadges: document.querySelectorAll('.jobpost-cat-box .ojc-fresh').length,
+      dupBadges: document.querySelectorAll('.jobpost-cat-box .ojc-dup').length,
       tierBadges: document.querySelectorAll('.ojc-tier-badge').length,
       // The verdict the pass wrote on each card (data-ojc-tier) — the board's own claim, which the
       // recomputation above has to agree with bucket by bucket.
@@ -512,7 +534,7 @@ console.log(`  hidden  : ${res.hidden}   (expected by rule: ${res.hiddenExpected
 console.log(`  stale ${res.staleExpected} / no-salary ${res.noSalExpected} / keyword ${res.negExpected} → hidden, ` +
   `positive ${res.posExpected} → highlighted, ${res.reconExpected} → yellow (reconsider)` +
   `${res.closedExpected ? `, ${res.closedExpected} closed` : ''} · ` +
-  `${res.negBadges} ✗ badge(s) · ${res.freshExpected} fresh (high yield, last 24 h)`);
+  `${res.negBadges} ✗ badge(s) · ${res.freshExpected} fresh (high yield, last 24 h) · ${res.dupExpected} duplicate(s)`);
 
 if (!res.chip) await fail('content script did not inject — check manifest permissions/host_permissions');
 
@@ -550,6 +572,10 @@ if (res.negatives !== res.negExpected) await fail(`keyword hides ${res.negatives
 if (res.freshBadges !== res.freshExpected) {
   await fail(`${res.freshBadges} card(s) carry the ● fresh mark, expected ${res.freshExpected} — fresh is high yield ` +
     `posted within 24 h, judged on the same instant as the recency rule`);
+}
+if (res.dupBadges !== res.dupExpected) {
+  await fail(`${res.dupBadges} card(s) carry the ⚠ duplicate mark, expected ${res.dupExpected} — the OLDER copy per ` +
+    `title+company is marked, and only when it is visible`);
 }
 if (res.negBadges !== res.negBadgeExpected) {
   await fail(`${res.negBadges} card(s) carry the ✗ badge, expected ${res.negBadgeExpected} — every card a hide ` +

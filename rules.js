@@ -127,6 +127,24 @@
     return { negative: [...new Set(neg)], positive: [...new Set(pos)] };
   }
 
-  return { hasSalary, matchKeywords, keywordRegex, cleanKeyword, parsePosted, isStale, listsToText, textToLists,
+  /**
+   * Duplicate re-posts: the same job posted again under the same key (title + company). The newest
+   * DATED card per key is the canonical one, and every other dated card sharing the key is the older
+   * duplicate. A card with no readable date is never flagged, and a same-instant pair is not a re-post —
+   * in the safe direction, the way the recency rule leaves an undateable card alone.
+   * Pure: takes {key, at}[] (at = epoch ms or null) and returns the Set of indices that are duplicates.
+   */
+  function findDuplicates(items) {
+    const newest = {};
+    for (const it of items) {
+      if (!it || !it.key || it.at == null) continue;
+      if (newest[it.key] == null || it.at > newest[it.key]) newest[it.key] = it.at;
+    }
+    const dups = new Set();
+    items.forEach((it, i) => { if (it && it.key && it.at != null && it.at < newest[it.key]) dups.add(i); });
+    return dups;
+  }
+
+  return { hasSalary, matchKeywords, keywordRegex, cleanKeyword, parsePosted, isStale, findDuplicates, listsToText, textToLists,
            MANILA_OFFSET_MINUTES };
 });

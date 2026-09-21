@@ -59,14 +59,23 @@
     const days = Number(settings.maxAgeDays) > 0 ? Number(settings.maxAgeDays) : 0;
     const horizon = days ? days * 86400000 : 0;
     let newest = newestPosted(api.cards());
+    let retries = 0;
     while (st.pages < MAX_PAGES && !st.stopped) {
       const before = api.cards().length;
       const r = await loader.loadOne(true);
       if (!r.ok) {
-        if (r.retry) { await sleep(400); continue; }
+        if (r.retry) {
+          // The only retry a FORCED load can give is "another load is in flight" — a user scroll racing
+          // the scan's first page. That clears in a beat; if it does not, something is stuck, and the
+          // loop must not busy-wait on it for the rest of the run. 25 × 400 ms = 10 s, then give up.
+          if (retries++ >= 25) { st.reason = 'could not load the next page'; return; }
+          await sleep(400);
+          continue;
+        }
         st.reason = r.reason;
         return;
       }
+      retries = 0;
       st.pages++;
       api.refreshRules();                       // the imported cards join the counts immediately
       const fresh = api.cards().slice(before);

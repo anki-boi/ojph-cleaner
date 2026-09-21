@@ -458,9 +458,10 @@ ${CLOSED_SRC}
       ? ['high', 'pos', 'worth', 'none', 'closed', 'stale', 'nosal', 'kw']
       : ['high', 'pos', 'worth', 'none'];
     if (dupSet.has(i) && visibleTiers.includes(tier)) dups++;
-    // The negotiable rescue mirror: no figure, the word says negotiable, the toggle is on, and the card
-    // landed where a rescued card lands (pos or worth — both visible, so the tag must be on the card).
-    if (noSalary && rescueNeg && OJRules.isNegotiable(ownSal(c)) && ['pos', 'worth'].includes(tier)) negRescuedCount++;
+    // The negotiable rescue mirror: NO figure (a card that says DOE but also states $4-$6 is a salaried
+    // card, not a rescued one), the word says negotiable, the toggle is on, and the card landed where a
+    // rescued card lands (pos or worth — both visible, so the tag must be on the card).
+    if (noSalary && !/\\d/.test(ownSal(c)) && rescueNeg && OJRules.isNegotiable(ownSal(c)) && ['pos', 'worth'].includes(tier)) negRescuedCount++;
     const nm = card.neg.length > 0 || !!(detail && detail.neg && detail.neg.length);
     const pm = card.pos.length > 0 || !!(detail && detail.pos && detail.pos.length);
     const flagged = !!(detail && (detail.flags || []).length);
@@ -709,8 +710,39 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
     // so the branch is reachable on any board.)
     const superGreen = await measure({ negative: ['the'], positive: ['the', 'a'], goalSalary: 1, goalHourly: 1 });
     // The negotiable rescue (0.12): a no-figure listing that says Negotiable/DOE and matches a keyword you
-    // like stays on the board with a ⚠ negotiable tag, instead of hiding. 'the' again — prose.
+    // like stays on the board with a ⚠ negotiable tag, instead of hiding. 'the' again — prose. This
+    // measure covers the NATURAL cards (and proves a salaried card that merely says DOE is not tagged);
+    // reachability itself is proven by the seam below, because boards do not reliably carry a pure
+    // "Negotiable" card — the one this board has says $4-$6/hr DOE, and a stated figure is not no-salary.
     const negotiable = await measure({ negative: [], positive: ['the'], noSalary: true, rescueNegotiable: true, goalSalary: 0, goalHourly: 0 });
+    // The negotiable seam (like the goal-mark seam): a FRESH clone whose salary cell says only
+    // "Negotiable" and whose text matches the probe keyword. It must come out visible, pos, tagged.
+    const negSeam = JSON.parse(await tab.evaluate(`(() => {
+      const src = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')].find(c => c.querySelector('dd.col'));
+      if (!src) return JSON.stringify({ skipped: 'no card carries a salary cell' });
+      const clone = src.cloneNode(true);
+      for (const injected of clone.querySelectorAll('[class^="ojc-"]')) injected.remove();
+      for (const cls of ['ojc-neg', 'ojc-pos', 'ojc-recon', 'ojc-goal']) clone.classList.remove(cls);
+      clone.hidden = false;
+      clone.removeAttribute('title');
+      const d = clone.querySelector('dd.col');
+      if (d) d.textContent = 'Negotiable';
+      const desc = clone.querySelector('.desc');
+      if (desc) { const a = document.createElement('a'); a.textContent = ' the'; desc.prepend(a); }
+      src.parentElement.appendChild(clone);
+      window.__ojcNegSeam = clone;
+      return JSON.stringify({ inserted: true });
+    })()`));
+    if (negSeam.inserted) {
+      for (let i = 0; i < 40; i++) {
+        Object.assign(negSeam, JSON.parse(await tab.evaluate(`(() => { const c = window.__ojcNegSeam;
+          return JSON.stringify({ hidden: c.hidden, tier: c.dataset.ojcTier,
+            badge: (c.querySelector('.ojc-badges .ojc-flag-badge') || {}).textContent || null }); })()`)));
+        if (negSeam.tier === 'pos' && negSeam.badge && String(negSeam.badge).includes('negotiable')) break;
+        await settle(250);
+      }
+      await tab.evaluate(`window.__ojcNegSeam.remove()`);
+    }
 
     // The seam seeds its OWN settings: the super-green probe left positive keywords in place, and under
     // those the fresh card is correctly super green — this test is about the yellow state, not that one.
@@ -746,7 +778,7 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
       }
       await tab.evaluate(`window.__ojcArrival.remove()`);
     }
-    return JSON.stringify({ hide, show, yellow, superGreen, negotiable, arrival });
+    return JSON.stringify({ hide, show, yellow, superGreen, negotiable, negSeam, arrival });
   }, 500));
 
   const branches = [
@@ -755,8 +787,6 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
     ['a hide keyword on a good listing turns yellow instead', r.yellow, r.yellow.counts.reconExpected > 0],
     ['super green: more positives than negatives, pay ≥ 150 % of the goal → high yield',
       r.superGreen, r.superGreen.counts.highExpected > r.yellow.counts.highExpected],
-    ['negotiable: a no-figure listing that says Negotiable/DOE and matches a liked keyword stays, tagged',
-      r.negotiable, r.negotiable.counts.negRescuedExpected > 0],
   ];
   for (const [name, m, reachable] of branches) {
     if (!reachable) {
@@ -775,15 +805,20 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
   }
   console.log(`branches  : keyword hides ${r.hide.dom.hidden}, highlights ${r.show.dom.pos}, ` +
     `yellow ${r.yellow.dom.recon}, super green ${r.superGreen.counts.highExpected - r.yellow.counts.highExpected} card(s) out of yellow, ` +
-    `negotiable rescued ${r.negotiable.dom.negotiable} — each branch had to fire`);
+    `negotiable ${r.negotiable.dom.negotiable} natural + ${r.negSeam.badge ? 'seam tagged' : 'seam NOT tagged'} — each branch had to fire`);
   if (r.superGreen.counts.highExpected > r.yellow.counts.highExpected && r.superGreen.dom.both === 0) {
     await fail('a card matched keywords on both sides but shows only one badge — the user must see both');
   }
-  // Every rescued card must carry the tag that says why it is on the board (reachability is asserted by the
-  // branch table above).
+  // The natural cards: every rescued no-figure card must carry the tag that says why it is on the board —
+  // and a salaried card that merely says DOE must not get one (the mirror counts it, the DOM must not tag it).
   if (r.negotiable.dom.negotiable !== r.negotiable.counts.negRescuedExpected) {
     await fail(`${r.negotiable.dom.negotiable} ⚠ negotiable tag(s), expected ${r.negotiable.counts.negRescuedExpected} — `
       + `every rescued no-figure card must say why it is on the board`);
+  }
+  // The seam card: the branch must be provable on this board.
+  if (r.negSeam.inserted && !(r.negSeam.tier === 'pos' && !r.negSeam.hidden && String(r.negSeam.badge || '').includes('negotiable'))) {
+    await fail(`the negotiable seam card came out ${JSON.stringify(r.negSeam)} — a no-figure card that says `
+      + `Negotiable and matches a liked keyword must be shown, pos, and tagged`);
   }
   if (r.arrival.inserted) console.log(`seam      : a fresh good-pay negative match → ` +
     `${r.arrival.recon ? 'yellow' : 'NOT yellow'}, goal mark ${r.arrival.goal}, hidden ${r.arrival.hidden}`);

@@ -55,26 +55,54 @@
     if (!card.querySelector('.ojc-closed-badge')) card.prepend(badgeEl());
   }
 
+  /** The tier a scan gave the listing, as a mark on its saved row (F2): the saved table is where the
+   *  user comes back to, so a row the scan has graded says so there. A mark, not a filter — the row
+   *  stays exactly where the site put it. Tiers a scan never reached carry no mark at all. */
+  const TIER_MARK = { high: '★ high yield', worth: 'worth considering', pos: '✓ highlighted' };
+
   /**
    * Mark the saved-jobs table's rows (a React table — different markup from the board, and the only
    * place dead listings pile up: 4 of 16 measurably). The row stays visible: it may be the only place
-   * the row can be deleted from.
+   * the row can be deleted from. Each row that carries a listing id gets two marks, independently:
+   * the closure badge when the memory has it, and the scan's tier when a record does.
    */
   function markRows() {
     if (location.pathname !== SAVED_PATH) return 0;
+    const recs = self.OJCRecordsUI?.all?.() || {};
     let n = 0;
     for (const row of document.querySelectorAll('tr')) {
       const link = row.querySelector(JOB_LINK);
-      if (!link || !held[pure.jobIdFrom(link.getAttribute('href'))]) continue;
-      row.classList.add('ojc-closed-row');
-      if (!row.querySelector('.ojc-closed-badge')) {
-        // Beside the title, inside whatever element holds the link — a row can be rendered without its
-        // cells being in place yet, and a badge parented to the <tr> is not where a table puts a cell.
-        (link.parentNode || row).appendChild(badgeEl());
-        n++;
+      if (!link) continue;
+      const id = pure.jobIdFrom(link.getAttribute('href'));
+      // Beside the title, inside whatever element holds the link — a row can be rendered without its
+      // cells being in place yet, and a badge parented to the <tr> is not where a table puts a cell.
+      const cell = link.parentNode || row;
+      if (held[id]) {
+        row.classList.add('ojc-closed-row');
+        if (!row.querySelector('.ojc-closed-badge')) { cell.appendChild(badgeEl()); n++; }
       }
+      const label = recs[id] && TIER_MARK[recs[id].tier];
+      const mark = row.querySelector('.ojc-row-tier');
+      if (label) {
+        if (!mark) {
+          mark = document.createElement('span');
+          mark.className = 'ojc-row-tier';
+          cell.appendChild(mark);
+        }
+        mark.textContent = label;
+        mark.title = 'what the deep scan judged this listing to be';
+      } else if (mark) mark.remove();
     }
     return n;
+  }
+
+  /** The tier marks need the job memory, which loads in its own module on its own clock. Ask it to be
+   *  loaded, then mark again — the React table re-renders in batches anyway, and this makes sure the
+   *  LAST pass has the records in hand. */
+  function tierRows() {
+    const load = self.OJCRecordsUI?.load;
+    if (!load) return;
+    Promise.resolve(load()).then(markRows).catch(() => {});
   }
 
   /**
@@ -115,22 +143,26 @@
   // gets a pass; the earlier one-shot version dropped the mutations that arrived mid-render and left
   // rows unmarked (found live: 1 of 3 marked). Our own badge insertion is ignored, so it cannot loop.
   const ours = (node) => node.nodeType === 1 &&
-    (node.classList?.contains('ojc-closed-badge') || node.classList?.contains('ojc-closed-row'));
+    (node.classList?.contains('ojc-closed-badge') || node.classList?.contains('ojc-closed-row') ||
+     node.classList?.contains('ojc-row-tier'));
   function watchRows() {
     if (location.pathname !== SAVED_PATH) return;
     let timer = null;
     const queue = () => { clearTimeout(timer); timer = setTimeout(markRows, 150); };
     new MutationObserver((muts) => {
       if (muts.some(m => [...m.addedNodes, ...m.removedNodes].some(n => n.nodeType === 1 && !ours(n)))) queue();
-    }).observe(document.body, { childList: true, subtree: true });
+  }).observe(document.body, { childList: true, subtree: true });
     queue();
   }
 
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes[KEY]) {
+    if (area !== 'local') return;
+    if (changes[KEY]) {
       held = pure.prune(changes[KEY].newValue, Date.now(), MAX_AGE_MS);
       api.refreshRules();
     }
+    // A scan in another tab re-grades the rows you bookmarked: the tier marks must follow it.
+    if (changes.jobRecords && location.pathname === SAVED_PATH) markRows();
   });
 
   const boot = async () => {
@@ -139,6 +171,7 @@
     await load();
     await learn();
     markRows();
+    tierRows();
     watchRows();
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);

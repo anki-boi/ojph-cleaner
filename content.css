@@ -227,6 +227,10 @@
    you cannot see is a row you cannot delete. */
 tr.ojc-closed-row { opacity: .6; }
 tr.ojc-closed-row .ojc-closed-badge { position: static; margin-left: 8px; }
+
+/* F2: the scan's tier, on a saved-job row — a mark beside the title, not a filter. */
+.ojc-row-tier { position: static; margin-left: 8px; padding: 0 6px; border-radius: 8px; font-size: 12px;
+  background: rgba(20, 87, 31, .10); color: #14571f; }
 #ojc-detail-bar .ojc-bar-closed {
   color: #fff;
   background: #7a8794;

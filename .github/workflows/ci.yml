@@ -7,21 +7,16 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  gate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Tests (no dependencies to install)
-        run: npm test
-      - name: Packages as an unpacked extension
-        run: |
-          node -e "
-            const m = require('./manifest.json');
-            const fs = require('fs');
-            for (const f of [...m.content_scripts.flatMap(c => [...c.js, ...c.css]), ...Object.values(m.icons), m.options_page])
-              if (!fs.existsSync(f)) throw new Error('missing ' + f);
-            console.log(m.name, m.version, '— package looks loadable');
-          "
+      # One step, same command as the local pre-push hook: JS syntax (js + mjs),
+      # the 300-line cap, every node test, package integrity, repo hygiene,
+      # README truth, and the personal-path scan. CI and the gate can no
+      # longer disagree about whether main is green.
+      - name: Gate
+        run: sh tools/gate.sh

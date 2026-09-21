@@ -11,7 +11,7 @@
       "js": [
         "rules.js", "tiers.js", "page.js", "detail-text.js", "closed.js", "detail-parse.js", "detail-cache.js",
         "records.js", "chip.js", "content.js", "observer.js", "salary.js", "salary-cards.js",
-        "closed-cards.js", "records-cards.js", "pagination.js", "scan.js", "panel.js", "detail.js"
+        "closed-cards.js", "records-store.js", "records-cards.js", "pagination.js", "scan.js", "panel.js", "detail.js"
       ],
       "css": ["ui.css", "content.css"],
       "run_at": "document_idle"

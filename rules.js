@@ -101,5 +101,32 @@
     return (nowMs - postedMs) / 86400000 > max;
   }
 
-  return { hasSalary, matchKeywords, keywordRegex, cleanKeyword, parsePosted, isStale, MANILA_OFFSET_MINUTES };
+  /**
+   * The two keyword lists as one text block, for moving them between devices (F3). The `#` lines are the
+   * FORMAT, not comments: everything before `# highlight` hides, everything after highlights — so one
+   * copy round-trips both lists, and a paste into any editor stays readable.
+   */
+  function listsToText(negative, positive) {
+    return ['# hide', ...(negative || []), '# highlight', ...(positive || [])].join('\n') + '\n';
+  }
+
+  /**
+   * The inverse of `listsToText`: a block back to `{ negative, positive }`. A line starting with `#` is a
+   * section header, `# highlight` (case-insensitive) switches the mode; blank lines are skipped; the
+   * first list to appear in a section wins nothing — duplicates are dropped, same as the panel's parser.
+   */
+  function textToLists(text) {
+    const neg = [], pos = [];
+    let mode = 'neg';
+    for (const raw of (text || '').split('\n')) {
+      const line = raw.trim();
+      if (!line) continue;
+      if (line.startsWith('#')) { if (/highlight/i.test(line)) mode = 'pos'; continue; }
+      (mode === 'neg' ? neg : pos).push(line);
+    }
+    return { negative: [...new Set(neg)], positive: [...new Set(pos)] };
+  }
+
+  return { hasSalary, matchKeywords, keywordRegex, cleanKeyword, parsePosted, isStale, listsToText, textToLists,
+           MANILA_OFFSET_MINUTES };
 });

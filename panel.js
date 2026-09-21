@@ -54,6 +54,13 @@
             <textarea id="ojc-pos" rows="3" spellcheck="false" placeholder="quickbooks&#10;ai"></textarea>
             <p class="ojc-hint">One per line, same rule — and never hidden.</p>
           </div>
+          <div class="ojc-field">
+            <div class="ojc-keyword-io">
+              <button id="ojc-kw-copy" type="button">⧉ Copy lists</button>
+              <button id="ojc-kw-paste" type="button">⎘ Paste lists</button>
+            </div>
+            <p class="ojc-hint">Move both lists to another device: copy takes them, paste fills both boxes — then press Save.</p>
+          </div>
           <label class="ojc-check"><input type="checkbox" id="ojc-noSalary"><span>Hide jobs with no salary listed</span></label>
           <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-rescueNoSalary"><span>…but keep one that matches a keyword I like, or beats a goal</span></label>
           <label class="ojc-check"><input type="checkbox" id="ojc-showHidden"><span>Show hidden jobs</span></label>
@@ -91,6 +98,21 @@
       </div>`;
     panel.querySelector('#ojc-save').onclick = save;
     panel.querySelector('#ojc-close').onclick = () => open(false);
+    // Moving the lists between devices (F3). Both directions go through the pure format in rules.js,
+    // so what the other machine reads is byte-for-byte what this one wrote.
+    panel.querySelector('#ojc-kw-copy').onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(self.OJRules.listsToText(
+          fromLines($p('#ojc-neg').value), fromLines($p('#ojc-pos').value)));
+      } catch { /* the clipboard write was refused: the lists stay where they are */ }
+    };
+    panel.querySelector('#ojc-kw-paste').onclick = async () => {
+      try {
+        const t = self.OJRules.textToLists(await navigator.clipboard.readText());
+        $p('#ojc-neg').value = t.negative.join('\n');
+        $p('#ojc-pos').value = t.positive.join('\n');
+      } catch { /* reading the clipboard was refused: the boxes stay as they were */ }
+    };
     document.body.appendChild(panel);
     return panel;
   }

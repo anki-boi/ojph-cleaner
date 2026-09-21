@@ -103,4 +103,17 @@ assert.deepStrictEqual(matchKeywords('anything', ['', '   ', null]), []);
 assert.deepStrictEqual(matchKeywords('ai and ai', ['ai', 'ai']), ['ai', 'ai']);
 assert.deepStrictEqual(matchKeywords('email', ['ai', 'email']), ['email']);
 
+// ── the keyword lists as one text block (F3: copy/paste between devices) ────
+const R2 = require('./rules.js');
+assert.strictEqual(R2.listsToText(['crypto', 'video editor'], ['quickbooks', 'ai']),
+  '# hide\ncrypto\nvideo editor\n# highlight\nquickbooks\nai\n');
+assert.strictEqual(R2.listsToText([], []), '# hide\n# highlight\n');
+assert.deepStrictEqual(R2.textToLists('# hide\ncrypto\n\nvideo editor\n# HIGHLIGHT\nquickbooks\nai\n'),
+  { negative: ['crypto', 'video editor'], positive: ['quickbooks', 'ai'] }, 'a real round trip');
+assert.deepStrictEqual(R2.textToLists(R2.listsToText(['a', 'a', 'b'], ['c'])),
+  { negative: ['a', 'b'], positive: ['c'] }, 'duplicates are dropped, order kept');
+assert.deepStrictEqual(R2.textToLists('just one list\nno headers'),
+  { negative: ['just one list', 'no headers'], positive: [] }, 'no headers = all hiding');
+assert.deepStrictEqual(R2.textToLists(''), { negative: [], positive: [] });
+
 console.log('rules: all assertions passed');

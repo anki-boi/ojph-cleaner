@@ -228,6 +228,14 @@
   cursor: pointer;
 }
 #ojc-panel-foot button:hover { background: #4d82c1; }
+
+/* F3: the keyword-list copy/paste buttons, a quieter blue than Save. */
+.ojc-keyword-io { display: flex; gap: 8px; }
+.ojc-keyword-io button {
+  background: #33414f; border: 0; color: #cdd8e2; font: 600 11px system-ui, sans-serif;
+  padding: 4px 10px; border-radius: 6px; cursor: pointer;
+}
+.ojc-keyword-io button:hover { background: #445465; }
 #ojc-saved { display: none; color: #9ed38a; font-weight: 600; font-size: 11px; }
 #ojc-panel a { margin-left: auto; color: #8a9aa8; text-decoration: none; }
 #ojc-panel a:hover { color: #cbd5e0; text-decoration: underline; }

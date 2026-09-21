@@ -96,12 +96,13 @@
     const typeRaw = overview(/type of work/i);
     const hours = /^\d+$/.test(clean(hoursRaw)) ? Number(clean(hoursRaw)) : null;
     const partTime = /part[\s-]?time|gig/i.test(typeRaw || '');
+    const fullTime = /full[\s-]?time/i.test(typeRaw || '');
     const assumed = hours === null && !partTime;              // D28: only full-time/unstated may assume
     const basis = hours !== null ? hours : assumed ? salary.FULL_TIME_HOURS : null;
     const parsed = salary.parseSalary(posted, basis);
     const php = parsed ? salary.toPhp(parsed, rates) : null;
     const rate = parsed && !php ? salary.ratePhp(parsed, rates) : null;
-    return { posted, hours, hoursRaw, partTime, assumed, parsed, php, rate };
+    return { posted, hours, hoursRaw, partTime, fullTime, assumed, parsed, php, rate };
   }
 
   function renderBar(marks) {
@@ -138,12 +139,29 @@
                                      : 'no figure this extension can convert honestly'));
     }
 
+    // The goal line, judged exactly like the board (W13.4, spec.md D13): a **Full Time** posting goes
+    // against the MONTHLY goal, a **Part Time** or unstated one against the posted rate, and a
+    // month-only posting against the monthly goal because there is no rate to compare against.
+    // Neither goal is ever derived from the other — that would assume someone else's work week.
+    //
+    // The old rule here (a computable month exists → judge it monthly) contradicted the board: a
+    // part-time listing that quotes both a rate and its own HOURS PER WEEK was judged monthly on
+    // this page and hourly on the board, so one card could carry a green goal mark next to a red
+    // "below your monthly goal".
     const goalM = Number(settings.goalSalary) || 0, goalH = Number(settings.goalHourly) || 0;
-    const judgeMonthly = f.php && goalM > 0;
-    const judgeHourly = !f.php && f.rate && goalH > 0;
-    if (judgeMonthly || judgeHourly) {
+    // The board's `hourlyPhp`, word for word: a posted rate exists whenever the listing quotes one,
+    // even alongside a computed month.
+    const postedRate = f.parsed && (f.parsed.unit === 'hour' || f.parsed.unit === 'hour?')
+      ? salary.ratePhp(f.parsed, rates) : null;
+    // Stated HOURS PER WEEK makes the board's basis 'detail', which is never monthly: a posting that
+    // stated its hours and still quoted a rate is judged on the rate, because it chose to quote one.
+    const judgeMonthly = f.hours === null
+      ? (f.partTime ? false : (f.fullTime || !postedRate))
+      : !postedRate;
+    const judgeHourly = !judgeMonthly && postedRate;
+    if ((judgeMonthly && f.php && goalM > 0) || (judgeHourly && goalH > 0)) {
       const goal = judgeMonthly ? goalM : goalH;
-      const met = judgeMonthly ? salary.meetsGoal(f.php, goalM) : salary.meetsGoal(f.rate, goalH);
+      const met = judgeMonthly ? salary.meetsGoal(f.php, goalM) : salary.meetsGoal(postedRate, goalH);
       const unit = judgeMonthly ? '/mo' : '/hr';
       bar.appendChild(item(met ? 'ojc-bar-goal ojc-bar-met' : 'ojc-bar-goal',
         `${met ? '✔' : '✗'} your ₱${goal.toLocaleString('en-US')}${unit} goal`,

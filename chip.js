@@ -157,6 +157,8 @@
       row('pos', counts.pos, 'Highlighted', 'matches a keyword you like, and pays below your goal'),
       row('high', counts.high, 'High yield', 'pays at or above your goal — including the super green: a hide keyword matched, but you like more of its keywords than you hate, and the pay clears your goal by more than half again'),
       row('worth', counts.worth, 'Worth Considering', 'matches a hide keyword and still looks good, but is not clearly a keeper — the clearly-keeper ones count as super green under High yield'),
+      // A tag count, like Off-platform: fresh is a mark on high-yield cards, not a tier of its own.
+      counts.fresh ? row('fresh', counts.fresh, 'Fresh', 'high yield, posted in the last 24 hours — the competition window is still open') : null,
       // A TAG count, not a tier: these listings are graded exactly like any other one (the user's rule).
       counts.offPlat ? row('offplat', counts.offPlat, 'Off-platform', 'ask you to apply or contact outside OnlineJobs.ph — a tag on the card, not a filter: they are graded like any other listing') : null,
     ]);

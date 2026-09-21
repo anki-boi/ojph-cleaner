@@ -132,6 +132,11 @@
    227 scanned listings out of High yield): "it should just be a tag". */
 .ojc-flag-badge { background: rgba(224, 139, 74, .18); color: #8a4b12; }
 
+/* Fresh (0.12): a high-yield card posted within a day. A mark, like the off-platform tag — the verdict
+   is already decided; this says the window to claim it is open. The quiet blue-green, not a verdict colour. */
+.ojc-fresh { background: rgba(47, 106, 145, .16); color: #1f5e8a; }
+
+
 /* The change mark (W12, D35): this listing's tier moved since you last looked at it. Deliberately the
    quietest of the three badges — it is a note about history, not a verdict about the listing — and it
    sits at the LEFT, where nothing else is competing for the eye. */

@@ -102,7 +102,9 @@ two things in one run, and nothing until you press it:
 - **High yield** — **it pays at or above one of your goals**, and no keyword you asked to hide matched —
   or it is **super green**: a hide keyword matched, but it matches more positive keywords than negative
   ones and the pay is at least 50 % above your goal. Matching a keyword you like is a bonus badge, never
-  the reason: a listing you like the sound of that pays below your goal is *not* high yield.
+  the reason: a listing you like the sound of that pays below your goal is *not* high yield. A high-yield
+  card posted within the last 24 h also carries a `● fresh` mark (counted in the panel) — the competition
+  window is still open.
 - **Worth considering** — a hide keyword matched and the listing still looks good (it pays enough, or it
   matches a keyword you like), but it is not clearly a keeper — that is the line between it and the
   super green. These are the yellow cards, shown rather than hidden, and they badge both sides when

@@ -405,7 +405,7 @@ ${CLOSED_SRC}
   };
   const idOf = (c) => { const a = c.querySelector('a[href*="/job/"]'); return a ? OJClosed.jobIdFrom(a.getAttribute('href')) : null; };
   const tiers = { closed: 0, stale: 0, nosal: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0 };
-  let noDate = 0, noUtc = 0, negBadges = 0, posBadges = 0, flagBadges = 0, scanned = 0, overHours = 0;
+  let noDate = 0, noUtc = 0, negBadges = 0, posBadges = 0, flagBadges = 0, scanned = 0, overHours = 0, fresh = 0;
   for (const c of cards) {
     const text = ownText(c);
     const p = c.querySelector('p[data-temp]');
@@ -434,6 +434,8 @@ ${CLOSED_SRC}
       rescue, card, detail,
     });
     tiers[tier]++;
+    // Fresh mirrors content.js: high yield, posted within a day, on the SAME posted instant as the recency rule.
+    if (tier === 'high' && at != null && now - at < 24 * 3600 * 1000) fresh++;
     const nm = card.neg.length > 0 || !!(detail && detail.neg && detail.neg.length);
     const pm = card.pos.length > 0 || !!(detail && detail.pos && detail.pos.length);
     const flagged = !!(detail && (detail.flags || []).length);
@@ -447,7 +449,7 @@ ${CLOSED_SRC}
   }
   return JSON.stringify({ cards: cards.length, tiers,
     closedExpected: tiers.closed, staleExpected: tiers.stale, noSalExpected: tiers.nosal,
-    negExpected: tiers.kw, reconExpected: tiers.worth, highExpected: tiers.high, posTierExpected: tiers.pos,
+    negExpected: tiers.kw, reconExpected: tiers.worth, highExpected: tiers.high, posTierExpected: tiers.pos, freshExpected: fresh,
     flagTagExpected: flagBadges,
     posExpected: posBadges, negBadgeExpected: negBadges, flagBadgeExpected: flagBadges,
     hiddenExpected: tiers.closed + tiers.stale + tiers.nosal + tiers.kw,
@@ -490,6 +492,7 @@ const res = JSON.parse(await withTab(PORT, URL_, async (tab) => {
       flagBadges: document.querySelectorAll('.ojc-flag-badge').length,
       hoursBadges: document.querySelectorAll('.ojc-hours').length,
       hoursOver: document.querySelectorAll('.ojc-hours-over').length,
+      freshBadges: document.querySelectorAll('.jobpost-cat-box .ojc-fresh').length,
       tierBadges: document.querySelectorAll('.ojc-tier-badge').length,
       // The verdict the pass wrote on each card (data-ojc-tier) — the board's own claim, which the
       // recomputation above has to agree with bucket by bucket.
@@ -509,7 +512,7 @@ console.log(`  hidden  : ${res.hidden}   (expected by rule: ${res.hiddenExpected
 console.log(`  stale ${res.staleExpected} / no-salary ${res.noSalExpected} / keyword ${res.negExpected} → hidden, ` +
   `positive ${res.posExpected} → highlighted, ${res.reconExpected} → yellow (reconsider)` +
   `${res.closedExpected ? `, ${res.closedExpected} closed` : ''} · ` +
-  `${res.negBadges} ✗ badge(s)`);
+  `${res.negBadges} ✗ badge(s) · ${res.freshExpected} fresh (high yield, last 24 h)`);
 
 if (!res.chip) await fail('content script did not inject — check manifest permissions/host_permissions');
 
@@ -544,6 +547,10 @@ if (res.hidden !== res.invisible) {
   await fail(`${res.hidden} cards carry [hidden] but only ${res.invisible} are actually display:none — the site CSS is winning`);
 }
 if (res.negatives !== res.negExpected) await fail(`keyword hides ${res.negatives}, expected ${res.negExpected}`);
+if (res.freshBadges !== res.freshExpected) {
+  await fail(`${res.freshBadges} card(s) carry the ● fresh mark, expected ${res.freshExpected} — fresh is high yield ` +
+    `posted within 24 h, judged on the same instant as the recency rule`);
+}
 if (res.negBadges !== res.negBadgeExpected) {
   await fail(`${res.negBadges} card(s) carry the ✗ badge, expected ${res.negBadgeExpected} — every card a hide ` +
     `keyword matched must say which keyword matched, whichever bucket it landed in (hidden ${res.negExpected}, ` +

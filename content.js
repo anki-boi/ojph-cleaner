@@ -24,9 +24,9 @@
   };
   let settings = { ...DEFAULTS };
 
-  /** Which tier the board is showing: `all`, `high` or `worth` (W14, D32/D38). Session-only and per tab,
-   *  deliberately: a way of reading the board, not a preference — a persisted view would reopen every
-   *  search page filtered with no obvious way to notice why. */
+  // Which tier the board is showing (W14, D32/D38). Session-only, per tab, deliberately: a way of reading
+  // the board, not a preference — a persisted view would reopen every search page filtered, with no
+  // obvious way to notice why.
   let view = 'all';
 
   // ── Chip (bottom-right status panel) ─────────────────────────────────────
@@ -86,6 +86,7 @@
     box.appendChild(b);
   };
   const OFF_PLATFORM = 'this listing asks you to apply or contact outside OnlineJobs.ph';
+  const FRESH_MS = 24 * 3600 * 1000;   // the fresh mark: a high-yield card posted within a day (a constant, not a setting)
 
   /** One flex row per card for its badges, at the top-right. They used to be positioned individually at the
    *  same corner — fine while a card could carry one, then the off-platform tag (W14) made two overlap.
@@ -118,14 +119,15 @@
     // card, an IDB read only when something is genuinely missing.
     records?.hydrateNew?.();
     const closed = self.OJCClosed;
-    const counts = { closed: 0, stale: 0, noSal: 0, kw: 0, high: 0, pos: 0, worth: 0, offPlat: 0 };
+    const counts = { closed: 0, stale: 0, noSal: 0, kw: 0, high: 0, pos: 0, worth: 0, offPlat: 0, fresh: 0 };
     for (const c of cards()) {
       const { pos, neg } = tiers.cardFacts(ownText(c), settings, rules.matchKeywords);
       const detail = records?.detailFor(c) || null;
       const cardFacts = { pos, neg, goal: c.classList.contains('ojc-goal'), goalBy: c.dataset.goalBy !== undefined ? Number(c.dataset.goalBy) : null };
+      const at = postedAt(c);   // one read per card: the recency rule and the fresh mark judge the same instant
       const tier = tiers.decide({
         closed: closed?.isHeld(c),
-        stale: rules.isStale(postedAt(c), now, settings.maxAgeDays),
+        stale: rules.isStale(at, now, settings.maxAgeDays),
         noSalary: settings.noSalary && !rules.hasSalary(cardSalary(c)),
         rescue: settings.rescueNoSalary,
         card: cardFacts,
@@ -138,7 +140,7 @@
       // an attribute the site set is never removed.
       if (c.classList.contains('ojc-recon')) c.removeAttribute('title');
       c.classList.remove('ojc-neg', 'ojc-pos', 'ojc-recon', 'ojc-closed');
-      for (const b of c.querySelectorAll('.ojc-pos-badge, .ojc-neg-badge, .ojc-closed-badge, .ojc-tier-badge, .ojc-flag-badge')) b.remove();
+      for (const b of c.querySelectorAll('.ojc-pos-badge, .ojc-neg-badge, .ojc-closed-badge, .ojc-tier-badge, .ojc-flag-badge, .ojc-fresh')) b.remove();
 
       const flags = (detail && detail.flags) || [];
       // Everything the two texts matched, so the card lists ALL the keywords behind the verdict (the user's
@@ -160,7 +162,6 @@
         badge(box, 'ojc-flag-badge', '⚠ off-platform', OFF_PLATFORM + ' (' + flags.join(', ') + ')');
         counts.offPlat++;
       };
-
       if (tier === 'closed') {
         c.hidden = !settings.showHidden;
         closed.mark(c);
@@ -178,6 +179,9 @@
         if (allPos.length) { c.classList.add('ojc-pos'); badge(box, 'ojc-pos-badge', '✓ ' + allPos.join(', '), why(allPos)); }
         if (allNeg.length) badge(box, 'ojc-neg-badge', '✗ ' + allNeg.join(', '), why(allNeg));
         tagOff();
+        // Fresh: high yield posted within a day — the competition window is still open (a tag, like off-platform:
+        // it annotates the verdict, it never changes it).
+        if (at != null && now - at < FRESH_MS) { badge(box, 'ojc-fresh', '● fresh', 'posted in the last 24 hours — the competition window is open'); counts.fresh++; }
         counts.high++;
       } else if (tier === 'pos') {
         // A keyword you like on a listing that does NOT meet your goal: the green highlight this extension
@@ -224,14 +228,10 @@
     renderChip();
   }
 
-  /**
-   * Show a tier: set the view, re-run the pass, and BRING THE FIRST CARD OF THAT TIER INTO SIGHT.
-   *
-   * Without that last step the view looks broken. Measured live on a 298-card page: clicking High yield
-   * filtered in 237 ms, but the document shrank from 92 000 px to 19 000 px and the viewport — which the
-   * user had scrolled to the middle — ended up 18 000 px below the first high-yield card. The board was
-   * correct and showed nothing (the user's report: "it takes forever for the high yields to show").
-   */
+  // Show a tier: set the view, re-run the pass, and bring the FIRST CARD OF THAT TIER into sight. Measured
+  // live on a 298-card page: the filter took 237 ms, but the document shrank 92 000 px → 19 000 px and the
+  // viewport (the user had scrolled to the middle) ended up 18 000 px below the first high-yield card —
+  // the board was correct and showed nothing. The scroll is why the view does not look broken.
   function setView(next) {
     view = next;
     refreshRules();

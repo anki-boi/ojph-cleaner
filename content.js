@@ -24,24 +24,18 @@
   };
   let settings = { ...DEFAULTS };
 
-  /**
-   * Which tier the board is showing: `all`, `high` or `worth` (W14, D32/D38).
-   *
-   * Session-only and per tab, deliberately: it is a way of reading the board, not a preference, and a
-   * persisted view would reopen every search page filtered with no obvious way to notice why.
-   */
+  /** Which tier the board is showing: `all`, `high` or `worth` (W14, D32/D38). Session-only and per tab,
+   *  deliberately: a way of reading the board, not a preference — a persisted view would reopen every
+   *  search page filtered with no obvious way to notice why. */
   let view = 'all';
 
   // ── Chip (bottom-right status panel) ─────────────────────────────────────
   // The DOM for it lives in chip.js (this file holds the rule pass and the counts). Here: the counts and
   // the callbacks the panel's buttons call.
   let chipNote = '';
-  /**
-   * How many times the rule pass has run. Written onto the chip as `data-ojc-pass` — an attribute, so the
-   * observer never sees it (it only watches children and text), and the live harness can count PASSES rather
-   * than guessing from mutation records. It had to count mutations before, which made the bound
-   * unreadable: a pass rewrites a dozen rows, so "65 mutations" was five passes or one.
-   */
+  /** How many times the rule pass has run, written on the chip as `data-ojc-pass` — an attribute, so the
+   *  observer never sees it (it only watches children and text) and the live harness can count PASSES rather
+   *  than guessing from mutation records (one pass rewrites a dozen rows, so "65 mutations" was five passes or one). */
   let passNo = 0;
   const setNote = (text) => { chipNote = text; renderChip(); };  let chipCounts = { closed: 0, stale: 0, noSal: 0, kw: 0, high: 0, worth: 0, flag: 0 };
   function renderChip() {
@@ -93,14 +87,9 @@
   };
   const OFF_PLATFORM = 'this listing asks you to apply or contact outside OnlineJobs.ph';
 
-  /**
-   * One flex row per card for its badges, at the top-right.
-   *
-   * They used to be absolutely positioned individually at the same corner, which was fine while a card could
-   * only carry one — then the off-platform tag became a tag (W14) and a card had two, landing on top of each
-   * other. The row is reused across passes (the pass empties it, it does not rebuild it) and is namespaced,
-   * so `ownText()` strips it and `isOurs()` recognises it.
-   */
+  /** One flex row per card for its badges, at the top-right. They used to be positioned individually at the
+   *  same corner — fine while a card could carry one, then the off-platform tag (W14) made two overlap.
+   *  Reused across passes (emptied, not rebuilt) and namespaced, so `ownText()` strips it, `isOurs()` sees it. */
   const badgeBox = (card) => {
     let box = card.querySelector('.ojc-badges');
     if (!box) {
@@ -118,6 +107,7 @@
   const cardFactsOf = (c) => ({
     ...tiers.cardFacts(ownText(c), settings, rules.matchKeywords),
     goal: c.classList.contains('ojc-goal'),
+    goalBy: c.dataset.goalBy !== undefined ? Number(c.dataset.goalBy) : null,
   });
 
   function refreshRules() {
@@ -132,7 +122,7 @@
     for (const c of cards()) {
       const { pos, neg } = tiers.cardFacts(ownText(c), settings, rules.matchKeywords);
       const detail = records?.detailFor(c) || null;
-      const cardFacts = { pos, neg, goal: c.classList.contains('ojc-goal') };
+      const cardFacts = { pos, neg, goal: c.classList.contains('ojc-goal'), goalBy: c.dataset.goalBy !== undefined ? Number(c.dataset.goalBy) : null };
       const tier = tiers.decide({
         closed: closed?.isHeld(c),
         stale: rules.isStale(postedAt(c), now, settings.maxAgeDays),
@@ -182,9 +172,11 @@
         c.hidden = !settings.showHidden;
         counts.noSal++;
       } else if (tier === 'high') {
-        // HIGH YIELD = passing salary (the user's rule). A positive keyword is a bonus badge, never the reason.
+        // HIGH YIELD = passing salary (the user's rule). A positive keyword is a bonus badge, never the reason;
+        // a super-green card carries a hide keyword too, and the user sees BOTH sides to re-evaluate.
         c.hidden = false;                       // never hidden: a listing that pays enough is never taken away
         if (allPos.length) { c.classList.add('ojc-pos'); badge(box, 'ojc-pos-badge', '✓ ' + allPos.join(', '), why(allPos)); }
+        if (allNeg.length) badge(box, 'ojc-neg-badge', '✗ ' + allNeg.join(', '), why(allNeg));
         tagOff();
         counts.high++;
       } else if (tier === 'pos') {
@@ -200,6 +192,9 @@
         c.hidden = false;
         c.classList.add('ojc-recon');
         if (allNeg.length) badge(box, 'ojc-neg-badge', '✗ ' + allNeg.join(', '), why(allNeg));
+        // Both sides, both badges: a yellow card that also matched a keyword you like shows it — the user
+        // re-evaluates the trade-off rather than trusting the colour alone.
+        if (allPos.length) badge(box, 'ojc-pos-badge', '✓ ' + allPos.join(', '), why(allPos));
         tagOff();
         c.title = 'Shown because it ' +
           (allPos.length ? `matches "${allPos.join(', ')}"` : 'pays at or above your goal') +

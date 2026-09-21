@@ -425,7 +425,8 @@ ${CLOSED_SRC}
       : (rec && rec.detail && rec.sk === sk ? rec.detail : null);
     if (rec) scanned++;
     if (rec && rec.fields && Number(rec.fields.hoursPerWeek) > 40) overHours++;
-    const card = { ...OJCTiers.cardFacts(text, settings, OJRules.matchKeywords), goal: c.classList.contains('ojc-goal') };
+    const card = { ...OJCTiers.cardFacts(text, settings, OJRules.matchKeywords), goal: c.classList.contains('ojc-goal'),
+      goalBy: c.dataset.goalBy !== undefined ? Number(c.dataset.goalBy) : null };
     const tier = OJCTiers.decide({
       closed: !!(id && closedIds.has(String(id))),
       stale: OJRules.isStale(at, now, maxAgeDays),
@@ -436,11 +437,11 @@ ${CLOSED_SRC}
     const nm = card.neg.length > 0 || !!(detail && detail.neg && detail.neg.length);
     const pm = card.pos.length > 0 || !!(detail && detail.pos && detail.pos.length);
     const flagged = !!(detail && (detail.flags || []).length);
-    // One badge per KIND, mirroring content.js: a ✓ only on High yield, a ✗ on every card a hide keyword
-    // matched (worth and kw), a ⚠ on anything off-platform that is still on screen.
+    // One badge per KIND, mirroring content.js: a ✓ on High yield and Highlighted, a ✗ on every card a
+    // hide keyword matched (high via the super-green rule, worth and kw), a ⚠ on anything off-platform.
     // The ✓ badge goes on High yield AND on Highlighted: a keyword you like is badged wherever it lands.
-    if ((tier === 'high' || tier === 'pos') && pm) posBadges++;
-    if ((tier === 'kw' || tier === 'worth') && nm) negBadges++;
+    if ((tier === 'high' || tier === 'pos' || tier === 'worth') && pm) posBadges++;   // worth badges both sides now
+    if ((tier === 'high' || tier === 'worth' || tier === 'kw') && nm) negBadges++;
     // The off-platform tag goes on EVERY card that carries one, whatever its tier — it is a tag, not a verdict.
     if (['high', 'worth', 'kw', 'none'].includes(tier) && flagged) flagBadges++;
   }
@@ -643,7 +644,9 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
         hidden: document.querySelectorAll('.jobpost-cat-box.latest-job-post[hidden]').length,
         neg: document.querySelectorAll('.jobpost-cat-box.ojc-neg').length,
         recon: document.querySelectorAll('.jobpost-cat-box.ojc-recon').length,
-        pos: document.querySelectorAll('.ojc-pos-badge').length })`;
+        pos: document.querySelectorAll('.ojc-pos-badge').length,
+        both: [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')]
+          .filter(c => c.querySelector('.ojc-pos-badge') && c.querySelector('.ojc-neg-badge')).length })`;
       let counts, dom;
       for (let i = 0; i < 40; i++) {
         counts = JSON.parse(await ruleEval(tab, { neg: next.negative, pos: next.positive, maxAgeDays: 0, closedIds, records }));
@@ -661,7 +664,15 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
     const hide = await measure({ negative: ['the'], positive: [], goalSalary: 0, goalHourly: 0 });
     const show = await measure({ negative: [], positive: ['the'], goalSalary: 0, goalHourly: 0 });
     const yellow = await measure({ negative: ['the'], positive: [], goalSalary: 1, goalHourly: 1 });
+    // Super green: the same hide keyword, but now TWO positive words against it, and a ₱1 goal that no
+    // figure fails — so every card that carries both words has more positives than negatives, pays ≥ 150 %
+    // of the goal, and must move out of yellow into High yield. (Probe words: 'the' and 'a' are prose,
+    // so the branch is reachable on any board.)
+    const superGreen = await measure({ negative: ['the'], positive: ['the', 'a'], goalSalary: 1, goalHourly: 1 });
 
+    // The seam seeds its OWN settings: the super-green probe left positive keywords in place, and under
+    // those the fresh card is correctly super green — this test is about the yellow state, not that one.
+    await storeEval(`chrome.storage.local.set({ settings: { ...${JSON.stringify(settings)}, negative: ['the'], positive: [], goalSalary: 1, goalHourly: 1, maxAgeDays: 0 } }).then(()=>1)`, 300);
     // The goal-mark seam, which is the one defect this feature had that nothing else caught: a listing
     // that is good only because it pays well is decided by a mark that arrives a pass AFTER the rule
     // pass, so without a re-run it stays hidden. A stray mutation on a live page re-runs the pass for
@@ -693,13 +704,15 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
       }
       await tab.evaluate(`window.__ojcArrival.remove()`);
     }
-    return JSON.stringify({ hide, show, yellow, arrival });
+    return JSON.stringify({ hide, show, yellow, superGreen, arrival });
   }, 500));
 
   const branches = [
     ['negative keyword hides', r.hide, r.hide.counts.negExpected > 0],
     ['positive keyword highlights', r.show, r.show.counts.posExpected > 0],
     ['a hide keyword on a good listing turns yellow instead', r.yellow, r.yellow.counts.reconExpected > 0],
+    ['super green: more positives than negatives, pay ≥ 150 % of the goal → high yield',
+      r.superGreen, r.superGreen.counts.highExpected > r.yellow.counts.highExpected],
   ];
   for (const [name, m, reachable] of branches) {
     if (!reachable) {
@@ -717,7 +730,10 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
       `the reconsider state never applies to a listing that is good only because it pays well`);
   }
   console.log(`branches  : keyword hides ${r.hide.dom.hidden}, highlights ${r.show.dom.pos}, ` +
-    `yellow ${r.yellow.dom.recon} — each branch had to fire`);
+    `yellow ${r.yellow.dom.recon}, super green ${r.superGreen.counts.highExpected - r.yellow.counts.highExpected} card(s) out of yellow — each branch had to fire`);
+  if (r.superGreen.counts.highExpected > r.yellow.counts.highExpected && r.superGreen.dom.both === 0) {
+    await fail('a card matched keywords on both sides but shows only one badge — the user must see both');
+  }
   if (r.arrival.inserted) console.log(`seam      : a fresh good-pay negative match → ` +
     `${r.arrival.recon ? 'yellow' : 'NOT yellow'}, goal mark ${r.arrival.goal}, hidden ${r.arrival.hidden}`);
   // Put the run's own seeds back: everything below asserts against the caller's configuration, not this

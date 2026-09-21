@@ -56,12 +56,19 @@ high-yield either — only pay does that (see *High yield* below).
 **A keyword you hate, on a job you'd want, gets a yellow outline instead of disappearing.** If a
 listing matches a negative keyword *and* either matches a positive keyword or pays at or above one of
 your goals, it stays on the page in yellow — the one state where a listing is shown *because* it is
-suspicious, so you can reconsider it without turning the whole filter off. Nothing else changes about
-it: the salary figure, the posted date and the listing itself are the site's.
+suspicious, so you can reconsider it without turning the whole filter off. The exception is the
+**super green**: if the listing matches *more positive keywords than negative ones* and the pay
+clears your goal by more than half again (50 % or more above it), it is High yield, not yellow —
+yellow is for the keepers you are not sure about, not the ones you are. (That name is deliberate:
+it is our tier decision, and has nothing to do with the site's own promoted or featured listings,
+which are judged exactly like every other card.) Nothing else changes about a yellow card: the
+salary figure, the posted date and the listing itself are the site's.
 
 **Both badges name the keyword.** A green `✓ keyword` badge sits top-right on a highlighted card, and a
 red `✗ keyword` badge sits in the same place on every card a negative keyword matched — the yellow ones,
-and the hidden ones when you turn *Show all* on. So nothing on the page is marked without saying why.
+and the hidden ones when you turn *Show all* on. **When a listing matches keywords on both sides, it
+carries both badges** — green and red side by side — so you see the whole trade-off and re-evaluate it
+yourself instead of trusting the colour alone. So nothing on the page is marked without saying why.
 
 The panel in the bottom-right corner says what it did, in two groups: the **Hidden** total with a line per
 reason, then **Stats** — how many listings matched a keyword you asked to hide, how many you highlighted,
@@ -92,11 +99,14 @@ two things in one run, and nothing until you press it:
 **Two tiers, and a button for each.** Once listings have been read, the panel shows `High yield N` and
 `Worth N`:
 
-- **High yield** — **it pays at or above one of your goals**, and no keyword you asked to hide matched.
-  Matching a keyword you like is a bonus badge, never the reason: a listing you like the sound of that pays
-  below your goal is *not* high yield.
-- **Worth considering** — a hide keyword matched, but the listing still looks good (it pays enough, or it
-  matches a keyword you like). These are the yellow cards, shown rather than hidden.
+- **High yield** — **it pays at or above one of your goals**, and no keyword you asked to hide matched —
+  or it is **super green**: a hide keyword matched, but it matches more positive keywords than negative
+  ones and the pay is at least 50 % above your goal. Matching a keyword you like is a bonus badge, never
+  the reason: a listing you like the sound of that pays below your goal is *not* high yield.
+- **Worth considering** — a hide keyword matched and the listing still looks good (it pays enough, or it
+  matches a keyword you like), but it is not clearly a keeper — that is the line between it and the
+  super green. These are the yellow cards, shown rather than hidden, and they badge both sides when
+  both matched.
 - **Highlighted** — a keyword you like on a listing that pays below your goal: the green outline and `✓`
   badge, exactly as before. Visible, never hidden, and deliberately not counted as high yield.
 

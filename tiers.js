@@ -52,7 +52,10 @@
    *
    *   `high`  — the listing meets one of your salary goals, and no keyword you asked to hide matched.
    *             Positive keywords are a bonus: they are badged, and they do not change the tier.
-   *   `worth` — it looks good (a goal met, or a keyword you like) *and* a hide keyword matched.
+   *             A yellow card that is unambiguously a keeper (the super green case, see the table above)
+   *             so high can carry a hide keyword — that is why such a card badges both sides.
+   *   `worth` — it looks good (a goal met, or a keyword you like) *and* a hide keyword matched, and it is
+   *             not the super-green case above.
    *
    * A keyword you like on a listing that pays below your goal is neither: it is `pos` — the green highlight
    * this extension has always drawn, with its `✓ kw` badge, and emphatically not a high-yield listing. It is
@@ -63,18 +66,34 @@
    * `detail.warns`, shown as tags on the card. The user: "the off-platform application thing should just be
    * a tag, not a red gate as part of the filter". A tag informs; a gate decides.
    */
+  /** How far the listing clears the goal that judges it, as a fraction: 0.5 means "50 % above your goal".
+   *  `null` when there is no mark and no margin to read — and `null` never promotes, because a margin
+   *  that cannot be proven is not one. */
+  const goalBy = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
   function decide({ closed, stale, noSalary, rescue, card, detail } = {}) {
     const c = card || {};
-    const pos = has(c.pos) || (detail && has(detail.pos));
-    const neg = has(c.neg) || (detail && has(detail.neg));
+    // The card's text and the description are the same keyword vocabulary, so the counts merge — the
+    // same union the badges show. A keyword matched on both sides counts once.
+    const posN = new Set([...(c.pos || []), ...((detail || {}).pos || [])]).size;
+    const negN = new Set([...(c.neg || []), ...((detail || {}).neg || [])]).size;
+    const pos = posN > 0;
+    const neg = negN > 0;
     const money = !!c.goal;      // the goal mark salary-cards.js puts on a listing at or above your goal
+    const by = goalBy(c.goalBy); // how far above, 0.5 = 50 % over — null when unprovable
     const good = money || pos;   // what the reconsider state and W10's rescue have always meant by "looks good"
 
     if (closed) return 'closed';
     if (stale) return 'stale';
     if (noSalary && !(rescue && good)) return 'nosal';
     if (money && !neg) return 'high';
-    if (good && neg) return 'worth';
+    if (good && neg) {
+      // Super green: it would be yellow, but it is unambiguously a keeper — more keywords you like than
+      // you hate, and the pay clears your goal by more than half again. The user: "significantly more
+      // positive keywords than negative (+ salary significantly higher) → high yield, not yellow".
+      if (money && by >= 0.5 && posN > negN) return 'high';
+      return 'worth';
+    }
     if (pos) return 'pos';       // highlighted, never hidden, and not a high-yield listing
     if (neg) return 'kw';
     return 'none';

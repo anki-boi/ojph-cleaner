@@ -50,6 +50,30 @@ assert.strictEqual(d({ card: card({ neg: ['crypto'] }), detail: det({ pos: ['qui
 // A goal-only card stays good, so a description negative demotes it rather than hiding it.
 assert.strictEqual(d({ card: card({ goal: true }), detail: det({ neg: ['crypto'] }) }), 'worth');
 
+// ── SUPER GREEN: yellow → high yield, but only when it is unambiguous ──────────
+// The user's rule: significantly more positive keywords than negative (+ salary significantly
+// higher than the goal) → high yield, not yellow. Pinned as: strictly more distinct positives, and
+// the margin over the goal ≥ 50 %. Every branch of both conditions:
+assert.strictEqual(d({ card: card({ goal: true, goalBy: 0.5, pos: ['a', 'b'], neg: ['x'] }) }), 'high',
+  'two positives against one, exactly 50 % above the goal');
+assert.strictEqual(d({ card: card({ goal: true, goalBy: 1.2, pos: ['a'], neg: ['x', 'y'] }) }), 'worth',
+  'fewer positives than negatives, whatever the pay');
+assert.strictEqual(d({ card: card({ goal: true, goalBy: 0.4, pos: ['a', 'b'], neg: ['x'] }) }), 'worth',
+  '40 % above the goal is not 50 %');
+assert.strictEqual(d({ card: card({ goal: true, goalBy: 0.5, pos: ['a'], neg: ['x'] }) }), 'worth',
+  'equal counts do not promote');
+assert.strictEqual(d({ card: card({ goal: true, pos: ['a', 'b'], neg: ['x'] }) }), 'worth',
+  'no readable margin → no promotion (a margin that cannot be proven is not one)');
+assert.strictEqual(d({ card: card({ goal: true, goalBy: 0.5, neg: ['x'] }) }), 'worth',
+  'zero positives can never outnumber');
+assert.strictEqual(d({ card: card({ pos: ['a', 'b'], neg: ['x'] }) }), 'worth',
+  'more positives but the salary bar is not cleared');
+// The counts merge card and description, and a keyword matched on both sides counts once.
+assert.strictEqual(d({ card: card({ goal: true, goalBy: 0.5, neg: ['x'] }), detail: det({ pos: ['a', 'b'] }) }), 'high',
+  'description positives alone can tip the count');
+assert.strictEqual(d({ card: card({ goal: true, goalBy: 0.5, pos: ['a', 'b'], neg: ['x', 'y'] }), detail: det({ pos: ['a'] }) }), 'worth',
+  'the shared keyword counts once, so 2 vs 2 is not more');
+
 // ── THE DEMOTIONS ────────────────────────────────────────────────────────
 // Green → yellow: a hide keyword the card text did not carry. That is the ONLY demotion there is.
 assert.strictEqual(d({ card: card({ pos: ['ai'] }), detail: det({ neg: ['crypto'] }) }), 'worth');

@@ -16,8 +16,11 @@ the three open feature doors — the CSV export of the job memory, the tier mark
 table, and copy/paste for the two keyword lists — and closes the defects the audit left measured:
 the FX path now rejects non-finite rates and the fresh-rate rows no longer reach the rate map as
 objects (measured live as a board-wide `₱NaN`), the detail bar's D13 contradiction is gone, and the
-paginate retry is bounded. D2 (distribution) is still open; D3 was answered by construction
-(IndexedDB, as planned) and D4/D5 closed with W13.
+paginate retry is bounded. 0.11.0 adds the **super green** verdict: a yellow card that matches more
+positive keywords than negative ones and pays at least 50 % above the goal is High yield, and any
+card that matched keywords on both sides carries both badges so the trade-off is visible. D2
+(distribution) is still open; D3 was answered by construction (IndexedDB, as planned) and D4/D5
+closed with W13.
 
 ---
 

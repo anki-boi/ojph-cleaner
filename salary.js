@@ -16,9 +16,9 @@
  * no numbers, and a currency whose live rate is unknown yields no converted figure at all (no rate is
  * ever cached past 24h — a stale ₱ number is a wrong number).
  *
- * Part 1 (below) is pure and unit-tested by test-salary.js. Part 2 is the loader: it fetches the ECB
- * reference rate, annotates each card next to the site's own text, and marks listings at or above the
- * user's monthly goal.
+ * Pure, and unit-tested by test-salary.js. The loader — the live ECB rate, the card annotations, the
+ * goal marks — lives in salary-cards.js, the split this repo applies to every feature: the maths
+ * stays testable in node, and the DOM stays out of it.
  */
 (function (root, factory) {
   if (typeof module !== 'undefined' && module.exports) module.exports = factory();
@@ -204,6 +204,27 @@
   /** Above-goal is judged on the LOW end of the range: a "maybe" must not count as a yes. */
   const meetsGoal = (php, goalPhp) => !!php && goalPhp > 0 && php.min >= goalPhp;
 
-  return { parseSalary, toPhp, ratePhp, formatNote, formatRate, meetsGoal, hoursPerWeekFrom,
+  /**
+   * Which cached FX rates are still alive, against the two clocks the loader uses: a rate is servable
+   * until it is `ttlMs` old (the 24-hour TTL — the split is exactly AT the TTL, not just below it), and a
+   * failed currency is not retried again until `retryMs` has passed (so a currency that failed this
+   * morning still shows nothing rather than hammering a dead endpoint all day). `store` is the
+   * on-disk shape `{ rates: {CUR: {rate, date, at}}, failed: {CUR: at} }`. Clock-injected, so the
+   * boundary is testable: this is what a long-lived tab asks before trusting its in-memory copy.
+   */
+  function pickFresh(store, wanted, now, ttlMs, retryMs) {
+    store = store || {};
+    const fresh = {};
+    const needed = [];
+    for (const cur of wanted || []) {
+      const hit = store.rates?.[cur];
+      if (hit && hit.rate != null && now - hit.at <= ttlMs) { fresh[cur] = { rate: hit.rate, date: hit.date }; continue; }
+      if (store.failed?.[cur] != null && now - store.failed[cur] < retryMs) continue;  // just failed: no figure, no retry
+      needed.push(cur);
+    }
+    return { fresh, needed };
+  }
+
+  return { parseSalary, toPhp, ratePhp, formatNote, formatRate, meetsGoal, hoursPerWeekFrom, pickFresh,
            WEEKS_PER_MONTH, FULL_TIME_HOURS };
 });

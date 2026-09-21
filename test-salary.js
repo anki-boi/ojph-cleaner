@@ -9,7 +9,7 @@
 // fallback exists for unstated hours — not 40, and not 20 for "Part Time", which states no number at all.
 const assert = require('assert');
 const {
-  parseSalary, toPhp, ratePhp, formatNote, formatRate, meetsGoal, hoursPerWeekFrom,
+  parseSalary, toPhp, ratePhp, formatNote, formatRate, meetsGoal, hoursPerWeekFrom, pickFresh,
 } = require('./salary.js');
 
 /** [min, max, currency] of the monthly figure, or [null, null, null] when no month is claimed. */
@@ -158,6 +158,32 @@ assert.strictEqual(meetsGoal({ min: 40000, max: 45000 }, 40000), true, 'min at g
 assert.strictEqual(meetsGoal({ min: 30000, max: 90000 }, 40000), false, 'a maybe is not a yes');
 assert.strictEqual(meetsGoal({ min: 90000, max: 90000 }, 0), false, 'goal 0 = feature off');
 assert.strictEqual(meetsGoal(null, 40000), false, 'no monthly figure → nothing to compare');
+
+// ── pickFresh: which cached FX rates are still alive (long-lived tabs, 2026-09-21) ──
+// A tab left open past the 24-hour TTL must not keep converting with a dead rate: the split between
+// servable and stale is exactly at the TTL, and a failed currency is not retried inside its window.
+{
+  const TTL = 86400000, RETRY = 3600000, now = 1000000000000;
+  const store = {
+    rates: {
+      USD: { rate: 58.1, date: '2026-09-20', at: now - (TTL - 1000) },  // inside the TTL
+      EUR: { rate: 61.2, date: '2026-09-19', at: now - TTL },          // exactly at the TTL boundary
+      JPY: { rate: 0.37, date: '2026-09-18', at: now - (TTL + 1000) }, // one ms past it
+    },
+    failed: { GBP: now - 60000 },  // failed a minute ago: inside the retry window
+  };
+  const p = pickFresh(store, ['USD', 'EUR', 'JPY', 'GBP', 'CAD'], now, TTL, RETRY);
+  assert.deepStrictEqual(p.fresh.USD, { rate: 58.1, date: '2026-09-20' }, 'a live rate is kept');
+  assert.deepStrictEqual(p.fresh.EUR, { rate: 61.2, date: '2026-09-19' }, 'a rate exactly at the TTL is still servable');
+  assert.ok(!('JPY' in p.fresh), 'one ms past the 24-hour TTL is stale');
+  assert.ok(!('GBP' in p.fresh), 'a failed currency has no rate');
+  assert.deepStrictEqual(p.needed, ['JPY', 'CAD'], 'stale and unknown go back to the network');
+  assert.ok(!p.needed.includes('GBP'), 'a currency that just failed is not retried inside its window');
+  const p2 = pickFresh(store, ['GBP'], now + RETRY, TTL, RETRY);
+  assert.deepStrictEqual(p2.needed, ['GBP'], 'after the retry window the failed currency is tried again');
+  assert.deepStrictEqual(pickFresh(null, ['AUD'], now, TTL, RETRY), { fresh: {}, needed: ['AUD'] },
+    'no store at all is an empty cache, not an error');
+}
 
 // ── the thousands comma, however the poster grouped it (live bug, 2026-09-19) ──
 // A LIVE listing wrote `35,0000 - 40,0000` — a mis-typed 350 000. Reading the 4-digit group as decimals made

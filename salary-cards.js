@@ -10,27 +10,27 @@
   if (typeof chrome === 'undefined' || !chrome.storage) return; // node: nothing to do
   const api = self.OJC;
   if (!api) return;
-  const { parseSalary, toPhp, ratePhp, formatNote, formatRate, meetsGoal, hoursPerWeekFrom } = self.OJCSalary;
+  const { parseSalary, toPhp, ratePhp, formatNote, formatRate, meetsGoal, hoursPerWeekFrom, pickFresh } = self.OJCSalary;
 
   const FX_URL = 'https://api.frankfurter.dev/v2/rates'; // ECB reference rates (v1 is deprecated)
   const FX_TTL_MS = 24 * 3600 * 1000;   // the server refreshes daily; older than this is not used
   const FX_RETRY_MS = 3600 * 1000;      // after a failure, wait before asking again
 
-  let running = false, pending = false, rates = null, fxDate = null;
+  let running = false, pending = false, rates = null, ratesAt = 0, fxDate = null;
 
   /** Live rates, cached in chrome.storage.local. Never stale, never approximated. */
   async function loadRates(currencies) {
     const want = [...new Set(currencies)].filter(c => c && c !== 'PHP');
     if (!want.length) return {};
-    if (rates) return rates;
+    // The in-memory copy is valid only while IT is inside the TTL. A bare `if (rates) return rates`
+    // served a dead rate to every tab left open past the 24-hour mark — the module's own contract is
+    // "no rate is ever cached past 24h", and a long-lived search tab broke it silently.
+    if (rates && Date.now() - ratesAt <= FX_TTL_MS && want.every(c => c in rates)) return rates;
     const store = (await chrome.storage.local.get('fx')).fx || { rates: {}, failed: {} };
     const now = Date.now();
-    const out = {}, needed = [];
-    for (const cur of want) {
-      const hit = store.rates[cur];
-      if (hit && now - hit.at <= FX_TTL_MS) { out[cur] = hit.rate; fxDate = hit.date; }
-      else if (!(store.failed[cur] && now - store.failed[cur] < FX_RETRY_MS)) needed.push(cur);
-    }
+    const { fresh, needed } = pickFresh(store, want, now, FX_TTL_MS, FX_RETRY_MS);
+    const out = { ...fresh };
+    for (const cur of Object.keys(fresh)) fxDate = fresh[cur].date || fxDate;
     for (const cur of needed) {
       try {
         const res = await fetch(`${FX_URL}?base=${encodeURIComponent(cur)}&quotes=PHP`);
@@ -48,6 +48,7 @@
     }
     if (needed.length) await chrome.storage.local.set({ fx: store });
     rates = out;
+    ratesAt = now;
     return out;
   }
 

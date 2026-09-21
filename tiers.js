@@ -71,7 +71,7 @@
    *  that cannot be proven is not one. */
   const goalBy = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
-  function decide({ closed, stale, noSalary, rescue, card, detail } = {}) {
+  function decide({ closed, stale, noSalary, rescue, card, detail, negotiable = false, rescueNeg = false } = {}) {
     const c = card || {};
     // The card's text and the description are the same keyword vocabulary, so the counts merge — the
     // same union the badges show. A keyword matched on both sides counts once.
@@ -85,7 +85,10 @@
 
     if (closed) return 'closed';
     if (stale) return 'stale';
-    if (noSalary && !(rescue && good)) return 'nosal';
+    // The no-salary hide, with two opt-in rescues that both need `good`: the plain rescue (W10), and the
+    // negotiable one (0.12) — a listing that says its pay is negotiable and otherwise looks good stays on
+    // the board with a ⚠ negotiable tag, instead of hiding.
+    if (noSalary && !(good && (rescue || (negotiable && rescueNeg)))) return 'nosal';
     if (money && !neg) return 'high';
     if (good && neg) {
       // Super green: it would be yellow, but it is unambiguously a keeper — more keywords you like than

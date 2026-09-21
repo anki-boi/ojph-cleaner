@@ -13,6 +13,7 @@
     positive: [],    // keyword list → highlight only (exact word/phrase, case-insensitive)
     noSalary: true,  // hide cards whose salary text has no digit
     rescueNoSalary: false, // W10: but show one that matches a keyword you like, or beats a goal (opt-in)
+    rescueNegotiable: false, // 0.12: but show a "Negotiable"/"DOE" listing that matches a keyword you like (opt-in)
     showHidden: false,
     autoScan: false, // W13: run the scan when a list page loads. Off by default — nothing runs unprompted.
     scanWorth: true, // W13: after High yield, continue into the Worth considering cards
@@ -30,12 +31,10 @@
   let view = 'all';
 
   // ── Chip (bottom-right status panel) ─────────────────────────────────────
-  // The DOM for it lives in chip.js (this file holds the rule pass and the counts). Here: the counts and
-  // the callbacks the panel's buttons call.
+  // The DOM lives in chip.js; this file holds the counts and the callbacks the panel's buttons call.
   let chipNote = '';
   /** How many times the rule pass has run, written on the chip as `data-ojc-pass` — an attribute, so the
-   *  observer never sees it (it only watches children and text) and the live harness can count PASSES rather
-   *  than guessing from mutation records (one pass rewrites a dozen rows, so "65 mutations" was five passes or one). */
+   *  observer never sees it, and the live harness can count PASSES instead of guessing from mutations. */
   let passNo = 0;
   const setNote = (text) => { chipNote = text; renderChip(); };  let chipCounts = { closed: 0, stale: 0, noSal: 0, kw: 0, high: 0, worth: 0, flag: 0 };
   function renderChip() {
@@ -86,9 +85,8 @@
   const OFF_PLATFORM = 'this listing asks you to apply or contact outside OnlineJobs.ph';
   const FRESH_MS = 24 * 3600 * 1000;   // the fresh mark: a high-yield card posted within a day (a constant, not a setting)
 
-  /** One flex row per card for its badges, at the top-right. They used to be positioned individually at the
-   *  same corner — fine while a card could carry one, then the off-platform tag (W14) made two overlap.
-   *  Reused across passes (emptied, not rebuilt) and namespaced, so `ownText()` strips it, `isOurs()` sees it. */
+  /** One flex row per card for its badges, at the top-right (individual positioning broke when two were
+   *  allowed). Reused across passes — emptied, not rebuilt — and namespaced, so `ownText()` strips it. */
   const badgeBox = (card) => {
     let box = card.querySelector('.ojc-badges');
     if (!box) {
@@ -99,9 +97,8 @@
     return box;
   };
 
-  /** The verdict per card, for the scan's priority order and the live harness — the same fact in the DOM
-   *  (data attribute), where a human and tools/verify-live.mjs can read it. (`dataset.why` had four
-   *  writes and no readers, so it was deleted in W2; this one has both.) */
+  /** The verdict per card — the scan's priority order and the live harness read the same fact in the DOM
+   *  (a data attribute; `dataset.why` had four writes and no readers, so it was deleted in W2). */
   const tierMap = new WeakMap();
   const cardFactsOf = (c) => ({
     ...tiers.cardFacts(ownText(c), settings, rules.matchKeywords),
@@ -113,8 +110,8 @@
     if (!LIST_RE.test(location.pathname)) return;
     const now = Date.now();   // one instant for the whole pass, so two cards cannot disagree
     const records = self.OJCRecordsUI;
-    // Read the cache for cards that appeared after boot (the site's list can render late): one Set lookup per
-    // card, an IDB read only when something is genuinely missing.
+    // The site's list can render late, so read the cache for new cards: one Set lookup per card, an IDB
+    // read only when something is genuinely missing.
     records?.hydrateNew?.();
     const closed = self.OJCClosed;
     const counts = { closed: 0, stale: 0, noSal: 0, kw: 0, high: 0, pos: 0, worth: 0, offPlat: 0, fresh: 0, dup: 0 };
@@ -126,11 +123,14 @@
       const detail = records?.detailFor(c) || null;
       const cardFacts = { pos, neg, goal: c.classList.contains('ojc-goal'), goalBy: c.dataset.goalBy !== undefined ? Number(c.dataset.goalBy) : null };
       const at = postedAt(c);   // one read per card: the recency rule and the fresh mark judge the same instant
+      const salText = cardSalary(c);   // one read per card: the no-salary rule and the negotiable rescue read it
       const tier = tiers.decide({
         closed: closed?.isHeld(c),
         stale: rules.isStale(at, now, settings.maxAgeDays),
-        noSalary: settings.noSalary && !rules.hasSalary(cardSalary(c)),
+        noSalary: settings.noSalary && !rules.hasSalary(salText),
         rescue: settings.rescueNoSalary,
+        negotiable: rules.isNegotiable(salText),
+        rescueNeg: settings.rescueNegotiable,
         card: cardFacts,
         detail,
       });
@@ -144,11 +144,9 @@
       for (const b of c.querySelectorAll('.ojc-pos-badge, .ojc-neg-badge, .ojc-closed-badge, .ojc-tier-badge, .ojc-flag-badge, .ojc-fresh, .ojc-dup')) b.remove();
 
       const flags = (detail && detail.flags) || [];
-      // Everything the two texts matched, so the card lists ALL the keywords behind the verdict (the user's
-      // ask: "all matched keywords … should show on the list of jobs after the deeper scan"). The keyword
-      // lists are one vocabulary — the card's own text and the description's are the same matcher — so they
-      // merge; where a keyword came ONLY from the description, the badge's tooltip says so rather than
-      // inventing a second badge style.
+      // Everything the two texts matched, so the card lists ALL the keywords behind the verdict — one
+      // vocabulary (card text and description use the same matcher), merged; where a keyword came only from
+      // the description, the badge's tooltip says so rather than inventing a second badge style.
       const allPos = [...new Set([...pos, ...(detail?.pos || [])])];
       const allNeg = [...new Set([...neg, ...(detail?.neg || [])])];
       const fromDesc = [...(detail?.pos || []), ...(detail?.neg || [])];
@@ -223,6 +221,8 @@
         tagOff();
       }
       if (!c.hidden) tagDup();   // a tag like off-platform: it annotates whatever tier the card landed in
+      if (!c.hidden && settings.rescueNegotiable && rules.isNegotiable(salText) && !rules.hasSalary(salText))
+        badge(box, 'ojc-flag-badge', '⚠ negotiable', 'states no figure — the pay is negotiable, and it is shown because it matched a keyword you like');
       // The remembered verdict: recomputed for a listing the scan has met, so a moved tier is recorded and
       // marked. `note` returns null for a card with no record and for an unchanged one — no storage write.
       records?.note(c, tier, cardFacts);

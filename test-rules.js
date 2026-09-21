@@ -1,6 +1,6 @@
 // test-rules.js — node tests for rules.js (run: node test-rules.js)
 const assert = require('assert');
-const { hasSalary, matchKeywords, parsePosted, isStale, findDuplicates, MANILA_OFFSET_MINUTES } = require('./rules.js');
+const { hasSalary, matchKeywords, parsePosted, isStale, findDuplicates, isNegotiable, MANILA_OFFSET_MINUTES } = require('./rules.js');
 
 // hasSalary: digit present
 assert.strictEqual(hasSalary('$500/month'), true);
@@ -130,5 +130,13 @@ assert.deepStrictEqual([...findDuplicates([{ key: 'a', at: null }, { key: 'a', a
   'no readable date, no verdict — a card with no date can never be called the older copy');
 assert.deepStrictEqual([...findDuplicates([null, { key: '', at: 100 }, { key: 'a', at: 100 }])], [],
   'a blank key is no key');
+
+// isNegotiable (0.12): the two words the board uses, word-bounded, case-insensitive.
+for (const v of ['Negotiable', 'DOE', 'doe', 'Negotiable.', '(DOE)', ' $500 negotiable ']) {
+  assert.strictEqual(isNegotiable(v), true, `isNegotiable(${JSON.stringify(v)}) should be true`);
+}
+for (const v of ['TBD', 'N/A', 'to be discussed', '', null, 'anode', 'road to recovery', '12345']) {
+  assert.strictEqual(isNegotiable(v), false, `isNegotiable(${JSON.stringify(v)}) should be false`);
+}
 
 console.log('rules: all assertions passed');

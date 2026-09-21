@@ -366,7 +366,7 @@ const primeCache = (tab) => tab.evaluate(`new Promise((res) => {
   };
 })`);
 
-const ruleEval = (tab, { neg = [], pos = [], maxAgeDays = 0, noSalary = true, closedIds = [], records = {}, rescue = false, showHidden = false } = {}) => tab.evaluate(`${RULES_SRC}
+const ruleEval = (tab, { neg = [], pos = [], maxAgeDays = 0, noSalary = true, closedIds = [], records = {}, rescue = false, rescueNeg = false, showHidden = false } = {}) => tab.evaluate(`${RULES_SRC}
 ${DETAILTEXT_SRC}
 ${TIERS_SRC}
 ${RECORDS_SRC}
@@ -376,6 +376,7 @@ ${CLOSED_SRC}
   const maxAgeDays = ${JSON.stringify(Number(maxAgeDays) || 0)};
   const noSalary = ${JSON.stringify(noSalary !== false)};
   const rescue = ${JSON.stringify(!!rescue)};
+  const rescueNeg = ${JSON.stringify(!!rescueNeg)};
   const showHidden = ${JSON.stringify(!!showHidden)};
   const closedIds = new Set(${JSON.stringify(closedIds.map(String))});
   const saved = OJCRecords.prune(${JSON.stringify(records)}, Date.now(), OJCRecords.HISTORY_DAYS * 86400000);
@@ -421,7 +422,7 @@ ${CLOSED_SRC}
   };
   const dupSet = OJRules.findDuplicates(cards.map(c => ({ key: dupKeyOf(c), at: postedAt(c) })));
   const tiers = { closed: 0, stale: 0, nosal: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0 };
-  let noDate = 0, noUtc = 0, negBadges = 0, posBadges = 0, flagBadges = 0, scanned = 0, overHours = 0, fresh = 0, dups = 0;
+  let noDate = 0, noUtc = 0, negBadges = 0, posBadges = 0, flagBadges = 0, scanned = 0, overHours = 0, fresh = 0, dups = 0, negRescuedCount = 0;
   for (let i = 0; i < cards.length; i++) { const c = cards[i];
     const text = ownText(c);
     const p = c.querySelector('p[data-temp]');
@@ -447,7 +448,7 @@ ${CLOSED_SRC}
       closed: !!(id && closedIds.has(String(id))),
       stale: OJRules.isStale(at, now, maxAgeDays),
       noSalary: noSalary && !/\\d/.test(ownSal(c)),
-      rescue, card, detail,
+      rescue, rescueNeg, negotiable: OJRules.isNegotiable(ownSal(c)), card, detail,
     });
     tiers[tier]++;
     // Fresh mirrors content.js: high yield, posted within a day, on the SAME posted instant as the recency rule.
@@ -457,6 +458,9 @@ ${CLOSED_SRC}
       ? ['high', 'pos', 'worth', 'none', 'closed', 'stale', 'nosal', 'kw']
       : ['high', 'pos', 'worth', 'none'];
     if (dupSet.has(i) && visibleTiers.includes(tier)) dups++;
+    // The negotiable rescue mirror: no figure, the word says negotiable, the toggle is on, and the card
+    // landed where a rescued card lands (pos or worth — both visible, so the tag must be on the card).
+    if (noSalary && rescueNeg && OJRules.isNegotiable(ownSal(c)) && ['pos', 'worth'].includes(tier)) negRescuedCount++;
     const nm = card.neg.length > 0 || !!(detail && detail.neg && detail.neg.length);
     const pm = card.pos.length > 0 || !!(detail && detail.pos && detail.pos.length);
     const flagged = !!(detail && (detail.flags || []).length);
@@ -470,7 +474,7 @@ ${CLOSED_SRC}
   }
   return JSON.stringify({ cards: cards.length, tiers,
     closedExpected: tiers.closed, staleExpected: tiers.stale, noSalExpected: tiers.nosal,
-    negExpected: tiers.kw, reconExpected: tiers.worth, highExpected: tiers.high, posTierExpected: tiers.pos, freshExpected: fresh, dupExpected: dups,
+    negExpected: tiers.kw, reconExpected: tiers.worth, highExpected: tiers.high, posTierExpected: tiers.pos, freshExpected: fresh, dupExpected: dups, negRescuedExpected: negRescuedCount,
     flagTagExpected: flagBadges,
     posExpected: posBadges, negBadgeExpected: negBadges, flagBadgeExpected: flagBadges,
     hiddenExpected: tiers.closed + tiers.stale + tiers.nosal + tiers.kw,
@@ -678,11 +682,13 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
         neg: document.querySelectorAll('.jobpost-cat-box.ojc-neg').length,
         recon: document.querySelectorAll('.jobpost-cat-box.ojc-recon').length,
         pos: document.querySelectorAll('.ojc-pos-badge').length,
+        negotiable: [...document.querySelectorAll('.ojc-flag-badge')].filter(b => b.textContent.includes('negotiable')).length,
         both: [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')]
           .filter(c => c.querySelector('.ojc-pos-badge') && c.querySelector('.ojc-neg-badge')).length })`;
       let counts, dom;
       for (let i = 0; i < 40; i++) {
-        counts = JSON.parse(await ruleEval(tab, { neg: next.negative, pos: next.positive, maxAgeDays: 0, closedIds, records }));
+        counts = JSON.parse(await ruleEval(tab, { neg: next.negative, pos: next.positive, maxAgeDays: 0, closedIds, records,
+          rescue: next.rescueNoSalary, rescueNeg: next.rescueNegotiable }));
         dom = JSON.parse(await tab.evaluate(read));
         const agreed = dom.hidden === counts.hiddenExpected && dom.neg === counts.negExpected &&
           dom.recon === counts.reconExpected && dom.pos === counts.posExpected && counts.cards > 0;
@@ -702,6 +708,9 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
     // of the goal, and must move out of yellow into High yield. (Probe words: 'the' and 'a' are prose,
     // so the branch is reachable on any board.)
     const superGreen = await measure({ negative: ['the'], positive: ['the', 'a'], goalSalary: 1, goalHourly: 1 });
+    // The negotiable rescue (0.12): a no-figure listing that says Negotiable/DOE and matches a keyword you
+    // like stays on the board with a ⚠ negotiable tag, instead of hiding. 'the' again — prose.
+    const negotiable = await measure({ negative: [], positive: ['the'], noSalary: true, rescueNegotiable: true, goalSalary: 0, goalHourly: 0 });
 
     // The seam seeds its OWN settings: the super-green probe left positive keywords in place, and under
     // those the fresh card is correctly super green — this test is about the yellow state, not that one.
@@ -737,7 +746,7 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
       }
       await tab.evaluate(`window.__ojcArrival.remove()`);
     }
-    return JSON.stringify({ hide, show, yellow, superGreen, arrival });
+    return JSON.stringify({ hide, show, yellow, superGreen, negotiable, arrival });
   }, 500));
 
   const branches = [
@@ -746,6 +755,8 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
     ['a hide keyword on a good listing turns yellow instead', r.yellow, r.yellow.counts.reconExpected > 0],
     ['super green: more positives than negatives, pay ≥ 150 % of the goal → high yield',
       r.superGreen, r.superGreen.counts.highExpected > r.yellow.counts.highExpected],
+    ['negotiable: a no-figure listing that says Negotiable/DOE and matches a liked keyword stays, tagged',
+      r.negotiable, r.negotiable.counts.negRescuedExpected > 0],
   ];
   for (const [name, m, reachable] of branches) {
     if (!reachable) {
@@ -763,9 +774,16 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
       `the reconsider state never applies to a listing that is good only because it pays well`);
   }
   console.log(`branches  : keyword hides ${r.hide.dom.hidden}, highlights ${r.show.dom.pos}, ` +
-    `yellow ${r.yellow.dom.recon}, super green ${r.superGreen.counts.highExpected - r.yellow.counts.highExpected} card(s) out of yellow — each branch had to fire`);
+    `yellow ${r.yellow.dom.recon}, super green ${r.superGreen.counts.highExpected - r.yellow.counts.highExpected} card(s) out of yellow, ` +
+    `negotiable rescued ${r.negotiable.dom.negotiable} — each branch had to fire`);
   if (r.superGreen.counts.highExpected > r.yellow.counts.highExpected && r.superGreen.dom.both === 0) {
     await fail('a card matched keywords on both sides but shows only one badge — the user must see both');
+  }
+  // Every rescued card must carry the tag that says why it is on the board (reachability is asserted by the
+  // branch table above).
+  if (r.negotiable.dom.negotiable !== r.negotiable.counts.negRescuedExpected) {
+    await fail(`${r.negotiable.dom.negotiable} ⚠ negotiable tag(s), expected ${r.negotiable.counts.negRescuedExpected} — `
+      + `every rescued no-figure card must say why it is on the board`);
   }
   if (r.arrival.inserted) console.log(`seam      : a fresh good-pay negative match → ` +
     `${r.arrival.recon ? 'yellow' : 'NOT yellow'}, goal mark ${r.arrival.goal}, hidden ${r.arrival.hidden}`);

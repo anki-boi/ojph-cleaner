@@ -41,6 +41,20 @@ assert.strictEqual(d({ noSalary: true, rescue: true, card: card({ neg: ['crypto'
   'the rescue needs `good`: with nothing to like, the no-salary branch (which precedes the keyword branch in 0.8.0, and still does) is what hides it');
 assert.strictEqual(d({ noSalary: true, rescue: false, card: card({ pos: ['ai'] }) }), 'nosal',
   'rescue off means rescue off');
+// The negotiable rescue (0.12): no figure, but the listing says its pay is negotiable — it stays when it
+// otherwise looks good, and it is still hidden when it does not, or when the toggle is off.
+assert.strictEqual(d({ noSalary: true, rescueNeg: true, negotiable: true, card: card({ pos: ['ai'] }) }), 'pos',
+  'a negotiable listing that looks good is rescued, like the plain rescue');
+assert.strictEqual(d({ noSalary: true, rescueNeg: true, negotiable: true, card: card({}) }), 'nosal',
+  'the negotiable rescue needs good too — "negotiable" alone is no verdict');
+assert.strictEqual(d({ noSalary: true, rescueNeg: true, negotiable: false, card: card({ pos: ['ai'] }) }), 'nosal',
+  'TBD and N/A are not negotiable — only the word says so');
+assert.strictEqual(d({ noSalary: true, rescueNeg: false, negotiable: true, card: card({ pos: ['ai'] }) }), 'nosal',
+  'the toggle is opt-in, so the default behaviour is unchanged');
+assert.strictEqual(d({ noSalary: true, rescueNeg: true, negotiable: true, card: card({ neg: ['crypto'], pos: ['ai'] }) }), 'worth',
+  'rescued AND matching a hide keyword: yellow, not hidden, and not super green either (no pay to clear)');
+assert.strictEqual(d({ noSalary: true, rescue: true, rescueNeg: true, negotiable: true, card: card({ pos: ['ai'] }) }), 'pos',
+  'the rescues compose — either one is enough');
 
 // ── THE PROMOTIONS THE DEEP SCAN BUYS ────────────────────────────────────
 // White → green: the description says what the card's short text never did.

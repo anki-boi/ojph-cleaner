@@ -63,6 +63,7 @@
           </div>
           <label class="ojc-check"><input type="checkbox" id="ojc-noSalary"><span>Hide jobs with no salary listed</span></label>
           <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-rescueNoSalary"><span>…but keep one that matches a keyword I like, or beats a goal</span></label>
+          <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-rescueNegotiable"><span>…and show \u201cNegotiable\u201d/DOE listings that match a keyword I like</span></label>
           <label class="ojc-check"><input type="checkbox" id="ojc-showHidden"><span>Show hidden jobs</span></label>
         </div>
         <div class="ojc-sec">
@@ -137,6 +138,7 @@
     $p('#ojc-pos').value = toLines(s.positive);
     $p('#ojc-noSalary').checked = s.noSalary;
     $p('#ojc-rescueNoSalary').checked = s.rescueNoSalary;
+    $p('#ojc-rescueNegotiable').checked = s.rescueNegotiable;
     $p('#ojc-showHidden').checked = s.showHidden;
     $p('#ojc-autoLoad').checked = s.autoLoad;
     $p('#ojc-goal').value = s.goalSalary || '';
@@ -169,6 +171,7 @@
       positive: fromLines($p('#ojc-pos').value),
       noSalary: $p('#ojc-noSalary').checked,
       rescueNoSalary: $p('#ojc-rescueNoSalary').checked,
+      rescueNegotiable: $p('#ojc-rescueNegotiable').checked,
       showHidden: $p('#ojc-showHidden').checked,
       autoLoad: $p('#ojc-autoLoad').checked,
       goalSalary: num($p('#ojc-goal').value),

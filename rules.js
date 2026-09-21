@@ -145,6 +145,13 @@
     return dups;
   }
 
-  return { hasSalary, matchKeywords, keywordRegex, cleanKeyword, parsePosted, isStale, findDuplicates, listsToText, textToLists,
+  /**
+   * Does the salary text say the pay is negotiable rather than state a figure — the two words the board
+   * actually uses, 'Negotiable' and 'DOE'? Word-bounded, so an 'anode' or 'road' never matches. Pairs
+   * with hasSalary, which says a digit is absent: this says WHY nothing is there (the negotiable rescue).
+   */
+  const isNegotiable = (text) => /(^|[^a-z])(negotiable|doe)([^a-z]|$)/i.test(String(text || ''));
+
+  return { hasSalary, matchKeywords, keywordRegex, cleanKeyword, parsePosted, isStale, findDuplicates, isNegotiable, listsToText, textToLists,
            MANILA_OFFSET_MINUTES };
 });

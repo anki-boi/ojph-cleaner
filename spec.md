@@ -11,8 +11,13 @@ in 0.4.0 — see `docs/HANDOFF.md` §4c for the measured before/after. ✅ W6 (p
 in 0.5.0. ✅ W7 (salary figures + goal) landed in 0.6.0. ✅ W8 (recency + the yellow reconsider state)
 landed in 0.7.0. ✅ W4 (the job's own page), ✅ W9 (closed-listing memory), ✅ W10 (the no-salary rescue)
 and ✅ W11 (the harness's silent-exception bug) landed in 0.8.0. ✅ W3 (deep scan), ✅ W12 (the job
-memory), ✅ W13 (the tiered scan + panel) and ✅ W14 (the tier views) landed in 0.9.0. D2 (distribution)
-is still open; D3 was answered by construction (IndexedDB, as planned) and D4/D5 closed with W13.
+memory), ✅ W13 (the tiered scan + panel) and ✅ W14 (the tier views) landed in 0.9.0. 0.10.0 adds
+the three open feature doors — the CSV export of the job memory, the tier marks on the saved-jobs
+table, and copy/paste for the two keyword lists — and closes the defects the audit left measured:
+the FX path now rejects non-finite rates and the fresh-rate rows no longer reach the rate map as
+objects (measured live as a board-wide `₱NaN`), the detail bar's D13 contradiction is gone, and the
+paginate retry is bounded. D2 (distribution) is still open; D3 was answered by construction
+(IndexedDB, as planned) and D4/D5 closed with W13.
 
 ---
 

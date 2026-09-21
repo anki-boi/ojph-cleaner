@@ -105,6 +105,9 @@ list order and its next-page behaviour are untouched — and the board **scrolls
 you picked**, because hiding most of a long list otherwise leaves you looking at empty space (measured: the
 first high-yield card sat 18 000 px above the viewport after the document shrank from 92 000 px to 19 000).
 When a listing moves between tiers the card carries `↑ promoted` or `↓ demoted` until you open it.
+The saved-jobs table carries the same verdicts inline: a row whose listing a scan has judged shows
+`★ high yield`, `worth considering`, or `✓ highlighted` beside it, and the marks follow a re-scan in
+another tab.
 
 **Off-platform asks are a tag, not a filter.** A listing that asks you to apply by email, Telegram or a Google
 Form gets a `⚠ off-platform` tag beside its keyword badge. It is never hidden for it and never demoted for it
@@ -115,6 +118,11 @@ listings out of High yield: a filter that had stopped filtering.) The scan also 
 **It remembers each listing.** Every scanned or opened listing keeps its verdict, its figures and its
 flags, keyed by the listing's own URL — so opening a listing re-checks it against the live page, records
 what changed, and clears the mark.
+
+**Take the memory out.** The `Export` button downloads it as a CSV — one row per remembered listing:
+tier, the keywords that matched, hours, pay, flags, and when it was last checked, with the listing's URL
+filled in from the cache (a blank URL when the cache has already let one go). The button is disabled
+while the memory is empty: there is nothing to export.
 
 **See what it actually pays.** `5.5$/hr`, `Php 1000/day`, `15-20 AUD per hour` and `PHP 49,000 - 55,000`
 are not comparable at a glance, so each card gets the converted figure above the site's own posted text —
@@ -175,6 +183,10 @@ forms you want — the list is read literally, so `editor` and `editors` are two
 is deliberate: `AI` as a substring matched **every** listing on a live search, and because a listing
 that also looks good is shown in yellow rather than hidden, a loose match quietly turns keyword hiding
 off altogether.
+
+The two lists can be moved out and back: `Copy lists` puts both on the clipboard in a plain, readable
+format (a `# hide` section and a `# highlight` section), and `Paste lists` reads that format back — the
+door for keeping the same lists on two machines, or for a backup in a notes app.
 
 ## Privacy
 
@@ -242,7 +254,8 @@ that saving settings repaints the list without a reload.
 | `observer.js` | The one MutationObserver, and the `isOurs()` check that stops it eating itself |
 | `closed.js` / `closed-cards.js` | The closed-listing memory (pure maths + the storage applier) |
 | `detail-text.js` / `detail.js` | What to highlight on a listing's page, and the bar that applies it (W4) |
-| `chip.js` | The status panel: counts, tiers, views, and the Scan / Show All / Settings buttons |
+| `chip.js` | The status panel: counts, tiers, views, and the Scan / Show All / Export / Settings buttons |
+| `export.js` | The Export door's applier: asks the memory for its rows, asks the cache for the URLs, downloads the CSV |
 | `page.js` | Every coupling to the site's list markup: the card selectors, the card's own text, its salary and its posted date |
 | `content.js` | The hub: settings, the rule pass, the counts, the tier delegation, the views. Makes no request |
 | `pagination.js` | Perpetual pagination: the scroll trigger, the fetch and the stop conditions (W6), plus the scan's `loadOne` |

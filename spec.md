@@ -18,9 +18,13 @@ the FX path now rejects non-finite rates and the fresh-rate rows no longer reach
 objects (measured live as a board-wide `₱NaN`), the detail bar's D13 contradiction is gone, and the
 paginate retry is bounded. 0.11.0 adds the **super green** verdict: a yellow card that matches more
 positive keywords than negative ones and pays at least 50 % above the goal is High yield, and any
-card that matched keywords on both sides carries both badges so the trade-off is visible. D2
-(distribution) is still open; D3 was answered by construction (IndexedDB, as planned) and D4/D5
-closed with W13.
+card that matched keywords on both sides carries both badges so the trade-off is visible. 0.12.0 adds
+the board's noise rules: the **premium bands** (the goal mark steps with the margin — `★★` at 25 %+,
+`★★★` at 50 %+ above the goal), the **fresh mark** (a high-yield card posted in the last 24 h), the
+**duplicate re-post marking** (the older copy per title+company carries the tag), and the
+**negotiable rescue** (an opt-in setting that keeps a no-figure listing that says Negotiable/DOE when it
+otherwise looks good, tagged `⚠ negotiable`). D2 (distribution) is still open; D3 was answered by
+construction (IndexedDB, as planned) and D4/D5 closed with W13.
 
 ---
 

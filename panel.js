@@ -151,8 +151,8 @@
       autoLoad: $p('#ojc-autoLoad').checked,
       goalSalary: num($p('#ojc-goal').value),
       goalHourly: num($p('#ojc-goal-hourly').value),
-      // Read from settings, not the input: a control that is disabled or absent must never silently reset a
-      // stored value to false.
+      // The scan toggles hold no state beyond the checkbox itself, so the input IS the value — read
+      // straight, like the rest of the form.
       autoScan: $p('#ojc-autoScan').checked,
       scanWorth: $p('#ojc-scanWorth').checked,
       scanAll: $p('#ojc-scanAll').checked,

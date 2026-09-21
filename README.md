@@ -5,7 +5,7 @@ It hides listings that are a waste of your time — no salary listed, or a keywo
 read again — and highlights the ones you do, without ever taking a listing away for a positive
 match. Everything runs on your machine: no account, no server, no analytics.
 
-**→ [Why this exists: the four problems it attacks, and the place it refuses to guess](PROBLEMS.md)**
+**→ [Why this exists: the six problems it attacks, and the place it refuses to guess](PROBLEMS.md)**
 
 ![The chip counts what it hid, and the panel edits the rules in place](docs/img/list-chip.png)
 
@@ -234,7 +234,8 @@ that saving settings repaints the list without a reload.
 | `rules.js` | Pure rules — `hasSalary`, `matchKeywords`, `parsePosted`/`isStale`. No DOM, so it is unit-tested directly |
 | `tiers.js` | The verdict table (W12): closed → stale → no salary → **high yield (pay)** → highlighted → worth considering → keyword-hide. Pure and unit-tested |
 | `records.js` | The job memory's state machine — pruning, tier moves, the `↑`/`↓` mark. Pure and unit-tested |
-| `records-cards.js` | Applies it: loads the memory, keeps a synchronous copy for the rule pass, writes only on change |
+| `records-store.js` | The memory's state and persistence: loading, hydrating, flushing, absorbing a fetched listing. The only writer — it writes only when something changed |
+| `records-cards.js` | Applies it to the board: the synchronous copy for the rule pass, the change marks (split from the row above at the sync/persistence boundary) |
 | `detail-cache.js` | IndexedDB: the listing pages a scan has read, 7-day TTL, 1 000-entry cap, so a keyword edit costs nothing |
 | `detail-parse.js` | What a listing's own page says — one reader for the description, the overview fields and the job id |
 | `scan.js` | The deep scan (W13): page to the recency window, then 2 listings at a time, in tier order, with caps and Stop |
@@ -250,7 +251,7 @@ that saving settings repaints the list without a reload.
 | `salary-cards.js` | Applies it: the live ECB rate, the figure on each card, the goal brighten |
 | `ui.css` / `content.css` | Floating UI (panel, chip) vs what is painted on the site (marks, borders, badges) |
 | `options.html` / `options.js` | Standalone options page (the in-page panel is the primary UI) |
-| `test-rules.js` / `test-tiers.js` / `test-records.js` / `test-manifest.js` | Node tests, zero dependencies |
+| `test-rules.js` / `test-tiers.js` / `test-records.js` / `test-detail.js` / `test-closed.js` / `test-manifest.js` | Node tests, zero dependencies |
 | `test-pager.js` | Node tests for the pagination URL/offset maths and the stop conditions |
 | `test-salary.js` | Node tests for the salary parser — the suite's real-data corpus plus formats sampled from the live board |
 | `test-repo-hygiene.js` | Repo invariants (license stance, required files, hook wiring, no CRLF) |

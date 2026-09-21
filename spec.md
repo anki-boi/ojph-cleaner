@@ -3,15 +3,16 @@
 **Type:** audit + improvement spec + delegated build plan
 **Date:** 2026-09-18
 **Baseline commit:** `d759ffe` (0.3.0) · **Earlier plan:** `plans/2026-08-26_ojph-extension.md`
-**State:** 560 tracked source lines (js/css/html/json, 21 tracked files) · 2 node test files, zero
+**State (2026-09-21):** 4 406 source lines (js/css/html, 38 tracked files including 10 tests) · zero
 dependencies · 1 live CDP harness · Chrome 153, unpacked, enabled in the automation profile
 
 **Status after the audit:** ✅ W1 (public face, hygiene, gates) and ✅ W2 (every defect in §2) landed
 in 0.4.0 — see `docs/HANDOFF.md` §4c for the measured before/after. ✅ W6 (perpetual pagination) landed
 in 0.5.0. ✅ W7 (salary figures + goal) landed in 0.6.0. ✅ W8 (recency + the yellow reconsider state)
 landed in 0.7.0. ✅ W4 (the job's own page), ✅ W9 (closed-listing memory), ✅ W10 (the no-salary rescue)
-and ✅ W11 (the harness's silent-exception bug) landed in 0.8.0. W3 (deep scan) is next; D2–D5 are still
-open.
+and ✅ W11 (the harness's silent-exception bug) landed in 0.8.0. ✅ W3 (deep scan), ✅ W12 (the job
+memory), ✅ W13 (the tiered scan + panel) and ✅ W14 (the tier views) landed in 0.9.0. D2 (distribution)
+is still open; D3 was answered by construction (IndexedDB, as planned) and D4/D5 closed with W13.
 
 ---
 
@@ -36,6 +37,9 @@ discipline, sized to a ~250-line extension.
 ## 1. Current state
 
 ### 1.1 What exists
+
+Snapshot at the 0.3.0 baseline commit — line counts below are from that date, before the W4–W14
+splits. The wave-by-wave inventory is Appendix A; the current tree is `git ls-files`.
 
 | Layer | Files | Notes |
 |---|---|---|
@@ -609,6 +613,7 @@ List URLs: `/jobseekers/jobsearch?jobkeyword=…`, `/jobseekers/jobsearch/{offse
 | `scanAll` | boolean | `false` | …and then the unclassified and keyword-hidden listings. The only pass that can promote a listing matching no keyword and no goal, and the most expensive one | `scan.js` |
 | `autoLoad` | boolean | `true` | Append the next result page when the user scrolls to the bottom (W6) | `pagination.js` |
 | `goalSalary` | number | `0` (off) | Monthly PHP goal; cards at or above it brighten (W7) | `salary.js` |
+| `goalHourly` | number | `0` (off) | Hourly PHP goal; posted rates at or above it brighten the card (W13, D13) | `salary-cards.js` |
 | `maxAgeDays` | number | `7` | Hide listings posted longer ago than this many days (`0` = off, `7` = last week, `30` = last month). Read **before** every other rule; an unreadable date is never stale (W8) | rule pass |
 | `rescueNoSalary` | boolean | `false` | With `noSalary` on: a listing that states no pay but matches a keyword you like (or beats a goal) is shown instead of hidden (W10, D30) | rule pass |
 
@@ -641,7 +646,7 @@ silently drop.
 | `tools/check-readme.js` | ✅ | settings documented, no stale counts | `node tools/check-readme.js` |
 | `tools/gate.sh` | ✅ | all of the above + syntax + path scan + size cap | `sh tools/gate.sh` |
 | `tools/verify-live.mjs` | ❌ live site + browser | injection, selector drift, rule parity, `[hidden]`⇒`display:none`, chip toggle, panel open/save with no reload, an inserted card filtered on arrival + bounded rebuilds, pagination (idle = no requests, one per scroll, stops at the end), salary figures (recomputed with the same parser, the hours policy, piece rates left alone, one rate request per currency, goal marks exact); **W8**: recency parity + a watchdog on the date attributes, the computed yellow outline, `✗` badge parity, every branch forced to fire, and an inserted card that must turn yellow; **W4**: the detail bar's figure recomputed from the DOM with the same parser and the same cached rate, plus an inserted off-platform paragraph that must fire the link, email, redaction and ask detectors; **W9**: a closure injected before the extension boots, then asserted recorded and hidden on the board (and removed again by hand *and* by the snapshot — it teaches the memory a listing that is not closed); **W12/W13/W14**: every card's tier against the same verdict table recomputed with the remembered records, a scripted scan (nothing fetched before the button, 2 fetches per 350 ms at most, a second run re-reading only what the first could not), the declared hours basis against the cache and the card's words, the two tier views filtering exactly, and a seeded tier that must show `↑ promoted` and lose it when the listing is opened. **Real, hit-tested clicks** for the panel's gear and Save: `element.click()` cannot see a button that is replaced between mousedown and mouseup, which is how "clicking the settings button is broken" shipped past every synthetic click in this file | `node tools/verify-live.mjs` |
-| CI (Node 20) | ✅ | `npm test` + package integrity | `.github/workflows/ci.yml` |
+| CI (Node 20) | ✅ | `sh tools/gate.sh` — the same gate the pre-push hook runs, so CI and the hook can no longer disagree | `.github/workflows/ci.yml` |
 
 ## 9. What "done" looks like
 

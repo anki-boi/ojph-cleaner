@@ -1,6 +1,6 @@
 # Architecture
 
-A Chrome MV3 extension, ~250 lines of source, no build step, no dependencies. Four moving parts and
+A Chrome MV3 extension, ~4 400 lines of source, no build step, no dependencies. Four moving parts and
 one rule: **pure logic never touches the DOM**.
 
 ```
@@ -16,7 +16,8 @@ manifest.json          ── injects on onlinejobs.ph only
    ├─ salary-cards.js  applies it: ECB rate, card figures, hours, goals
    ├─ detail-parse.js  one reader for a listing's own page
    ├─ detail-cache.js  IndexedDB: the listing's own words (7-day TTL)
-   ├─ records-cards.js applies the memory: verdicts, change marks
+   ├─ records-store.js  the memory's state + persistence (load/flush/absorb)
+   ├─ records-cards.js   applies the memory: verdicts, change marks (sync side)
    ├─ scan.js          the deep scan (W13)
    ├─ pagination.js    loading: the sentinel + the scan's loadOne  ← test-pager.js
    ├─ closed.js/.cards.js  the closed-listing memory

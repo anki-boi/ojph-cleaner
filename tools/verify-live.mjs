@@ -1842,6 +1842,113 @@ if (res.noSalExpected > 0) {
   if (newIds.length) console.log(`cache     : ${newIds.length} new description(s) cached, then dropped again (the run leaves no trace)`);
 }
 
+// ── 13. the new doors (F1–F3): the export, the tier mark, the keyword lists ──
+{
+  // F1: the chip's Export button is enabled exactly when the memory has something to export, and the
+  // CSV it builds is the memory itself: header plus one row per record, the URLs filled from the
+  // page's own cache. The CSV is built in the page world with the extension's own records.js, so this
+  // is a parity check the way the tiers are — not a re-implementation.
+  const recs = await readRecords();
+  const n = Object.keys(recs).length;
+  const exp = JSON.parse(await withTab(PORT, URL_, async (tab) => {
+    if (!await activate(tab)) await fail(`the export check cannot run: ${HIDDEN_HINT}`);
+    await settle(2500);
+    // The URLs the export would use: the same IndexedDB rows the extension reads, same 7-day TTL.
+    await tab.evaluate(`new Promise((res) => {
+      const ids = ${JSON.stringify(Object.keys(recs))};
+      const out = {};
+      self.__ojcExportUrls = out;
+      if (!ids.length) return res(0);
+      const r = indexedDB.open('ojc', 1);
+      r.onerror = () => res(0);
+      r.onsuccess = () => {
+        const s = r.result.transaction('details', 'readonly').objectStore('details');
+        let pending = ids.length;
+        const finish = () => { if (--pending === 0) res(Object.keys(out).length); };
+        for (const id of ids) {
+          const q = s.get(String(id));
+          q.onsuccess = () => { const row = q.result;
+            if (row && Date.now() - Number(row.at || 0) <= 604800000) out[id] = row.url || '';
+            finish(); };
+          q.onerror = finish;
+        }
+      };
+    })`);
+    const csv = await tab.evaluate(`${RECORDS_SRC}
+JSON.stringify(OJCRecords.toCsv(${JSON.stringify(recs)}, self.__ojcExportUrls || {}))`);
+    const btn = JSON.parse(await tab.evaluate(`(() => {
+      const b = document.querySelector('#ojc-chip .ojc-export');
+      return JSON.stringify({ btn: !!b, disabled: b ? b.disabled : null });
+    })()`));
+    return JSON.stringify({ ...btn, csv, n, urlCount: Object.keys(self.__ojcExportUrls || {}).length });
+  }, 400));
+  if (!exp.btn) await fail('the chip has no Export button');
+  if ((n > 0) !== !exp.disabled) {
+    await fail(`the Export button is ${exp.disabled ? 'disabled' : 'enabled'} while the memory holds ${n} record(s) ` +
+      '— it should be enabled exactly when the memory is not empty');
+  }
+  if (n > 0) {
+    const lines = exp.csv.trimEnd().split('\n');
+    if (lines[0] !== 'id,url,tier,prev,changed,checked,hours,type,wage,flags,pos,neg')
+      await fail(`the export's header row is not the schema: ${lines[0]}`);
+    if (lines.length !== n + 1) await fail(`the CSV has ${lines.length - 1} row(s) for ${n} record(s) — every record is a row`);
+    console.log(`export    : ${n} record(s) → CSV of ${lines.length - 1} row(s), ${exp.urlCount} URL(s) filled from the cache ` +
+      `(button enabled, disabled=${exp.disabled})`);
+  } else {
+    console.log('export    : the memory is empty on this run — button present and correctly disabled');
+  }
+
+  // F2: on the saved-jobs table, every row whose listing a scan has judged carries the tier mark — and
+  // no row without a judged tier does. The records are read from storage and handed in, so the check
+  // runs entirely in the page world, like the rest of the harness.
+  const MARK = { high: '★ high yield', worth: 'worth considering', pos: '✓ highlighted' };
+  const saved = JSON.parse(await withTab(PORT, 'https://www.onlinejobs.ph/jobseekers/bookmarked_jobs', async (tab) => {
+    if (!await activate(tab)) await fail(`the tier-mark check cannot run: ${HIDDEN_HINT}`);
+    await waitFor(tab, `!!document.body`, { timeout: 8000 });
+    await settle(3500);   // the records store loads on its own clock, and the table renders in batches
+    return tab.evaluate(`(() => {
+      const recs = ${JSON.stringify(recs)};
+      const MARK = ${JSON.stringify(MARK)};
+      const rows = [...document.querySelectorAll('tr')].filter(r => r.querySelector('a[href*="/jobseekers/job/"]'));
+      const out = rows.map(r => {
+        const a = r.querySelector('a[href*="/jobseekers/job/"]');
+        const m = r.querySelector('.ojc-row-tier');
+        return { href: a ? a.getAttribute('href') : '', marked: !!m, label: m ? m.textContent.trim() : '',
+                 expect: (() => { const idm = (a && a.href.match(/[0-9]+\\/?$/) || [])[0];
+                   const t = idm && recs[idm] ? recs[idm].tier : null; return t && MARK[t] || null; })() };
+      });
+      return JSON.stringify(out);
+    })()`);
+  }, 500));
+  for (const row of saved) {
+    if (row.expect && !row.marked) await fail(`saved row ${row.href} (tier ${row.expect}) carries no tier mark`);
+    if (row.expect && row.marked && row.label !== row.expect)
+      await fail(`saved row ${row.href} is marked "${row.label}", its tier says "${row.expect}"`);
+    if (!row.expect && row.marked)
+      await fail(`saved row ${row.href} carries a tier mark it has no right to: "${row.label}"`);
+  }
+  console.log(`tiers     : ${saved.length} saved row(s) checked against the scan's verdicts — marks match`);
+
+  // F3: the keyword-list doors sit in the panel next to the lists they move. The format itself is unit-
+  // tested (test-rules.js); here we only prove the buttons exist where the user will find them.
+  const kw = JSON.parse(await withTab(PORT, URL_, async (tab) => {
+    if (!await activate(tab)) await fail(`the keyword-list check cannot run: ${HIDDEN_HINT}`);
+    await settle(2500);
+    await realClick(tab, '#ojc-gear');
+    await settle(300);
+    const got = JSON.parse(await tab.evaluate(`(() => {
+      const p = document.getElementById('ojc-panel');
+      return JSON.stringify({ open: !!p && !p.hidden,
+        copy: !!p?.querySelector('#ojc-kw-copy'), paste: !!p?.querySelector('#ojc-kw-paste') });
+    })()`));
+    await realClick(tab, '#ojc-gear');   // the panel back the way we found it
+    return JSON.stringify(got);
+  }, 400));
+  if (!kw.open || !kw.copy || !kw.paste)
+    await fail(`the panel is missing the keyword-list copy/paste buttons (open=${kw.open}, copy=${kw.copy}, paste=${kw.paste})`);
+  console.log('keywords  : the panel carries both copy and paste doors');
+}
+
 console.log('verify-live: PASS');
 await restoreStorage();
 await STORE?.close();

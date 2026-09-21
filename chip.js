@@ -104,12 +104,13 @@
     const mk = (id, text) => { const b = el('button'); b.id = id; b.type = 'button'; b.textContent = text; return b; };
     const toggle = mk('ojc-toggle', 'Show All');
     const scan = mk('ojc-scan', 'Scan');
+    const exportB = mk('ojc-export', 'Export');
     const gear = mk('ojc-gear', 'Settings');
-    actions.append(toggle, scan, gear);
+    actions.append(toggle, scan, exportB, gear);
 
     body.append(hiddenBox, statsBox, views);
     chip.append(head, body, note, actions);
-    ui = { chip, head, total, caret, body, hiddenBox, statsBox, views, viewsHead, viewBtns, note, actions, toggle, scan, gear };
+    ui = { chip, head, total, caret, body, hiddenBox, statsBox, views, viewsHead, viewBtns, note, actions, toggle, scan, exportB, gear };
     return ui;
   }
 
@@ -192,6 +193,14 @@
     u.scan.disabled = !scanning && !canScan;
     u.scan.classList.toggle('ojc-off', u.scan.disabled);
     u.scan.onclick = onScan;
+    // The memory door (F1): records live in chrome.storage.local, and this button is what takes them
+    // out as CSV. Disabled while the memory is empty — there is nothing to export yet.
+    u.exportB.disabled = !(self.OJCRecordsUI?.size());
+    u.exportB.classList.toggle('ojc-off', u.exportB.disabled);
+    u.exportB.title = u.exportB.disabled
+      ? 'the job memory is empty — run a scan first'
+      : 'download the job memory as CSV: tier, keywords, hours, pay, and when each listing was last checked';
+    u.exportB.onclick = () => self.OJCExport?.run?.();
     u.gear.onclick = onSettings;
     return u.chip;
   }

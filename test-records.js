@@ -6,7 +6,7 @@
 // chrome.storage.onChanged, and re-runs itself forever.
 const assert = require('assert');
 const R = require('./records.js');
-const { prune, apply, isChanged, markSeen, canon, HISTORY_DAYS, MAX_ENTRIES } = R;
+const { prune, apply, isChanged, markSeen, canon, toCsv, HISTORY_DAYS, MAX_ENTRIES } = R;
 
 const DAY = 86400000;
 const NOW = Date.UTC(2026, 8, 18, 12, 0, 0);
@@ -126,4 +126,27 @@ assert.strictEqual(canon(undefined), undefined);
 assert.strictEqual(canon({ tier: 'high', detail: { pos: ['a', 'b'], flags: [] } }),
   canon({ detail: { flags: [], pos: ['a', 'b'] }, tier: 'high' }), 'a whole record, reordered');
 
-console.log('test-records: ok (prune · cap · apply · idempotence · change mark)');
+// ── toCsv: the memory's export (F1) ────────────────────────────────────
+{
+  const recs = {
+    '111': rec({ tier: 'high', prev: 'worth', seen: false,
+      fields: { hoursPerWeek: 40, typeOfWork: 'Full Time', wage: 'PHP 30,000/mo' },
+      card: { pos: ['quickbooks'], neg: [] },
+      detail: { pos: ['quickbooks'], neg: [], flags: ['ask'] } }),
+    '222': rec({ tier: 'kw', prev: null, seen: true, card: { pos: [], neg: ['crypto'] }, detail: null }),
+  };
+  const urls = { '111': 'https://www.onlinejobs.ph/jobseekers/job/111' };
+  const lines = toCsv(recs, urls).split('\n');
+  assert.strictEqual(lines[0], 'id,url,tier,prev,changed,checked,hours,type,wage,flags,pos,neg');
+  assert.strictEqual(lines[1],
+    '111,https://www.onlinejobs.ph/jobseekers/job/111,high,worth,yes,2026-09-18,40,Full Time,"PHP 30,000/mo",ask,quickbooks,');
+  assert.strictEqual(lines[2], '222,,kw,,no,2026-09-18,,,,,,crypto');
+  assert.strictEqual(lines[3], '', 'trailing newline');
+  // A keyword containing a quote or a comma must survive a spreadsheet round trip.
+  const csv2 = toCsv({ '9': rec({ card: { pos: ['a,"b'], neg: [] } }) }, {});
+  assert.ok(csv2.includes('"a,""b"'), 'the quote is doubled and the field quoted');
+  // An empty memory is still a valid CSV: the header row alone.
+  assert.strictEqual(toCsv({}, {}), 'id,url,tier,prev,changed,checked,hours,type,wage,flags,pos,neg\n');
+}
+
+console.log('test-records: ok (prune · cap · apply · idempotence · change mark · csv export)');

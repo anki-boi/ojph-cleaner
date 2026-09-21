@@ -124,5 +124,37 @@
       : x));
   }
 
-  return { prune, apply, isChanged, markSeen, settingsKey, canon, HISTORY_DAYS, MAX_ENTRIES };
+  /**
+   * The memory as a CSV (F1): one row per remembered listing. `records` is the `jobRecords` map, `urls`
+   *  an id → listing-URL map (records do not store URLs — the export fills them from the detail cache,
+   *  and an unknown one comes out blank rather than guessed). The row says what the board says: the tier
+   *  it was judged to, where it moved from, the keywords and off-platform flags behind it, the listing's
+   *  own hours/type/wage, and when it was last checked. Pure, so the escaping is tested here, not in the
+   *  browser: a wage like `PHP 30,000/mo` must survive a spreadsheet.
+   */
+  function toCsv(records, urls) {
+    const cell = (v) => { const s = String(v ?? ''); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const day = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : '');
+    const list = (a) => (a || []).join('; ');
+    const rows = ['id,url,tier,prev,changed,checked,hours,type,wage,flags,pos,neg'];
+    for (const [id, r] of Object.entries(records || {})) {
+      rows.push([
+        cell(id),
+        cell(urls ? urls[id] || '' : ''),
+        cell(r?.tier),
+        cell(r?.prev),
+        cell(isChanged(r) ? 'yes' : 'no'),
+        cell(day(r?.checkedAt)),
+        cell(r?.fields?.hoursPerWeek),
+        cell(r?.fields?.typeOfWork),
+        cell(r?.fields?.wage),
+        cell(list(r?.detail?.flags)),
+        cell(list(r?.card?.pos)),
+        cell(list(r?.card?.neg)),
+      ].join(','));
+    }
+    return rows.join('\n') + '\n';
+  }
+
+  return { prune, apply, isChanged, markSeen, settingsKey, canon, toCsv, HISTORY_DAYS, MAX_ENTRIES };
 });

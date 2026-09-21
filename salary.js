@@ -218,7 +218,9 @@
     const needed = [];
     for (const cur of wanted || []) {
       const hit = store.rates?.[cur];
-      if (hit && hit.rate != null && now - hit.at <= ttlMs) { fresh[cur] = { rate: hit.rate, date: hit.date }; continue; }
+      // Number.isFinite, not `!= null`: a NaN stored by an older build passes `!= null` and NaNs every
+      // figure computed from it (measured live: a detail bar showing "≈ ₱NaN - ₱NaN/mo").
+      if (hit && Number.isFinite(hit.rate) && now - hit.at <= ttlMs) { fresh[cur] = { rate: hit.rate, date: hit.date }; continue; }
       if (store.failed?.[cur] != null && now - store.failed[cur] < retryMs) continue;  // just failed: no figure, no retry
       needed.push(cur);
     }

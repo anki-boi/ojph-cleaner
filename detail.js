@@ -33,6 +33,8 @@
   const DEFAULTS = { positive: [], negative: [], goalSalary: 0, goalHourly: 0 };
   let settings = { ...DEFAULTS };
   let rates = {};
+  /** A figure is only real if both ends are numbers — NaN from a bad rate must read as "no figure", not "₱NaN". */
+  const finite = (o) => (o && Number.isFinite(o.min) && Number.isFinite(o.max) ? o : null);
 
   const isJobPage = () => JOB_RE.test(location.pathname);
   const clean = (s) => (s || '').replace(/\s+/g, ' ').trim();
@@ -100,8 +102,8 @@
     const assumed = hours === null && !partTime;              // D28: only full-time/unstated may assume
     const basis = hours !== null ? hours : assumed ? salary.FULL_TIME_HOURS : null;
     const parsed = salary.parseSalary(posted, basis);
-    const php = parsed ? salary.toPhp(parsed, rates) : null;
-    const rate = parsed && !php ? salary.ratePhp(parsed, rates) : null;
+    const php = finite(parsed ? salary.toPhp(parsed, rates) : null);
+    const rate = finite(parsed && !php ? salary.ratePhp(parsed, rates) : null);
     return { posted, hours, hoursRaw, partTime, fullTime, assumed, parsed, php, rate };
   }
 
@@ -152,7 +154,7 @@
     // The board's `hourlyPhp`, word for word: a posted rate exists whenever the listing quotes one,
     // even alongside a computed month.
     const postedRate = f.parsed && (f.parsed.unit === 'hour' || f.parsed.unit === 'hour?')
-      ? salary.ratePhp(f.parsed, rates) : null;
+      ? finite(salary.ratePhp(f.parsed, rates)) : null;
     // Stated HOURS PER WEEK makes the board's basis 'detail', which is never monthly: a posting that
     // stated its hours and still quoted a rate is judged on the rate, because it chose to quote one.
     const judgeMonthly = f.hours === null

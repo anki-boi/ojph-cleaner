@@ -37,7 +37,7 @@
         if (!res.ok) throw new Error(String(res.status));
         const body = await res.json();
         const row = Array.isArray(body) ? body[0] : null;
-        if (!row || !row.rate) throw new Error('no rate in response');
+        if (!row || !Number.isFinite(row.rate)) throw new Error('no usable rate in response');
         out[cur] = row.rate;
         fxDate = row.date;
         store.rates[cur] = { rate: row.rate, date: row.date, at: now };

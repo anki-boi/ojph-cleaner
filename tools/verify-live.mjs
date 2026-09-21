@@ -1874,13 +1874,14 @@ if (res.noSalExpected > 0) {
         }
       };
     })`);
-    const csv = await tab.evaluate(`${RECORDS_SRC}
-JSON.stringify(OJCRecords.toCsv(${JSON.stringify(recs)}, self.__ojcExportUrls || {}))`);
+    const built = JSON.parse(await tab.evaluate(`${RECORDS_SRC}
+JSON.stringify({ csv: OJCRecords.toCsv(${JSON.stringify(recs)}, self.__ojcExportUrls || {}),
+  urls: Object.keys(self.__ojcExportUrls || {}).length })`));
     const btn = JSON.parse(await tab.evaluate(`(() => {
       const b = document.querySelector('#ojc-chip .ojc-export');
       return JSON.stringify({ btn: !!b, disabled: b ? b.disabled : null });
     })()`));
-    return JSON.stringify({ ...btn, csv, n, urlCount: Object.keys(self.__ojcExportUrls || {}).length });
+    return JSON.stringify({ ...btn, csv: built.csv, urlCount: built.urls, n });
   }, 400));
   if (!exp.btn) await fail('the chip has no Export button');
   if ((n > 0) !== !exp.disabled) {

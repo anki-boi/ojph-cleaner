@@ -183,6 +183,10 @@ assert.strictEqual(meetsGoal(null, 40000), false, 'no monthly figure → nothing
   assert.deepStrictEqual(p2.needed, ['GBP'], 'after the retry window the failed currency is tried again');
   assert.deepStrictEqual(pickFresh(null, ['AUD'], now, TTL, RETRY), { fresh: {}, needed: ['AUD'] },
     'no store at all is an empty cache, not an error');
+  // A NaN stored by an older build must not be served: NaN != null is true, so the old guard passed it.
+  const bad = { rates: { USD: { rate: NaN, date: '2026-09-20', at: now - 1000 } } };
+  assert.deepStrictEqual(pickFresh(bad, ['USD'], now, TTL, RETRY), { fresh: {}, needed: ['USD'] },
+    'a stored NaN rate is stale, not servable');
 }
 
 // ── the thousands comma, however the poster grouped it (live bug, 2026-09-19) ──

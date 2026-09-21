@@ -29,8 +29,14 @@
     const store = (await chrome.storage.local.get('fx')).fx || { rates: {}, failed: {} };
     const now = Date.now();
     const { fresh, needed } = pickFresh(store, want, now, FX_TTL_MS, FX_RETRY_MS);
-    const out = { ...fresh };
-    for (const cur of Object.keys(fresh)) fxDate = fresh[cur].date || fxDate;
+    // pickFresh reports { rate, date } rows; the map every consumer multiplies against is currency →
+    // NUMBER. Spreading the rows in left objects in the map, and `x * {…}` is NaN — measured live: a
+    // whole board of "≈ ₱NaN - ₱NaN/mo" cards the moment the store held a fresh rate.
+    const out = {};
+    for (const cur of Object.keys(fresh)) {
+      out[cur] = fresh[cur].rate;
+      fxDate = fresh[cur].date || fxDate;
+    }
     for (const cur of needed) {
       try {
         const res = await fetch(`${FX_URL}?base=${encodeURIComponent(cur)}&quotes=PHP`);

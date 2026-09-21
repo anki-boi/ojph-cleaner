@@ -223,6 +223,18 @@ async function waitFor(tab, expression, { timeout = 8000, every = 200 } = {}) {
   }
 }
 
+/**
+ * The board must actually render cards before anything that sits on them can be checked. Late in a run
+ * the site has been hammered by the scan section and answers 429, and a throttled board page has no
+ * cards for the chip to exist on — so wait, and retry the navigation once before calling it a failure.
+ */
+const CARDS_EXPR = `document.querySelectorAll('.jobpost-cat-box.latest-job-post').length`;
+const waitCards = async (tab) => {
+  if (await waitFor(tab, CARDS_EXPR, { timeout: 20000 })) return true;
+  await tab.send('Page.navigate', { url: URL_ });
+  return !!(await waitFor(tab, CARDS_EXPR, { timeout: 20000 }));
+};
+
 // ── 1. browser + extension must be present ───────────────────────────────
 let version;
 try { version = await (await fetch(`http://127.0.0.1:${PORT}/json/version`)).json(); }
@@ -1844,57 +1856,56 @@ if (res.noSalExpected > 0) {
 
 // ── 13. the new doors (F1–F3): the export, the tier mark, the keyword lists ──
 {
-  // F1: the chip's Export button is enabled exactly when the memory has something to export, and the
-  // CSV it builds is the memory itself: header plus one row per record, the URLs filled from the
-  // page's own cache. The CSV is built in the page world with the extension's own records.js, so this
-  // is a parity check the way the tiers are — not a re-implementation.
+  // F1: the chip's Export button is enabled exactly when the memory has something to export, and a
+  // real click must put a CSV on disk — the header plus one row per record, the URLs filled from the
+  // page's own cache. The file is the ground truth: the page world is denied the IndexedDB cache
+  // (CSP), so rebuilding the CSV in a tab would test a copy, not the export.
   const recs = await readRecords();
   const n = Object.keys(recs).length;
-  const exp = JSON.parse(await withTab(PORT, URL_, async (tab) => {
+  const DL_DIRS = [path.join(os.homedir(), 'Downloads'),
+    path.join(os.homedir(), 'AppData', 'Local', 'agent-chrome-profile', 'Downloads')];
+  const dlBefore = new Set(DL_DIRS.flatMap(d => { try { return fs.readdirSync(d); } catch { return []; } }));
+  const expBtn = JSON.parse(await withTab(PORT, URL_, async (tab) => {
     if (!await activate(tab)) await fail(`the export check cannot run: ${HIDDEN_HINT}`);
-    await settle(2500);
-    // The URLs the export would use: the same IndexedDB rows the extension reads, same 7-day TTL.
-    await tab.evaluate(`new Promise((res) => {
-      const ids = ${JSON.stringify(Object.keys(recs))};
-      const out = {};
-      self.__ojcExportUrls = out;
-      if (!ids.length) return res(0);
-      const r = indexedDB.open('ojc', 1);
-      r.onerror = () => res(0);
-      r.onsuccess = () => {
-        const s = r.result.transaction('details', 'readonly').objectStore('details');
-        let pending = ids.length;
-        const finish = () => { if (--pending === 0) res(Object.keys(out).length); };
-        for (const id of ids) {
-          const q = s.get(String(id));
-          q.onsuccess = () => { const row = q.result;
-            if (row && Date.now() - Number(row.at || 0) <= 604800000) out[id] = row.url || '';
-            finish(); };
-          q.onerror = finish;
-        }
-      };
-    })`);
-    const built = JSON.parse(await tab.evaluate(`${RECORDS_SRC}
-JSON.stringify({ csv: OJCRecords.toCsv(${JSON.stringify(recs)}, self.__ojcExportUrls || {}),
-  urls: Object.keys(self.__ojcExportUrls || {}).length })`));
+    if (!await waitCards(tab)) await fail('no cards rendered on the board page (the site throttles after the scan)');
+    // The chip builds after the cards, on its own clock — wait for the button itself.
+    // The action buttons are identified by id (mk sets b.id), not class.
+    if (!await waitFor(tab, `!!document.querySelector('#ojc-export')`, { timeout: 15000 }))
+      await fail('the chip rendered no Export button');
     const btn = JSON.parse(await tab.evaluate(`(() => {
-      const b = document.querySelector('#ojc-chip .ojc-export');
+      const b = document.querySelector('#ojc-export');
       return JSON.stringify({ btn: !!b, disabled: b ? b.disabled : null });
     })()`));
-    return JSON.stringify({ ...btn, csv: built.csv, urlCount: built.urls, n });
+    if (btn.btn && n > 0) await realClick(tab, '#ojc-export');
+    return JSON.stringify(btn);
   }, 400));
-  if (!exp.btn) await fail('the chip has no Export button');
-  if ((n > 0) !== !exp.disabled) {
-    await fail(`the Export button is ${exp.disabled ? 'disabled' : 'enabled'} while the memory holds ${n} record(s) ` +
+  if (!expBtn.btn) await fail('the chip has no Export button');
+  if ((n > 0) !== !expBtn.disabled) {
+    await fail(`the Export button is ${expBtn.disabled ? 'disabled' : 'enabled'} while the memory holds ${n} record(s) ` +
       '— it should be enabled exactly when the memory is not empty');
   }
   if (n > 0) {
-    const lines = exp.csv.trimEnd().split('\n');
+    let file = null;
+    for (let i = 0; i < 24 && !file; i++) {
+      await settle(500);
+      for (const d of DL_DIRS) {
+        let names = []; try { names = fs.readdirSync(d); } catch { continue; }
+        for (const f of names) if (f.startsWith('ojph-scan-') && f.endsWith('.csv') && !dlBefore.has(f)) { file = d + '/' + f; break; }
+        if (file) break;
+      }
+    }
+    if (!file) await fail('clicking Export started no CSV download');
+    const text = fs.readFileSync(file, 'utf8');
+    try { fs.unlinkSync(file); } catch { /* a leftover CSV is a small price for a live check */ }
+    const lines = text.replace(/^\uFEFF/, '').trimEnd().split('\n');
     if (lines[0] !== 'id,url,tier,prev,changed,checked,hours,type,wage,flags,pos,neg')
       await fail(`the export's header row is not the schema: ${lines[0]}`);
     if (lines.length !== n + 1) await fail(`the CSV has ${lines.length - 1} row(s) for ${n} record(s) — every record is a row`);
-    console.log(`export    : ${n} record(s) → CSV of ${lines.length - 1} row(s), ${exp.urlCount} URL(s) filled from the cache ` +
-      `(button enabled, disabled=${exp.disabled})`);
+    const ids = new Set(lines.slice(1).map(l => l.split(',')[0]));
+    const missing = Object.keys(recs).filter(id => !ids.has(id));
+    if (missing.length) await fail(`the CSV is missing record(s): ${missing.slice(0, 5).join(', ')}`);
+    const withUrl = lines.slice(1).filter(l => l.split(',')[1] !== '').length;
+    console.log(`export    : ${n} record(s) → a downloaded CSV of ${n} row(s), ${withUrl} URL(s) filled from the cache`);
   } else {
     console.log('export    : the memory is empty on this run — button present and correctly disabled');
   }
@@ -1905,8 +1916,10 @@ JSON.stringify({ csv: OJCRecords.toCsv(${JSON.stringify(recs)}, self.__ojcExport
   const MARK = { high: '★ high yield', worth: 'worth considering', pos: '✓ highlighted' };
   const saved = JSON.parse(await withTab(PORT, 'https://www.onlinejobs.ph/jobseekers/bookmarked_jobs', async (tab) => {
     if (!await activate(tab)) await fail(`the tier-mark check cannot run: ${HIDDEN_HINT}`);
-    await waitFor(tab, `!!document.body`, { timeout: 8000 });
-    await settle(3500);   // the records store loads on its own clock, and the table renders in batches
+    // The table renders in batches; an empty bookmarks list has no rows at all, so a timeout here is
+    // not a failure — it just means there is nothing to check.
+    await waitFor(tab, `!!document.querySelector('a[href*="/jobseekers/job/"]')`, { timeout: 20000 });
+    await settle(1500);   // the records store loads on its own clock, then the rows get marked
     return tab.evaluate(`(() => {
       const recs = ${JSON.stringify(recs)};
       const MARK = ${JSON.stringify(MARK)};
@@ -1934,7 +1947,9 @@ JSON.stringify({ csv: OJCRecords.toCsv(${JSON.stringify(recs)}, self.__ojcExport
   // tested (test-rules.js); here we only prove the buttons exist where the user will find them.
   const kw = JSON.parse(await withTab(PORT, URL_, async (tab) => {
     if (!await activate(tab)) await fail(`the keyword-list check cannot run: ${HIDDEN_HINT}`);
-    await settle(2500);
+    if (!await waitCards(tab)) await fail('no cards rendered on the board page (the site throttles after the scan)');
+    if (!await waitFor(tab, `!!document.querySelector('#ojc-gear')`, { timeout: 10000 }))
+      await fail('the chip never rendered on the board page');
     await realClick(tab, '#ojc-gear');
     await settle(300);
     const got = JSON.parse(await tab.evaluate(`(() => {

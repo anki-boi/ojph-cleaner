@@ -2,7 +2,7 @@
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const DEFAULTS = { negative: [], positive: [], noSalary: true, rescueNoSalary: false, showHidden: false, autoScan: false, scanWorth: true, scanAll: false, autoLoad: true, goalSalary: 0, goalHourly: 0, maxAgeDays: 7 };
+  const DEFAULTS = { negative: [], positive: [], noSalary: true, rescueNoSalary: false, rescueNegotiable: false, showHidden: false, autoScan: false, scanWorth: true, scanAll: false, autoLoad: true, goalSalary: 0, goalHourly: 0, maxAgeDays: 7 };
   const toLines = (arr) => (arr || []).join('\n');
   const fromLines = (s) => [...new Set(s.split('\n').map(x => x.trim()).filter(Boolean))];
 
@@ -13,6 +13,7 @@
     $('pos').value = toLines(s.positive);
     $('noSalary').checked = s.noSalary;
     $('rescueNoSalary').checked = s.rescueNoSalary;
+    $('rescueNegotiable').checked = s.rescueNegotiable;
     $('showHidden').checked = s.showHidden;
     $('autoLoad').checked = s.autoLoad;
     $('goalSalary').value = s.goalSalary || '';
@@ -29,6 +30,7 @@
       positive: fromLines($('pos').value),
       noSalary: $('noSalary').checked,
       rescueNoSalary: $('rescueNoSalary').checked,
+      rescueNegotiable: $('rescueNegotiable').checked,
       showHidden: $('showHidden').checked,
       autoLoad: $('autoLoad').checked,
       goalSalary: Math.max(0, Math.round(Number($('goalSalary').value) || 0)),

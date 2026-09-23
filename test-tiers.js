@@ -134,8 +134,8 @@ assert.ok(f.flags.includes('ask'), 'the off-platform ask is a flag');
 const many = T.detailFacts('crypto crypto apply here apply here crypto', settings, rules.matchKeywords, planner.plan);
 assert.deepStrictEqual(many.neg, ['crypto']);
 assert.strictEqual(many.flags.filter(x => x === 'ask').length, 1);
-assert.deepStrictEqual(T.detailFacts('', settings, rules.matchKeywords, planner.plan), { pos: [], neg: [], flags: [], warns: [] });
-assert.deepStrictEqual(T.detailFacts(null, settings, rules.matchKeywords, planner.plan), { pos: [], neg: [], flags: [], warns: [] });
+assert.deepStrictEqual(T.detailFacts('', settings, rules.matchKeywords, planner.plan), { pos: [], neg: [], flags: [] });
+assert.deepStrictEqual(T.detailFacts(null, settings, rules.matchKeywords, planner.plan), { pos: [], neg: [], flags: [] });
 
 // A detail text with a bare link is flagged `url`; a Telegram mention with no ask is NOT a flag (D26).
 assert.deepStrictEqual(
@@ -143,31 +143,23 @@ assert.deepStrictEqual(
 assert.deepStrictEqual(
   T.detailFacts('monitor our telegram channels', settings, rules.matchKeywords, planner.plan).flags, []);
 
-// ── the stated week: over 40 h is flagged automatically (W13.7) ──────────
-// The user's rule: a listing whose own HOURS PER WEEK is longer than full time is flagged. The flag is
-// SHOWN (salary-cards.js prints the hours in the warning colour) and deliberately does NOT demote — a
-// 45-hour week is a real job, not a risk, and measured live a demoting version moved 22 of 27 scanned
+// ── a week longer than 40 h is shown, never a verdict (W13.7, D39) ──────
+// The listing's own HOURS PER WEEK lives in the record's `fields.hoursPerWeek` and is printed on the card
+// by salary-cards.js (⚠ 45 h/week — over the 40 h full-time week). It is deliberately NOT one of the
+// description facts above — overtime is not an off-platform flag — so a long week can never demote a card.
+// A 45-hour week is a real job, not a risk, and measured live a demoting version moved 22 of 27 scanned
 // listings out of High yield, which is a filter that stopped filtering.
-const hours = (h) => T.detailFacts('a quiet description', settings, rules.matchKeywords, planner.plan, h);
-assert.deepStrictEqual(hours(40).warns, [], 'a 40 h week is full time, not a warning');
-assert.deepStrictEqual(hours(35).warns, [], 'anything shorter is not a warning either');
-assert.deepStrictEqual(hours(41).warns, ['overtime'], 'one hour over is already over');
-assert.deepStrictEqual(hours(60).warns, ['overtime']);
-assert.deepStrictEqual(hours(null).warns, [], 'hours unknown is not a warning');
-assert.deepStrictEqual(hours(0).warns, []);
-assert.deepStrictEqual(hours(undefined).warns, []);
-assert.deepStrictEqual(hours(50).flags, [], 'overtime is not an off-platform flag, so it never demotes');
-// …and it composes with an off-platform ask without either being lost, sorted for a stable record.
+assert.deepStrictEqual(
+  T.detailFacts('a quiet description', settings, rules.matchKeywords, planner.plan).flags,
+  [], 'a long week is not an off-platform flag');
+// …and an off-platform ask still composes with the other detectors, sorted for a stable record.
 // (A form link is both an ask and a URL — the planner's two detectors, not one.)
 assert.deepStrictEqual(
-  T.detailFacts('Apply here: forms.gle/x', settings, rules.matchKeywords, planner.plan, 50).flags,
+  T.detailFacts('Apply here: forms.gle/x', settings, rules.matchKeywords, planner.plan).flags,
   ['ask', 'url']);
-assert.strictEqual(
-  T.detailFacts('Apply here: forms.gle/x', settings, rules.matchKeywords, planner.plan, 50).warns.includes('overtime'),
-  true);
-// The tier is untouched by a long week: a highlighted card stays highlighted, a plain one stays plain.
-assert.strictEqual(d({ card: card({ pos: ['quickbooks'] }), detail: hours(50) }), 'pos', 'a long week on a highlighted card is still just highlighted');
-assert.strictEqual(d({ card: card({}), detail: hours(50) }), 'none');
-assert.strictEqual(d({ card: card({ pos: ['quickbooks'] }), detail: hours(40) }), 'pos');
+// The tier is untouched by a long week: a highlighted card stays highlighted, a plain one stays plain —
+// `decide` never sees the hours at all.
+assert.strictEqual(d({ card: card({ pos: ['quickbooks'] }), detail: det({}) }), 'pos', 'a long week on a highlighted card is still just highlighted');
+assert.strictEqual(d({ card: card({}), detail: det({}) }), 'none');
 
 console.log('test-tiers: ok (' + 8 + ' branches + facts builders)');

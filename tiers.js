@@ -62,9 +62,10 @@
    * its own verdict because the chip has to count it, the views must not include it, and the old "good"
    * predicate conflated the two ideas.
    *
-   * **Off-platform asks and long weeks are not part of this function either.** They are `detail.flags` and
-   * `detail.warns`, shown as tags on the card. The user: "the off-platform application thing should just be
-   * a tag, not a red gate as part of the filter". A tag informs; a gate decides.
+   * **Off-platform asks are not part of this function either.** They are `detail.flags`, shown as tags on
+   * the card; a week longer than 40 hours is flagged on the card by salary-cards.js from the record's own
+   * `fields.hoursPerWeek`. The user: "the off-platform application thing should just be a tag, not a red
+   * gate as part of the filter". A tag informs; a gate decides.
    */
   /** How far the listing clears the goal that judges it, as a fraction: 0.5 means "50 % above your goal".
    *  `null` when there is no mark and no margin to read — and `null` never promotes, because a margin
@@ -118,19 +119,19 @@
   }
 
   /**
-   * Description facts: the keyword lists through the board's own matcher, the off-platform asks through
+   * Description facts: the keyword lists through the board's own matcher, and the off-platform asks through
    * the detail page's own planner (W4, so the board and the listing's page can never disagree about whether
-   * a sentence is an ask), and — when a scan read them — the listing's own weekly hours.
+   * a sentence is an ask).
    *
-   * **Both warning lists are display-only.** `flags` (off-platform asks) and `warns` (`overtime`: the
-   * listing states more than a 40-hour week) are tags on the card and fields in the record; neither is an
-   * input to `decide`. The user was explicit about the first one — a tag, not a gate — and the same
-   * argument holds for the second: a 45-hour week is a real job, not a risk.
+   * **`flags` is display-only.** Off-platform asks are tags on the card and fields in the record; they are
+   * never an input to `decide` — the user was explicit, a tag not a gate. A week longer than 40 hours is the
+   * same shape of signal, but it lives with the hours in `fields.hoursPerWeek` (salary-cards.js prints it in
+   * the warning colour), not here: a 45-hour week is a real job, not a risk.
    *
    * Deduplicated and sorted: the same description hashed twice must produce the same facts, or the record
    * would look "changed" on every pass and rewrite storage forever.
    */
-  function detailFacts(text, settings, match, plan, hours) {
+  function detailFacts(text, settings, match, plan) {
     const t = typeof text === 'string' ? text : '';
     const cfg = { positive: (settings || {}).positive, negative: (settings || {}).negative };
     const warnings = plan ? plan(t, cfg) : [];
@@ -138,7 +139,6 @@
       pos: [...new Set(match(t, cfg.positive))].sort(),
       neg: [...new Set(match(t, cfg.negative))].sort(),
       flags: [...new Set(warnings.filter(r => r.kind === 'warn').map(r => r.rule))].sort(),
-      warns: Number(hours) > 40 ? ['overtime'] : [],
     };
   }
 

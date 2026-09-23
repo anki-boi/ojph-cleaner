@@ -44,8 +44,9 @@ closed → stale → no salary (unless rescued) → HIGH YIELD → worth conside
   you like). Shown in yellow, never hidden.
 - **Highlighted** is `pos` with no goal met — the green outline this extension has always drawn, in its own
   bucket so the chip can count it and the High yield view can exclude it.
-- **Off-platform asks and over-40-hour weeks are tags**, not inputs: `detail.flags` and `detail.warns`, shown
-  on the card and recorded in the listing's stats, and they never move a card between tiers.
+- **Off-platform asks are tags**, not inputs: `detail.flags`, shown on the card and recorded in the listing's
+  stats, and they never move a card between tiers. A week longer than 40 hours is the same shape of signal,
+  but it lives with the hours in `fields.hoursPerWeek` (salary-cards.js prints it), never in `detail`.
 
 With no `detail` — a page the scan has never touched — the table reduces to 0.8.0's verdicts exactly, which is
 what makes the whole feature additive: an unscanned page behaves as it always did.

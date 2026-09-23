@@ -119,9 +119,9 @@
     // Duplicates are relational — no single card can know it is the older copy without the rest of the board.
     const dupSet = rules.findDuplicates(list.map(c => ({ key: dupKeyOf(c), at: postedAt(c) })));
     for (let i = 0; i < list.length; i++) { const c = list[i];
-      const { pos, neg } = tiers.cardFacts(ownText(c), settings, rules.matchKeywords);
+      const cardFacts = cardFactsOf(c);
+      const { pos, neg } = cardFacts;
       const detail = records?.detailFor(c) || null;
-      const cardFacts = { pos, neg, goal: c.classList.contains('ojc-goal'), goalBy: c.dataset.goalBy !== undefined ? Number(c.dataset.goalBy) : null };
       const at = postedAt(c);   // one read per card: the recency rule and the fresh mark judge the same instant
       const salText = cardSalary(c);   // one read per card: the no-salary rule and the negotiable rescue read it
       const tier = tiers.decide({
@@ -222,7 +222,7 @@
       }
       if (!c.hidden) tagDup();   // a tag like off-platform: it annotates whatever tier the card landed in
       if (!c.hidden && settings.rescueNegotiable && rules.isNegotiable(salText) && !rules.hasSalary(salText))
-        badge(box, 'ojc-flag-badge', '⚠ negotiable', 'states no figure — the pay is negotiable, and it is shown because it matched a keyword you like');
+        badge(box, 'ojc-flag-badge', '⚠ negotiable', 'states no figure — the pay is negotiable');
       // The remembered verdict: recomputed for a listing the scan has met, so a moved tier is recorded and
       // marked. `note` returns null for a card with no record and for an unchanged one — no storage write.
       records?.note(c, tier, cardFacts);

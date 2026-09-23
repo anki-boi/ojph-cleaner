@@ -254,8 +254,9 @@ node tools/verify-live.mjs --url="https://www.onlinejobs.ph/jobseekers/jobsearch
 ```
 
 Unit tests cannot see a missing permission or a renamed selector; that harness can, and it asserts
-the chip's counts, the `[hidden]` cards really being `display:none`, the show-all/re-hide toggle, and
-that saving settings repaints the list without a reload.
+the chip's counts, the `[hidden]` cards really being `display:none`, the show-all/re-hide toggle, the
+tier views (each one, and the click back to All), and that saving settings repaints the list without a
+reload.
 
 ## Files
 

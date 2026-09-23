@@ -24,7 +24,13 @@ the board's noise rules: the **premium bands** (the goal mark steps with the mar
 **duplicate re-post marking** (the older copy per title+company carries the tag), and the
 **negotiable rescue** (an opt-in setting that keeps a no-figure listing that says Negotiable/DOE when it
 otherwise looks good, tagged `⚠ negotiable`). D2 (distribution) is still open; D3 was answered by
-construction (IndexedDB, as planned) and D4/D5 closed with W13.
+construction (IndexedDB, as planned) and D4/D5 closed with W13. 0.12.1 fixes the standalone options page,
+which had no field for `rescueNegotiable` and silently dropped it on save, and removes the dead `warns`
+field the overtime signal left behind once `salary-cards.js` took over printing the over-40-hours badge.
+It also closes two holes the 0.12.0 work left in the checks themselves: the settings-surface parity test
+now covers the in-page panel as well as the options page, on all three legs (defaults, load, save), and
+the live harness's view check establishes its starting view instead of assuming the board is on All — a
+run that found the board already on High yield read a *correct* toggle-off as a click that never landed.
 
 ---
 
@@ -628,6 +634,7 @@ List URLs: `/jobseekers/jobsearch?jobkeyword=…`, `/jobseekers/jobsearch/{offse
 | `goalHourly` | number | `0` (off) | Hourly PHP goal; posted rates at or above it brighten the card (W13, D13) | `salary-cards.js` |
 | `maxAgeDays` | number | `7` | Hide listings posted longer ago than this many days (`0` = off, `7` = last week, `30` = last month). Read **before** every other rule; an unreadable date is never stale (W8) | rule pass |
 | `rescueNoSalary` | boolean | `false` | With `noSalary` on: a listing that states no pay but matches a keyword you like (or beats a goal) is shown instead of hidden (W10, D30) | rule pass |
+| `rescueNegotiable` | boolean | `false` | With `noSalary` on: a listing that says **Negotiable** or **DOE** and matches a keyword you like is shown with a `⚠ negotiable` tag instead of hidden (0.12.0). Separate from `rescueNoSalary` on purpose — a stated-negotiable listing is a real posting with an unstated figure, not the same thing as a listing that simply never mentions pay | rule pass |
 
 Not in `settings`: two maps the extension collects rather than preferences the user sets, and both in their own
 keys because `options.js`'s Save writes the whole `settings` object — a key in there is a key a Save can
@@ -653,7 +660,7 @@ silently drop.
 | `test-records.js` | ✅ | the memory's prune, entry cap, change state machine, idempotence, and `canon` (key order is not data) | `node test-records.js` |
 | `test-pager.js` | ✅ | next-page URL for all four list-URL shapes; "Displaying N out of M" parsing and its nulls; the recency horizon that stops the loader before a wholly stale page | `node test-pager.js` |
 | `test-salary.js` | ✅ | the suite's real-data corpus plus live formats; the hours policy (no month without stated hours), piece rates, day rates, currency codes after digits, and the thousands comma however the poster grouped it (`35,0000`) | `node test-salary.js` |
-| `test-manifest.js` | ✅ | every `chrome.*` namespace granted; referenced files exist; no orphan source | `node test-manifest.js` |
+| `test-manifest.js` | ✅ | every `chrome.*` namespace granted; referenced files exist; no orphan source; every setting reached by **both** settings surfaces (panel and options page) on all three legs — defaults, load and save | `node test-manifest.js` |
 | `test-repo-hygiene.js` | ✅ | no LICENSE, README stance, SECURITY, templates, hook wiring | `node test-repo-hygiene.js` |
 | `tools/check-readme.js` | ✅ | settings documented, no stale counts | `node tools/check-readme.js` |
 | `tools/gate.sh` | ✅ | all of the above + syntax + path scan + size cap | `sh tools/gate.sh` |

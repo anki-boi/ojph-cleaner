@@ -438,7 +438,7 @@ ${CLOSED_SRC}
     // phantom failure the moment a single record existed.
     const row = rec ? (self.__ojcCache || {})[String(id)] : null;
     const detail = row && row.desc
-      ? OJCTiers.detailFacts(row.desc, settings, OJRules.matchKeywords, OJCDetailText.plan, row.hours)
+      ? OJCTiers.detailFacts(row.desc, settings, OJRules.matchKeywords, OJCDetailText.plan)
       : (rec && rec.detail && rec.sk === sk ? rec.detail : null);
     if (rec) scanned++;
     if (rec && rec.fields && Number(rec.fields.hoursPerWeek) > 40) overHours++;
@@ -1751,8 +1751,25 @@ if (res.noSalExpected > 0) {
     const refetched = secondIds.filter(id => readAfterFirst[id]);
     const scannedOnce = firstIds.filter(id => readAfterFirst[id]);
 
-    // (c) the views filter the board to one tier, and All puts it back
+    // (c) the views filter the board to one tier, and All puts it back.
+    //
+    // The view is live page state and this harness drives the user's own browser, so the check must not
+    // assume where it starts. It did, and it flapped: a run that found the board already on "High yield"
+    // (a stray click in the real window) failed here — clicking the view that is already active correctly
+    // toggles it OFF, so the board looked unchanged, and every `setView` call in the page trace came from
+    // the click handler. Establishing the precondition is not papering over the flap: the normalisation is
+    // asserted as `views.all` below, so a board that cannot be put back on "All" still fails.
+    // Deliberately leave the board on a tier first: that is the state a stray click in the real window left
+    // it in when this check flapped, so the regression is exercised on every run, not just on the unlucky one.
+    await tab.evaluate(`document.querySelector('.ojc-view[data-view="high"]').click()`);
+    await settle(500);
+    await tab.evaluate(`document.querySelector('.ojc-view[data-view="all"]').click()`);
+    await settle(500);
     const views = {};
+    views.all = JSON.parse(await tab.evaluate(`(() => {
+      const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
+      return JSON.stringify({ visible: cards.filter(c => !c.hidden).length,
+        on: document.querySelector('.ojc-view[data-view="all"]').classList.contains('is-on') }); })()`));
     for (const v of ['high', 'worth']) {
       await tab.evaluate(`document.querySelector('.ojc-view[data-view="${v}"]').click()`);
       await settle(500);
@@ -1767,10 +1784,19 @@ if (res.noSalExpected > 0) {
           chips: document.querySelectorAll('#ojc-chip').length,
           allViews: [...document.querySelectorAll('.ojc-view')].map(x => (x.dataset.view || '?') + (x.classList.contains('is-on') ? '*' : '')).join(' '),
           note: (document.getElementById('ojc-note') || {}).textContent || null }); })()`));
+      // …and clicking the view that is already on must put the whole board back. This is the gesture that
+      // flapped (above), and it is also what a user does after looking at one tier.
+      await tab.evaluate(`document.querySelector('.ojc-view[data-view="${v}"]').click()`);
+      await settle(500);
+      views[v].off = JSON.parse(await tab.evaluate(`(() => {
+        const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
+        return JSON.stringify({ visible: cards.filter(c => !c.hidden).length,
+          on: document.querySelector('.ojc-view[data-view="${v}"]').classList.contains('is-on'),
+          allOn: document.querySelector('.ojc-view[data-view="all"]').classList.contains('is-on') }); })()`));
     }
     await tab.evaluate(`document.querySelector('.ojc-view[data-view="all"]').click()`);
     await settle(500);
-    views.all = JSON.parse(await tab.evaluate(`(() => {
+    views.allEnd = JSON.parse(await tab.evaluate(`(() => {
       const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
       return JSON.stringify({ visible: cards.filter(c => !c.hidden).length,
         on: document.querySelector('.ojc-view[data-view="all"]').classList.contains('is-on') }); })()`));
@@ -1875,11 +1901,24 @@ if (res.noSalExpected > 0) {
     if (r.views[v].visible !== n) {
       await fail(`the ${v} view shows ${r.views[v].visible} card(s) but its button says ${n}`);
     }
+    // Clicking the view that is on puts the whole board back, marked "All" — the other half of the toggle.
+    if (r.views[v].off.on || !r.views[v].off.allOn) {
+      await fail(`clicking the active ${v} view again did not return to All ` +
+        `(off: ${JSON.stringify(r.views[v].off)}) — the view is a toggle, and a second click must undo it`);
+    }
+    if (r.views[v].off.visible !== r.views.all.visible) {
+      await fail(`after clicking the active ${v} view off, ${r.views[v].off.visible} card(s) show but the board ` +
+        `has ${r.views.all.visible} — leaving a tier view must lose nothing`);
+    }
   }
-  if (!r.views.all.on) await fail('the All view is not marked active after clicking it');
+  if (!r.views.all.on) await fail('the board is not on All before the views are exercised — the check cannot start');
   if (r.views.all.visible !== r.afterFirst.visible) {
     await fail(`All shows ${r.views.all.visible} cards, the board had ${r.afterFirst.visible} before the views were ` +
       `used — a tier view must not lose cards`);
+  }
+  if (!r.views.allEnd.on || r.views.allEnd.visible !== r.views.all.visible) {
+    await fail(`the board did not come back to All at the end (${JSON.stringify(r.views.allEnd)} vs ` +
+      `${JSON.stringify(r.views.all)}) — All must always be reachable`);
   }
 
   // ── the change mark: a listing whose tier moved says so, until you open it ──
@@ -1965,7 +2004,8 @@ if (res.noSalExpected > 0) {
     `${parity.domTiers.worth} worth / ${parity.counts.flagTagExpected} off-platform tag(s) · ${r.afterFirst.note || ''}`);
   console.log(`views     : high ${r.views.high.visible}/${r.views.high.button.match(/\d+$/)} · ` +
     `worth ${r.views.worth.visible}/${r.views.worth.button.match(/\d+$/)} · all ${r.views.all.visible} ` +
-    `(−${r.afterFirst.visible - r.views.all.visible} hidden) · none in the wrong tier`);
+    `(−${r.afterFirst.visible - r.views.all.visible} hidden) · toggle-off restores ` +
+    `${r.views.high.off.visible}/${r.views.worth.off.visible} · none in the wrong tier`);
   console.log(`memory    : ${seeded.id} seeded as "kw" → marked "${marked.badge}" (real tier ${marked.tier}), ` +
     `then cleared by opening the listing (seen=${recAfter.seen})`);
   if (parity.overHours) console.log(`hours     : ${parity.overHours} listing(s) state a week longer than 40 h — flagged on the card`);

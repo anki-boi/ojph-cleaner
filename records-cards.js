@@ -100,7 +100,7 @@
   function onSettings(next) {
     S.settings = { ...(next || {}) };
     S.currentSk = pure.settingsKey(S.settings);
-    for (const [id, text] of S.texts) S.facts.set(id, store.derive(text.desc, text.fields?.hoursPerWeek));
+    for (const [id, text] of S.texts) S.facts.set(id, store.derive(text.desc));
   }
 
   self.OJCRecordsUI = {

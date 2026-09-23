@@ -47,14 +47,11 @@
   };
 
   /** The facts a description yields. `planner.plan` is the detail page's own detector (W4), so the board
-   *  and a listing's page can never disagree about what an off-platform ask is.
-   *
-   *  The listing's own `HOURS PER WEEK` adds one more fact (W13.7): **a week longer than 40 hours is
-   *  flagged automatically.** It rides the same `flags` list the off-platform asks use, so it demotes a
-   *  green card to Worth considering (or shows a plain one with its warning) through exactly one code
-   *  path — and it is re-derived from the cached text on every settings change like everything else. */
-  const derive = (text, hours) => (text
-    ? tiers.detailFacts(text, S.settings, rules.matchKeywords, planner.plan, hours)
+   *  and a listing's page can never disagree about what an off-platform ask is. A week longer than
+   *  40 hours is deliberately NOT derived here — it lives in the record's `fields.hoursPerWeek`, which
+   *  salary-cards.js reads to print the hours badge in the warning colour, and it never moves a tier. */
+  const derive = (text) => (text
+    ? tiers.detailFacts(text, S.settings, rules.matchKeywords, planner.plan)
     : null);
 
   /** Was this record materially different from the last one? Timestamps do not count — if they did, every
@@ -117,7 +114,7 @@
     let changed = false;
     for (const [id, row] of rows) {
       S.texts.set(id, row);
-      S.facts.set(id, derive(row.desc, row.fields?.hoursPerWeek));
+      S.facts.set(id, derive(row.desc));
       // Keep the stored keyword facts in step with the settings they were derived under. Without this a
       // record would claim a verdict computed from an older keyword list, and the live harness — which
       // reads that same record to recompute the expected tier — would disagree with the board.
@@ -180,7 +177,7 @@
                 dateUpdated: page.dateUpdated } };
     await cache.put(row);
     S.texts.set(String(id), row);
-    S.facts.set(String(id), derive(page.description, page.hoursPerWeek));
+    S.facts.set(String(id), derive(page.description));
     return row;
   }
 

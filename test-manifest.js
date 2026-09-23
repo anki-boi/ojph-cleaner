@@ -116,5 +116,52 @@ assert.deepStrictEqual(undefinedFields, [],
 assert.ok(!fs.existsSync(path.join(root, 'background.js')),
   'background.js exists but the manifest no longer registers it — the storage proxy is dead code');
 
+// ── both settings surfaces must cover every setting, on all three legs ────
+// content.js's DEFAULTS is the single source of truth for the settings shape. Both the in-page panel
+// (panel.js) and the standalone options page (options.js) write the WHOLE settings object on save, so a
+// setting missing from a surface's DEFAULTS, its **load** or its save() is silently dropped back to the
+// default — the "a setting that lies" bug class, and exactly what `rescueNegotiable` (0.12) shipped as:
+// the panel had it, options.html had no field and no mention. The load leg matters as much as the other
+// two and is the easy one to forget: a field the load forgets reads back as `undefined`, the user sees a
+// checkbox off, and the next Save writes that off over their real setting.
+const contentSrc = fs.readFileSync(path.join(root, 'content.js'), 'utf8');
+const defaults = contentSrc.match(/const DEFAULTS = \{([\s\S]*?)\n  \};/);
+assert.ok(defaults, 'could not find `const DEFAULTS = {...}` in content.js');
+const settingKeys = [...defaults[1].matchAll(/^\s*([A-Za-z_]\w*):/gm)].map(m => m[1]);
+const optionsSrc = fs.readFileSync(path.join(root, 'options.js'), 'utf8');
+const optDefaults = optionsSrc.match(/const DEFAULTS = \{([^}]*)\};/);
+assert.ok(optDefaults, 'could not find `const DEFAULTS = {...}` in options.js');
+// The standalone page keeps its own DEFAULTS because it merges them under whatever is in storage, so a
+// key it does not know is a key a legacy settings object can lose.
+for (const key of settingKeys) {
+  assert.ok(optDefaults[1].includes(key + ':'),
+    `options.js DEFAULTS is missing "${key}" — saving from the standalone page drops it`);
+}
+// Each surface's load block and save block; anchored on the distinct call each one makes, so the two
+// cannot silently swap. `\bs\.<key>\b` is how both read a setting back after the merge.
+const surfaces = [
+  { name: 'panel.js', src: fs.readFileSync(path.join(root, 'panel.js'), 'utf8'),
+    load: /function fillPanel\(\)[\s\S]*?\n  \}/, save: /api\.setSettings\(\{[\s\S]*?\n    \}\)/ },
+  { name: 'options.js', src: optionsSrc,
+    load: /chrome\.storage\.local\.get\('settings',[\s\S]*?\n  \}\)/, save: /const settings = \{[\s\S]*?\n    \};/ },
+];
+for (const { name, src, load, save } of surfaces) {
+  const loadBlock = src.match(load);
+  const saveBlock = src.match(save);
+  assert.ok(loadBlock && saveBlock, `could not find the load/save blocks in ${name}`);
+  for (const key of settingKeys) {
+    assert.ok(new RegExp(`\\bs\\.${key}\\b`).test(loadBlock[0]),
+      `${name} does not read "${key}" when filling its form — the field shows a default and the next save overwrites the setting with it`);
+    assert.ok(saveBlock[0].includes(key + ':'),
+      `${name} save() is missing "${key}" — saving from it drops the setting`);
+  }
+}
+// Every field options.js reads or writes must exist in options.html, mirroring the panel check above.
+const optHtml = fs.readFileSync(path.join(root, 'options.html'), 'utf8');
+const optFields = [...new Set([...optionsSrc.matchAll(/\$\('([\w-]+)'\)/g)].map(m => m[1]))];
+const missingOptFields = optFields.filter(id => !optHtml.includes(`id="${id}"`));
+assert.deepStrictEqual(missingOptFields, [],
+  `options.js references field(s) options.html does not define: ${missingOptFields.join(', ')}`);
+
 console.log(`manifest: ok (${used.size} chrome APIs checked, ${sourceFiles.length} source files wired, ` +
   `${referenced.length} files verified, ${panelFields.length} panel fields declared)`);

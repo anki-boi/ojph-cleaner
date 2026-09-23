@@ -1666,7 +1666,7 @@ if (res.noSalExpected > 0) {
 // cannot pass by agreeing with itself — the two sides read different sources.
 {
   const SCAN = { ...settings, negative: ['crypto'], positive: ['assistant'], maxAgeDays: 3,
-                 scanWorth: true, scanAll: false };
+                 scanWorth: true, scanAll: false, sortByPay: true };
   await storeEval(`chrome.storage.local.set({ settings: ${JSON.stringify(SCAN)} }).then(()=>1)`, 500);
   const recordsBefore = await readRecords();
   /** The ids in the page's own IndexedDB store — same origin as the content script's cache. */
@@ -1832,8 +1832,15 @@ if (res.noSalExpected > 0) {
       return JSON.stringify({ visible: cards.filter(c => !c.hidden).length,
         on: document.querySelector('.ojc-view[data-view="all"]').classList.contains('is-on') }); })()`));
 
+    // D41: the run ended, so the board is ranked by pay — read here, in THIS tab, because "a scan has
+    // finished" is session state: a fresh tab is deliberately left in the site's own order.
+    await settle(700);
+    const pay = JSON.parse(await tab.evaluate(`(() => {
+      const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
+      return JSON.stringify(cards.map(c => [c.dataset.ojcPay || '', c.dataset.ojcPayUnit || ''])); })()`));
+
     return JSON.stringify({ before, afterFirst, idle, firstRun, secondRun, peak, peakSet, sawStop, refetched,
-      scannedOnce, runStart, labels: labels.filter(Boolean).slice(0, 8), cache, views, starts, errors });
+      scannedOnce, runStart, labels: labels.filter(Boolean).slice(0, 8), cache, views, starts, errors, pay });
   }, 500));
 
   if (!r.before.scanBtn) await fail('no Scan button in the panel — the deep scan is not wired in');
@@ -1924,10 +1931,37 @@ if (res.noSalExpected > 0) {
       !Array.isArray(rec.detail.flags) || typeof rec.at !== 'number';
   });
   if (badShape.length) await fail(`${badShape.length} scan record(s) are incomplete: ${JSON.stringify(records[badShape[0]])}`);
+
+  // D41 — the run ended, so the board is in pay order. The rule is "a month, then a posted rate, then no
+  // figure, each highest first", and the live half of it is that the DOM really is in that order, built
+  // from the figure printed on each card. The fine print (ties, defensive keys) is test-paysort.js.
+  const rank = r.pay.map(([pay, unit], index) => ({ n: Number(pay), unit: unit || 'none', index }));
+  // A throw in the sort itself would otherwise show up here as "not in pay order", which is a symptom and
+  // not the cause — the extension's own exceptions during this section are quoted into every message.
+  const why = r.errors.length ? ` · page errors: ${r.errors.slice(0, 2).join(' // ')}` : '';
+  const block = (x) => (x.unit === 'month' && Number.isFinite(x.n) && x.n > 0 ? 0
+    : (x.unit === 'hour' || x.unit === 'day') && Number.isFinite(x.n) && x.n > 0 ? 1 : 2);
+  const priced = rank.filter(x => block(x) < 2).length;
+  if (!priced) {
+    await fail(`sortByPay was on and the scan ended, but no card on the board carries a figure to rank ` +
+      `(pay keys: ${JSON.stringify(r.pay.slice(0, 4))}) — the sort key is not reaching the DOM${why}`);
+  }
+  for (let i = 1; i < rank.length; i++) {
+    const a = block(rank[i - 1]), b = block(rank[i]);
+    if (a > b) await fail(`the board is not in pay order: ${rank[i].unit} card after ${rank[i - 1].unit}${why}`);
+    if (a === b && a < 2 && rank[i - 1].n < rank[i].n) {
+      await fail(`the board is not in pay order within the ${['month', 'rate'][a]} block: ` +
+        `${rank[i].n} follows ${rank[i - 1].n}${why}`);
+    }
+  }
   if (!parity.overHours) {
     console.log('scan      : no listing on this page states a week longer than 40 h — the over-40 flag is ' +
       'proved by test-tiers.js (unit) and by the live run that found a 45 h/week listing');
   }
+
+  console.log('sort      : ' + rank.map(x => x.unit === 'none' ? '—' : x.n).join(' → ').slice(0, 96) +
+    ` · ${rank.filter(x => x.unit === 'month').length} month / ${rank.filter(x => x.unit === 'hour' || x.unit === 'day').length} rate / ` +
+    `${rank.filter(x => x.unit === 'none').length} unranked · three blocks, each highest first · off the card's own figure`);
 
   // The views: exactly one tier on screen, and the count on the button is that tier's size.
   for (const v of ['high', 'worth']) {

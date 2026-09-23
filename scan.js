@@ -204,6 +204,9 @@
     } finally {
       st.running = false;
       api.refreshRules();
+      // D41: a run has ended, so the board may be ranked — ANY end, because a partial ranking of the
+      // figures we do have is still honest, and the next run moves cards up as more of them are stated.
+      self.OJCPaySort?.afterScan?.();
       api.setNote(outcome());
       console.log('[OJ Cleaner] scan', st);
     }

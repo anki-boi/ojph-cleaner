@@ -96,6 +96,11 @@ two things in one run, and nothing until you press it:
    300 listings. Everything it reads is cached for 7 days, so a second run costs nothing — and changing a
    keyword re-tiers the page **without a single request**.
 
+**With `sortByPay` on, that run ends by ranking the board, best-paying first** (off by default). Sorting
+waits for the scan for the same reason the scan exists: a card's figure is an *assumption* until the
+listing's own `HOURS PER WEEK` is known, and a pay order built on assumptions would rank guesses. The order
+persists as the loader appends later pages, so the board stays in one piece as you read down it.
+
 **Two tiers, and a button for each.** Once listings have been read, the panel shows `High yield N` and
 `Worth N`:
 
@@ -197,6 +202,7 @@ same storage, and both take effect on every open tab immediately.
 | `autoScan` | off | Deep-scan a search page automatically as soon as it loads. Off by default: the `Scan` button does the same thing on demand, and the extension's promise is that the site sees no traffic you did not ask for. |
 | `scanWorth` | on | After the High yield listings, continue a scan into the Worth considering (yellow) ones. Off means a scan stops after the green ones. |
 | `scanAll` | off | …and then the unclassified listings as well. This is the only pass that can promote a listing that matches no keyword and no goal, and it is the most expensive one. |
+| `sortByPay` | off | When a scan run ends, rank the board by the figure on each card: the highest **monthly** figure first, then listings that post only a rate (per hour or per day), then the ones with no figure at all, which keep the site's own order. A month and an hourly rate are never converted into each other — that would assume a work week — so a ₱5,000/mo listing outranks a ₱500/hr one. The order stays as you scroll more pages in, and only after a scan: until then the board is in the site's own newest-first order. |
 
 Every keyword is an **exact word or phrase**, case-insensitively: `ai` matches `AI tools` and
 `AI-powered` but never `email` or `daily`, and `video editor` does not match `video editors`. Add the
@@ -273,6 +279,7 @@ reload.
 | `detail-cache.js` | IndexedDB: the listing pages a scan has read, 7-day TTL, 1 000-entry cap, so a keyword edit costs nothing |
 | `detail-parse.js` | What a listing's own page says — one reader for the description, the overview fields and the job id |
 | `scan.js` | The deep scan (W13): page to the recency window, then 2 listings at a time, in tier order, with caps and Stop |
+| `pay-sort.js` | Ranking the board by pay (`sortByPay`, D41): the three blocks, and the reorder that only writes when the order actually changed |
 | `observer.js` | The one MutationObserver, and the `isOurs()` check that stops it eating itself |
 | `closed.js` / `closed-cards.js` | The closed-listing memory (pure maths + the storage applier) |
 | `detail-text.js` / `detail.js` | What to highlight on a listing's page, and the bar that applies it (W4) |

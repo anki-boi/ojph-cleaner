@@ -22,6 +22,7 @@
     goalSalary: 0,   // W7: monthly PHP goal — listings at or above it brighten up (0 = off)
     goalHourly: 0,   // W7: hourly PHP goal — for listings that post a rate, which no month can judge
     maxAgeDays: 7,   // W8: hide listings posted longer ago than this (0 = off). The primary filter.
+    sortByPay: false, // D41: once a deep scan has finished, rank the board by the figure on each card
   };
   let settings = { ...DEFAULTS };
 
@@ -97,8 +98,7 @@
     return box;
   };
 
-  /** The verdict per card — the scan's priority order and the live harness read the same fact in the DOM
-   *  (a data attribute; `dataset.why` had four writes and no readers, so it was deleted in W2). */
+  /** The verdict per card — the scan's priority order and the live harness read the same data attribute. */
   const tierMap = new WeakMap();
   const cardFactsOf = (c) => ({
     ...tiers.cardFacts(ownText(c), settings, rules.matchKeywords),

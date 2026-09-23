@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "OJ.ph Cleaner",
-  "version": "0.13.0",
+  "version": "0.14.0",
   "description": "Hides stale, no-salary and keyword-matching jobs on OnlineJobs.ph, highlights the ones you want, and re-reads listings in full",
   "permissions": ["storage"],
   "host_permissions": ["https://www.onlinejobs.ph/*", "https://onlinejobs.ph/*"],
@@ -11,7 +11,7 @@
       "js": [
         "rules.js", "tiers.js", "page.js", "detail-text.js", "closed.js", "detail-parse.js", "detail-cache.js",
         "records.js", "chip.js", "content.js", "observer.js", "salary.js", "salary-cards.js",
-        "closed-cards.js", "records-store.js", "records-cards.js", "export.js", "pagination.js", "scan.js", "panel.js", "detail.js"
+        "closed-cards.js", "records-store.js", "records-cards.js", "export.js", "pagination.js", "scan.js", "pay-sort.js", "panel.js", "detail.js"
       ],
       "css": ["ui.css", "content.css"],
       "run_at": "document_idle"

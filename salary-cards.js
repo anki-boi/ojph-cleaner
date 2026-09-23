@@ -272,12 +272,19 @@
                  : aboveHourly && goalHourly > 0 ? (hourlyPhp - goalHourly) / goalHourly : null;
         if (by == null) delete card.dataset.goalBy; else card.dataset.goalBy = String(by);
         note.dataset.band = goalBand(by);
+        // The sort key (D41): the figure the board may be ranked by, and what it is per. Only a real figure
+        // earns a rank — a card with none keeps the site's own order — and it is the LOW end of a range, the
+        // same end every goal is judged on.
+        const ranked = php || rate;
+        if (ranked) { card.dataset.ojcPay = String(ranked.min); card.dataset.ojcPayUnit = php ? 'month' : p.unit; }
+        else { delete card.dataset.ojcPay; delete card.dataset.ojcPayUnit; }
       }
       // One extra rule pass, and only when a mark actually moved. The `annotate()` this re-enters
       // returns immediately on the `running` guard above, so it cannot loop — and by then the marks
       // match the data, so the pass after it finds nothing changed and stops there.
       if (goalMarksChanged) api.refreshRules();
       hoursBadges();   // the listing's own hours, once a scan has read the page (W13.6)
+      self.OJCPaySort?.resort?.();   // D41: the figures above are current — the one safe moment to reorder
   }
 
   self.OJCSalaryUI = { annotate, loadRates };

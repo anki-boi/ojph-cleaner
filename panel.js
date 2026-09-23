@@ -90,6 +90,7 @@
           <label class="ojc-check"><input type="checkbox" id="ojc-autoScan"><span>Scan this page as soon as it loads</span></label>
           <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-scanWorth"><span>…then the Worth considering listings too</span></label>
           <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-scanAll"><span>…and the unclassified ones, which this pass can promote</span></label>
+          <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-sortByPay"><span>…then rank the board by pay, best first</span></label>
         </div>
       </div>
       <div id="ojc-panel-foot">
@@ -146,6 +147,7 @@
     $p('#ojc-autoScan').checked = s.autoScan;
     $p('#ojc-scanWorth').checked = s.scanWorth !== false;
     $p('#ojc-scanAll').checked = !!s.scanAll;
+    $p('#ojc-sortByPay').checked = !!s.sortByPay;
   }
 
   /** Mirror settings into an open panel without clobbering a field being typed in. */
@@ -181,6 +183,7 @@
       autoScan: $p('#ojc-autoScan').checked,
       scanWorth: $p('#ojc-scanWorth').checked,
       scanAll: $p('#ojc-scanAll').checked,
+      sortByPay: $p('#ojc-sortByPay').checked,
     });
     api.refreshRules();
     api.persist();

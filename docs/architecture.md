@@ -19,6 +19,7 @@ manifest.json          ── injects on onlinejobs.ph only
    ├─ records-store.js  the memory's state + persistence (load/flush/absorb)
    ├─ records-cards.js   applies the memory: verdicts, change marks (sync side)
    ├─ scan.js          the deep scan (W13)
+   ├─ pay-sort.js      the board in pay order after a scan (D41) ← rule in test-paysort.js
    ├─ pagination.js    loading: the sentinel + the scan's loadOne  ← test-pager.js
    ├─ closed.js/.cards.js  the closed-listing memory
    ├─ detail-text.js   pure: the highlight planner               ← test-detail.js
@@ -318,6 +319,31 @@ comparison needs the number the listing actually printed.
 When the month came from the full-time 40 h/week reading of an hourly rate, the card carries
 `assumes 40 h/week (full time) — verify with the employer` (`.ojc-salary-warn`), and the tooltip repeats
 it. A month from a stated period, or from stated hours, carries no warning — neither is an assumption.
+
+## Ranking the board by pay (0.14.0 / D41)
+
+Off by default, and the order follows the same refusal as the goals above: a month and a rate are never
+converted into each other, so the board is ranked in **three blocks** — a month, then a posted rate, then
+no figure — highest first inside each, with the site's own order kept inside a tie.
+
+Three couplings are load-bearing:
+
+- **The key is published, not re-parsed.** `salary-cards.js` already computes the figure, so it writes the
+  **low end** of it to `data-ojc-pay` (+ `data-ojc-pay-unit`) in the same pass that prints the note. Sorting
+  by re-reading our own formatted text (`≈ ₱18,775 - ₱26,285/mo`) would make the order depend on the copy.
+- **The sort runs at the end of a salary pass**, never inside the rule pass. A reorder is roughly one
+  mutation per card and the observer schedules a pass for any mutation it does not recognise, so a sort
+  inside the pass is a pass that schedules the next one (the §2.2 loop, one layer down). It is also a
+  no-op whenever the order already holds, which is what makes "re-check on every pass" safe.
+- **The trigger is the end of a scan run** — any end, including one the user stopped — because a card's
+  figure is an assumption until the listing's own `HOURS PER WEEK` has been read. `armed` is session state,
+  like the tier view, so a fresh tab is deliberately left in the site's own order. After that the order is
+  **sticky**: `pagination.js` already calls `refreshRules()` when it appends a page, and the salary pass
+  that follows re-applies the order, so the board never silently degrades while it is being read.
+
+The reorder inserts **before** `#ojc-sentinel`, never after it. `pagination.js` keeps the sentinel last so
+it means "the end of the list"; a reorder that appends the cards after it leaves the sentinel mid-list and
+visible — measured once at +30 listings and a request the user never asked for.
 
 ## Deliberate ceilings
 

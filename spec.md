@@ -42,6 +42,15 @@ pass, so the page wrote storage and the write's echo re-ran the pass, **45 passe
 page** (§2.8) — and the live harness assumed a virgin job memory when it asserted the scan had remembered
 something, which is false on any board you have scanned before.
 
+0.14.0 adds **`sortByPay`** (D41): when a deep scan run ends, the board is ranked by the figure on each card
+— the highest monthly figure first, then listings that post only a rate, then the ones with no figure, which
+keep the site's own order. Off by default, and it waits for the scan on purpose: a card's figure is an
+*assumption* until the listing's own `HOURS PER WEEK` is known, so a pay order taken before the scan would
+rank guesses. Sorting never converts a month into an hourly rate or the reverse — that needs a work week,
+which `salary.js` refuses to assume anywhere else (D13) — so a ₱5,000/mo listing outranks a ₱500/hr one,
+and the card resting on the 40 h/week assumption keeps its own ⚠ label. The order is sticky: pages the
+loader appends afterwards are re-ranked, so the board stays in one piece as you read down it.
+
 ---
 
 ## 0. How to use this document
@@ -277,6 +286,7 @@ exact regression.
 | **D38** | Off-platform asks | A **tag**, not a gate: shown beside the keyword badge on every card that carries one, never hidden and never demoted for it. An earlier version demoted, which moved 176 of 227 scanned listings out of High yield | ✅ decided 2026-09-19 |
 | **D39** | A week longer than 40 hours | **Flagged on the card** (`⚠ 45 h/week — over the 40 h full-time week`) and never demoted for | ✅ decided 2026-09-19 |
 | **D40** | The goal is a hard filter | **Worth considering needs `money` (a goal met), not merely a keyword you like.** `good && neg` becomes `money && neg`, and the keyword-hide branch is evaluated **before** the highlighted one, so below a goal a hide keyword wins outright — a keyword you like can highlight a listing and never rescue one. The user, on finding the yellow tier reachable by keywords alone: *"you might have promoted a lot of listings to worth considering due to the presence of positive keywords being more than the negative keywords, but do not forget that the goal salary is a hard filter."* Consequence, accepted: a listing that matched a keyword you like **and** one you asked to hide while below a goal goes from yellow to **hidden**, both unscanned and after a scan. A keyword you like below the goal with no hide keyword is untouched — still **Highlighted**, the green outline | ✅ decided 2026-09-23 |
+| **D41** | Ranking the board by pay | **Three blocks, and only after a scan run ends.** A month, then a posted rate, then no figure — each highest first, and the unranked cards keep the site's own order. Never one list: converting a month into an hourly rate (or back) needs a work week, which D13 refuses to assume anywhere else, so **a ₱5,000/mo listing outranks a ₱500/hr one** and the card resting on the 40 h/week assumption keeps its ⚠ label rather than being quietly promoted. The trigger is the **end of any scan run** — completed, stopped by you, or cut short by the site — and not the page load, because a card's figure is an assumption until the listing's own `HOURS PER WEEK` is read; the user: *"the sorting from highest to lowest salary should only happen after the deepscan is completely done. That's a lot cleaner."* The order is **sticky** (pages the loader appends later are re-ranked) and the whole feature is **off by default**, since reordering a board the user did not ask to reorder is the extension's one unpardonable move | ✅ decided 2026-09-23 |
 
 ---
 
@@ -295,6 +305,8 @@ detail-parse.js        one reader for a listing's own page (description, overvie
 detail-cache.js        IndexedDB: the listing's own words, 7-day TTL, 1 000-entry cap
 records-cards.js       applies the memory: sync copy for the rule pass, writes only on change
 scan.js                the deep scan (W13): page to the horizon, then 2 listings at a time
+pay-sort.js            the board in pay order after a scan ends (D41): the pure rank rule + the reorder
+                       that only ever writes when the order changed                    ← rule unit-tested
 content.js             DOM + state: chip counts, rule pass, views, storage sync (no network)
 observer.js            the one MutationObserver, and the isOurs() check that stops it looping
 pagination.js          the only network code: scroll-triggered result loading, and the scan's loadOne
@@ -504,6 +516,19 @@ the figure ("a part-time monthly rate at xx hours weekly"), and a week longer th
 | W14.4 | Off-platform asks became a **tag** rather than a demotion (the user's call), and a positive keyword stopped making a listing high-yield — pay decides that | `tiers.js`, `content.js`, `chip.js`, `test-tiers.js` |
 | W14.5 | The live harness: tier parity per bucket, the scan's rate bound, the cache re-run, the views, the change mark, the declared hours basis | `tools/verify-live.mjs`, `tools/cdp.mjs` |
 
+### W15 — Rank the board by pay ✅ (0.14.0)
+
+D41, and the two things the user decided while it was scoped: sort only once a **deep scan run has ended**
+("That's a lot cleaner"), and never convert a month into an hourly rate to make one list of it.
+
+| ID | Task | Files |
+|---|---|---|
+| W15.1 | `salary-cards.js` publishes the figure it already computes as `data-ojc-pay`/`data-ojc-pay-unit` — the **low end** of a range, the same end every goal is judged on | `salary-cards.js` |
+| W15.2 | The rank rule, pure and unit-tested: a month, then a posted rate, then no figure, each highest first, ties and the unranked block in the site's own order | `pay-sort.js`, `test-paysort.js` |
+| W15.3 | The reorder, at the end of a salary pass (the one moment the keys are current) and **only when the order actually changed** — a reorder inside the rule pass is a pass that schedules the next one | `pay-sort.js`, `salary-cards.js` |
+| W15.4 | The trigger: **any** end of a scan run, and sticky — pages the loader appends later are re-ranked, so the board does not silently degrade as you scroll | `scan.js`, `pay-sort.js` |
+| W15.5 | The setting on both surfaces, its README row and its spec row; the live harness asserts the DOM order it produces and quotes the extension's own exceptions if it ever regresses | `panel.js`, `options.*`, `README.md`, `tools/verify-live.mjs` |
+
 ### W5 — Distribution (the original Task 8) → depends on W1, W3
 
 | ID | Task |
@@ -680,6 +705,7 @@ List URLs: `/jobseekers/jobsearch?jobkeyword=…`, `/jobseekers/jobsearch/{offse
 | `maxAgeDays` | number | `7` | Hide listings posted longer ago than this many days (`0` = off, `7` = last week, `30` = last month). Read **before** every other rule; an unreadable date is never stale (W8) | rule pass |
 | `rescueNoSalary` | boolean | `false` | With `noSalary` on: a listing that states no pay but matches a keyword you like (or beats a goal) is shown instead of hidden (W10, D30) | rule pass |
 | `rescueNegotiable` | boolean | `false` | With `noSalary` on: a listing that says **Negotiable** or **DOE** and matches a keyword you like is shown with a `⚠ negotiable` tag instead of hidden (0.12.0). Separate from `rescueNoSalary` on purpose — a stated-negotiable listing is a real posting with an unstated figure, not the same thing as a listing that simply never mentions pay | rule pass |
+| `sortByPay` | boolean | `false` | Rank the board by the figure on each card when a scan run ends: highest **monthly** figure first, then posted rates (per hour or per day), then the cards with no figure, in the site's own order (0.14.0, D41). Never converts a month to a rate or back — that would assume a work week (D13) — and the order is re-applied to pages the loader appends later | `pay-sort.js` |
 
 Not in `settings`: two maps the extension collects rather than preferences the user sets, and both in their own
 keys because `options.js`'s Save writes the whole `settings` object — a key in there is a key a Save can
@@ -702,6 +728,7 @@ silently drop.
 |---|---|---|---|
 | `test-rules.js` | ✅ | salary parsing, keyword matching, case, duplicates | `node test-rules.js` |
 | `test-tiers.js` | ✅ | every branch of the verdict table, the unscanned parity rule, the tier movements a scan can cause, and that off-platform / over-40 are tags and never demote | `node test-tiers.js` |
+| `test-paysort.js` | ✅ | the three blocks (a month outranks a rate outranks no figure), highest first inside each, the site's own order kept inside a tie and inside the unranked block, that the input array is not mutated, and every string the site could put in the two dataset fields that is *not* a figure | `node test-paysort.js` |
 | `test-records.js` | ✅ | the memory's prune, entry cap, change state machine, idempotence, `canon` (key order is not data) and `sameFacts` (a card stored before a fact existed is not a change, and a real margin still is) | `node test-records.js` |
 | `test-pager.js` | ✅ | next-page URL for all four list-URL shapes; "Displaying N out of M" parsing and its nulls; the recency horizon that stops the loader before a wholly stale page | `node test-pager.js` |
 | `test-salary.js` | ✅ | the suite's real-data corpus plus live formats; the hours policy (no month without stated hours), piece rates, day rates, currency codes after digits, and the thousands comma however the poster grouped it (`35,0000`) | `node test-salary.js` |

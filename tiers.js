@@ -5,16 +5,19 @@
  *
  * One function decides what every card is, and the order of its branches is the product:
  *
- *   closed → stale → no salary (unless rescued) → the two tiers → keyword-hide → off-platform flag
+ *   closed → stale → no salary (unless rescued) → HIGH YIELD → worth considering → keyword-hide → highlighted → nothing
  *
  * The first three are unchanged from 0.8.0 and outrank everything: a listing you have seen close, one
  * outside your recency window and one that states no pay are facts about the listing, not opinions about
- * it. The last four are what a deep scan can move cards between.
+ * it. The rest is what a deep scan can move cards between.
  *
- * **The compatibility rule.** With no `detail` (no deep scan, no cache), the table reduces to the
- * verdicts 0.8.0 shipped: `good && !bad` → high (green), `good && bad` → worth (yellow), `bad` → hidden.
- * That is not a nice-to-have — every existing live assertion in tools/verify-live.mjs is written against
- * those counts, so a page the scan has never touched must behave exactly as it always did.
+ * **The compatibility rule, with one deliberate exception (D40).** With no `detail` (no deep scan, no
+ * cache) the table reduces to the verdicts 0.8.0 shipped — green / yellow / hidden — with the green split
+ * into `high` (the goal met) and `pos` (a keyword you like, below the goal) so the chip can count them
+ * apart. The exception: a listing that matched BOTH a keyword you like and one you asked to hide while
+ * below a goal. 0.8.0 showed that yellow and this hides it, because the goal is a hard filter. Every other
+ * case is unchanged, and the live harness recomputes its expectations through this same function, so the
+ * two cannot drift.
  *
  * What the scan can do to a card, in the terms the user asked for:
  *
@@ -23,9 +26,10 @@
  * | promote white → high  | the scan's own `HOURS PER WEEK` turns an assumed month into a stated one, and the listing now meets your goal |
  * | promote pos → high    | the same: a listing you like the sound of, whose real hours put it over your goal |
  * | promote white → pos   | the description matches a positive keyword the card's short text does not have |
- * | promote hidden → worth | a positive keyword rescues a hide-keyword card |
- * | demote high → worth   | the description adds a hide keyword |
- * | demote high → pos     | …and nothing else about it looks good, so it is only highlighted |
+ * | promote hidden → worth | the scan's stated hours put a hide-keyword listing at or above a goal — PAY earns this, a keyword cannot (D40) |
+ * | demote high → worth   | the description adds a hide keyword, and the listing still meets a goal |
+ * | demote high → pos     | …the stated hours no longer meet the goal, so it is only highlighted |
+ * | demote pos → hidden   | the description adds a hide keyword on a listing below a goal: the hide wins (D40) |
  *
  * A description can never un-match a card-level hit: it is strictly more text, so a demotion is always
  * explainable ("the card already said crypto") and a promotion is always earned. Nothing here guesses.
@@ -54,8 +58,9 @@
    *             Positive keywords are a bonus: they are badged, and they do not change the tier.
    *             A yellow card that is unambiguously a keeper (the super green case, see the table above)
    *             so high can carry a hide keyword — that is why such a card badges both sides.
-   *   `worth` — it looks good (a goal met, or a keyword you like) *and* a hide keyword matched, and it is
-   *             not the super-green case above.
+   *   `worth` — it meets one of your salary goals *and* a hide keyword matched, and it is not the
+   *             super-green case above. Pay is the only thing that earns this tier: a keyword you like
+   *             cannot, because the goal is a hard filter (D40).
    *
    * A keyword you like on a listing that pays below your goal is neither: it is `pos` — the green highlight
    * this extension has always drawn, with its `✓ kw` badge, and emphatically not a high-yield listing. It is
@@ -82,24 +87,33 @@
     const neg = negN > 0;
     const money = !!c.goal;      // the goal mark salary-cards.js puts on a listing at or above your goal
     const by = goalBy(c.goalBy); // how far above, 0.5 = 50 % over — null when unprovable
-    const good = money || pos;   // what the reconsider state and W10's rescue have always meant by "looks good"
+    // What W10's and the negotiable rescue mean by "looks good" — the two doors a no-figure listing can come
+    // in through. The reconsider tier does NOT use this any more: it needs `money` (D40).
+    const good = money || pos;
 
     if (closed) return 'closed';
     if (stale) return 'stale';
     // The no-salary hide, with two opt-in rescues that both need `good`: the plain rescue (W10), and the
     // negotiable one (0.12) — a listing that says its pay is negotiable and otherwise looks good stays on
-    // the board with a ⚠ negotiable tag, instead of hiding.
+    // the board with a ⚠ negotiable tag, instead of hiding. `good` is the RESCUE's predicate only: for a
+    // no-figure listing `money` can never be true, so these two doors are keyword doors by construction.
     if (noSalary && !(good && (rescue || (negotiable && rescueNeg)))) return 'nosal';
     if (money && !neg) return 'high';
-    if (good && neg) {
+    if (money && neg) {
       // Super green: it would be yellow, but it is unambiguously a keeper — more keywords you like than
       // you hate, and the pay clears your goal by more than half again. The user: "significantly more
       // positive keywords than negative (+ salary significantly higher) → high yield, not yellow".
-      if (money && by >= 0.5 && posN > negN) return 'high';
+      if (by >= 0.5 && posN > negN) return 'high';
       return 'worth';
     }
-    if (pos) return 'pos';       // highlighted, never hidden, and not a high-yield listing
+    // **The goal is a hard filter, so this test comes BEFORE `pos` (D40).** Below a goal — or with no figure
+    // to clear one — a hide keyword wins outright: a keyword you like highlights a listing, and it never
+    // rescues one. The user, on finding this tier reachable by keywords alone: "you might have promoted a
+    // lot of listings to worth considering due to the presence of positive keywords being more than the
+    // negative keywords, but do not forget that the goal salary is a hard filter." Ordering it the other
+    // way would show those listings GREEN, which is worse than the yellow it replaces.
     if (neg) return 'kw';
+    if (pos) return 'pos';
     return 'none';
   }
 

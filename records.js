@@ -54,6 +54,41 @@
    * the card facts and the scan knows the description facts — neither call has both.
    * `scannedAt` stamps the description's own age (the 7-day TTL reads it); `checkedAt` is always now.
    */
+  /**
+   * A stored card's facts, completed to the shape a live card always has.
+   *
+   * Every card on the board carries `pos`, `neg`, `goal` and `goalBy` — `content.js`'s `cardFactsOf` sets
+   * all four, `goalBy` to `null` when there is no margin to read. A record written before one of those
+   * facts existed (or by a path that did not have it) simply omits the key, and `canon` — which is
+   * `JSON.stringify`, so it DROPS an absent key and KEEPS an explicit `null` — then reads the two as
+   * different for ever.
+   *
+   * That difference is not cosmetic: `sameFacts` saw a change on every rule pass, wrote `jobRecords`, and
+   * the write's own `chrome.storage.onChanged` echo re-ran the pass. Measured live on a search page: 45
+   * passes per second, forever, with 48 of 221 stored records stuck omitting `goalBy`. Completing the shape
+   * on both sides of the comparison is what ends it.
+   */
+  const cardShape = (c) => (c == null ? c : { pos: [], neg: [], goal: false, goalBy: null, ...c });
+
+  /**
+   * Was this record materially different from the last one? Timestamps do not count — if they did, every
+   * pass would look like a change and storage would be rewritten forever. Nor does KEY ORDER: a record that
+   * comes back from `chrome.storage.local` is the same record with its keys in Chrome's order, and comparing
+   * those two with a plain stringify is false for a byte-identical record. Measured live, that single
+   * comparison produced 2 184 record writes and ~75 rule passes per second, forever, on an idle page.
+   *
+   * Nor does a MISSING KEY mean a different value — see `cardShape`. This predicate is the one that decides
+   * whether the page writes storage, so it is pure and lives here with the rest of the state machine, where
+   * `test-records.js` can pin it, rather than inside the storage glue that uses it.
+   */
+  const sameFacts = (a, b) => a.tier === b.tier && a.prev === b.prev && a.seen === b.seen &&
+    a.sk === b.sk && canon(cardShape(a.card)) === canon(cardShape(b.card)) &&
+    canon(a.detail) === canon(b.detail) && canon(a.fields) === canon(b.fields);
+
+  /**
+   * Apply a pass to one record. Pure: it reads nothing, writes nothing, and never mutates its inputs — the
+   * caller owns storage, and a mutation here would silently rewrite the memory behind its back.
+   */
   function apply(prev, updates, nowMs) {
     const base = prev && typeof prev === 'object' ? prev : null;
     const u = updates || {};
@@ -68,7 +103,7 @@
       changedAt: moved ? nowMs : (base ? base.changedAt ?? null : null),
       at: u.scannedAt != null ? u.scannedAt : (base ? base.at : nowMs),
       checkedAt: nowMs,
-      card: u.card !== undefined ? u.card : (base ? base.card ?? null : null),
+      card: cardShape(u.card !== undefined ? u.card : (base ? base.card ?? null : null)),
       detail: u.detail !== undefined ? u.detail : (base ? base.detail ?? null : null),
       // The listing's own overview fields (HOURS PER WEEK, TYPE OF WORK, WAGE / SALARY) — W13.5 reads the
       // hours to turn an assumed 40 h/week month into a stated one.
@@ -156,5 +191,5 @@
     return rows.join('\n') + '\n';
   }
 
-  return { prune, apply, isChanged, markSeen, settingsKey, canon, toCsv, HISTORY_DAYS, MAX_ENTRIES };
+  return { prune, apply, isChanged, markSeen, sameFacts, settingsKey, canon, cardShape, toCsv, HISTORY_DAYS, MAX_ENTRIES };
 });

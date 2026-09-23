@@ -12,16 +12,19 @@ const card = (o) => ({ pos: [], neg: [], goal: false, ...o });
 const det = (o) => ({ pos: [], neg: [], flags: [], ...o });
 const d = (o) => decide(o);
 
-// ── UNSCANNED PARITY: the 0.8.0 verdicts, exactly ────────────────────────
-// Card text only, no record. Anything else here is a regression the user would feel as
-// "my keywords stopped working".
+// ── UNSCANNED PARITY: the 0.8.0 verdicts, with one deliberate exception ───
+// Card text only, no record. A page the scan has never touched still gets 0.8.0's green/yellow/hidden,
+// except for the one case the user closed on purpose (D40): a listing that matched BOTH a keyword you like
+// and one you asked to hide, below your goal, used to be yellow and is now hidden. The goal is a hard
+// filter — a keyword you like can still highlight a listing, and it can never rescue one.
 // PAY decides High yield (the user's rule): a positive keyword alone is a HIGHLIGHT, not a high-yield listing.
-assert.strictEqual(d({ card: card({ pos: ['quickbooks'] }) }), 'pos');
+assert.strictEqual(d({ card: card({ pos: ['quickbooks'] }) }), 'pos', 'liked keyword below the goal → highlighted');
 assert.strictEqual(d({ card: card({ goal: true }) }), 'high', 'passing salary is what makes it high yield');
 assert.strictEqual(d({ card: card({ goal: true, pos: ['quickbooks'] }) }), 'high',
   'passing salary WITH a keyword you like is still high yield');
 assert.strictEqual(d({ card: card({}) }), 'none');
-assert.strictEqual(d({ card: card({ pos: ['ai'], neg: ['crypto'] }) }), 'worth', 'looks good, hide keyword → yellow');
+assert.strictEqual(d({ card: card({ pos: ['ai'], neg: ['crypto'] }) }), 'kw',
+  'both sides, below the goal → HIDDEN: a keyword you like cannot un-hide a keyword you asked to hide (D40)');
 assert.strictEqual(d({ card: card({ goal: true, neg: ['crypto'] }) }), 'worth');
 assert.strictEqual(d({ card: card({ neg: ['crypto'] }) }), 'kw');
 assert.strictEqual(d({ card: card({}) }), 'none');
@@ -51,16 +54,21 @@ assert.strictEqual(d({ noSalary: true, rescueNeg: true, negotiable: false, card:
   'TBD and N/A are not negotiable — only the word says so');
 assert.strictEqual(d({ noSalary: true, rescueNeg: false, negotiable: true, card: card({ pos: ['ai'] }) }), 'nosal',
   'the toggle is opt-in, so the default behaviour is unchanged');
-assert.strictEqual(d({ noSalary: true, rescueNeg: true, negotiable: true, card: card({ neg: ['crypto'], pos: ['ai'] }) }), 'worth',
-  'rescued AND matching a hide keyword: yellow, not hidden, and not super green either (no pay to clear)');
+assert.strictEqual(d({ noSalary: true, rescueNeg: true, negotiable: true, card: card({ neg: ['crypto'], pos: ['ai'] }) }), 'kw',
+  'rescued, but the hide keyword still wins: the rescue answers the missing figure, it does not out-vote a hide');
 assert.strictEqual(d({ noSalary: true, rescue: true, rescueNeg: true, negotiable: true, card: card({ pos: ['ai'] }) }), 'pos',
   'the rescues compose — either one is enough');
 
-// ── THE PROMOTIONS THE DEEP SCAN BUYS ────────────────────────────────────
+// ── THE PROMOTIONS THE DEEP SCAN BUYS ───────────────────────────────────
 // White → green: the description says what the card's short text never did.
 assert.strictEqual(d({ card: card({}), detail: det({ pos: ['quickbooks'] }) }), 'pos');
-// Hidden → yellow: a description positive rescues a hide-keyword card.
-assert.strictEqual(d({ card: card({ neg: ['crypto'] }), detail: det({ pos: ['quickbooks'] }) }), 'worth');
+// A description positive does NOT rescue a hide-keyword card (D40): below the goal the hide keyword wins.
+assert.strictEqual(d({ card: card({ neg: ['crypto'] }), detail: det({ pos: ['quickbooks'] }) }), 'kw',
+  'a keyword you like, found only by the scan, still cannot un-hide a keyword you asked to hide');
+// …but PAY does, which is the whole point of the scan being able to move a card: it reads the listing's own
+// HOURS PER WEEK, so a listing whose real week clears the goal becomes yellow rather than hidden.
+assert.strictEqual(d({ card: card({ goal: true, neg: ['crypto'] }), detail: det({ pos: ['quickbooks'] }) }), 'worth',
+  'paying at the goal with a hide keyword → yellow, however the positive got there');
 // A goal-only card stays good, so a description negative demotes it rather than hiding it.
 assert.strictEqual(d({ card: card({ goal: true }), detail: det({ neg: ['crypto'] }) }), 'worth');
 
@@ -80,8 +88,8 @@ assert.strictEqual(d({ card: card({ goal: true, pos: ['a', 'b'], neg: ['x'] }) }
   'no readable margin → no promotion (a margin that cannot be proven is not one)');
 assert.strictEqual(d({ card: card({ goal: true, goalBy: 0.5, neg: ['x'] }) }), 'worth',
   'zero positives can never outnumber');
-assert.strictEqual(d({ card: card({ pos: ['a', 'b'], neg: ['x'] }) }), 'worth',
-  'more positives but the salary bar is not cleared');
+assert.strictEqual(d({ card: card({ pos: ['a', 'b'], neg: ['x'] }) }), 'kw',
+  'more positives but the salary bar is not cleared → HIDDEN (D40): the likes do not buy the promotion');
 // The counts merge card and description, and a keyword matched on both sides counts once.
 assert.strictEqual(d({ card: card({ goal: true, goalBy: 0.5, neg: ['x'] }), detail: det({ pos: ['a', 'b'] }) }), 'high',
   'description positives alone can tip the count');
@@ -89,11 +97,16 @@ assert.strictEqual(d({ card: card({ goal: true, goalBy: 0.5, pos: ['a', 'b'], ne
   'the shared keyword counts once, so 2 vs 2 is not more');
 
 // ── THE DEMOTIONS ────────────────────────────────────────────────────────
-// Green → yellow: a hide keyword the card text did not carry. That is the ONLY demotion there is.
-assert.strictEqual(d({ card: card({ pos: ['ai'] }), detail: det({ neg: ['crypto'] }) }), 'worth');
+// Green → yellow: a hide keyword the card text did not carry, on a listing that pays.
+assert.strictEqual(d({ card: card({ goal: true, pos: ['ai'] }), detail: det({ neg: ['crypto'] }) }), 'worth');
+// Green → hidden: the same description negative on a listing BELOW the goal. Pay is the only thing that
+// keeps a hide-keyword listing on the board, so a keyword you like does not soften this into a yellow (D40).
+assert.strictEqual(d({ card: card({ pos: ['ai'] }), detail: det({ neg: ['crypto'] }) }), 'kw',
+  'below the goal, a scanned hide keyword hides the card instead of turning it yellow');
 // The description is a SUPERSET of the card text, so it can never un-match a card-level hit.
 // This is not a limitation to work around — it is why a demotion is always explainable.
-assert.strictEqual(d({ card: card({ pos: ['a'] }), detail: det({ pos: ['b'], neg: ['x'] }) }), 'worth');
+assert.strictEqual(d({ card: card({ pos: ['a'] }), detail: det({ pos: ['b'], neg: ['x'] }) }), 'kw',
+  'a second keyword you like does not outweigh the hide keyword below the goal either');
 
 // ── OFF-PLATFORM IS A TAG, NOT A GATE (the user's rule) ──────────────────
 // Measured live before this changed: treating an off-platform ask as a demotion moved 176 of 227 scanned
@@ -103,7 +116,10 @@ assert.strictEqual(d({ card: card({ goal: true }), detail: det({ flags: ['ask', 
 assert.strictEqual(d({ card: card({}), detail: det({ flags: ['ask'] }) }), 'none');
 assert.strictEqual(d({ card: card({}), detail: det({ flags: ['ask', 'email', 'redacted'] }) }), 'none');
 assert.strictEqual(d({ card: card({ neg: ['crypto'] }), detail: det({ flags: ['ask'] }) }), 'kw');
-assert.strictEqual(d({ card: card({ neg: ['crypto'] }), detail: det({ flags: ['ask'], pos: ['x'] }) }), 'worth');
+assert.strictEqual(d({ card: card({ neg: ['crypto'] }), detail: det({ flags: ['ask'], pos: ['x'] }) }), 'kw',
+  'an off-platform tag and a keyword you like together still do not un-hide a hide keyword (D40)');
+assert.strictEqual(d({ card: card({ goal: true, neg: ['crypto'] }), detail: det({ flags: ['ask'], pos: ['x'] }) }), 'worth',
+  'the pay is what keeps it, and the tag still does not move it');
 
 // ── HIDDEN / VISIBLE, AND THE COUNT BUCKETS THE CHIP USES ────────────────
 for (const t of ['closed', 'stale', 'nosal', 'kw']) assert.strictEqual(isHidden(t), true, t);
@@ -112,7 +128,30 @@ assert.deepStrictEqual(TIERS, ['closed', 'stale', 'nosal', 'high', 'pos', 'worth
 // An unknown verdict must not be treated as hidden: the safe direction for this extension is
 // "show it", because a false hide costs a real job listing.
 assert.strictEqual(isHidden('nonsense'), false);
-assert.strictEqual(decide({ card: card({ pos: ['a'], neg: ['b'] }), detail: det({ flags: ['ask'] }) }), 'worth');
+assert.strictEqual(decide({ card: card({ pos: ['a'], neg: ['b'] }), detail: det({ flags: ['ask'] }) }), 'kw');
+
+// ── D40: THE GOAL IS A HARD FILTER ───────────────────────────────────────
+// The user, on finding the yellow tier reachable by keywords alone: "you might have promoted a lot of
+// listings to worth considering due to the presence of positive keywords being more than the negative
+// keywords, but do not forget that the goal salary is a hard filter." So the two pay tiers are the only
+// two places a listing can be *kept* against a hide keyword, and `money` (the goal mark salary-cards.js
+// puts on a listing at or above a goal) is the only thing that earns it. Pinned as a table, because the
+// whole point is which way the branch order falls.
+const goal = (o) => d({ card: card(o) });
+assert.strictEqual(goal({ goal: true, neg: ['x'] }), 'worth', 'at the goal → yellow');
+assert.strictEqual(goal({ goal: true, goalBy: 0.5, pos: ['a', 'b'], neg: ['x'] }), 'high', 'well over the goal, more likes → super green');
+assert.strictEqual(goal({ goal: true, pos: ['a'], neg: ['x'] }), 'worth', 'at the goal, one like vs one hate → yellow, not green');
+assert.strictEqual(goal({ pos: ['a'], neg: ['x'] }), 'kw', 'below the goal → hidden, however many likes');
+assert.strictEqual(goal({ pos: ['a', 'b', 'c'], neg: ['x'] }), 'kw', 'three likes against one hate, below the goal → still hidden');
+assert.strictEqual(goal({ pos: ['a'] }), 'pos', 'below the goal with no hide keyword → still highlighted (the green outline is unchanged)');
+assert.strictEqual(goal({ neg: ['x'] }), 'kw', 'below the goal, hide keyword only → hidden');
+assert.strictEqual(goal({}), 'none');
+// The counts merge card and description, so the same three cases have to hold whichever side the keyword
+// was found on — a scan must not be able to buy a promotion the card text could not.
+assert.strictEqual(d({ card: card({ neg: ['x'] }), detail: det({ pos: ['a', 'b', 'c'] }) }), 'kw',
+  'the description cannot out-vote a hide keyword below the goal either');
+assert.strictEqual(d({ card: card({ goal: true }), detail: det({ pos: ['a'], neg: ['x'] }) }), 'worth',
+  'and with the goal met, a description positive still leaves it yellow, not green');
 
 // ── THE FACTS BUILDERS ───────────────────────────────────────────────────
 // cardFacts / detailFacts are the only places a verdict's inputs are assembled, so they are

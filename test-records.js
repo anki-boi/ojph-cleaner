@@ -6,7 +6,7 @@
 // chrome.storage.onChanged, and re-runs itself forever.
 const assert = require('assert');
 const R = require('./records.js');
-const { prune, apply, isChanged, markSeen, canon, toCsv, HISTORY_DAYS, MAX_ENTRIES } = R;
+const { prune, apply, isChanged, markSeen, sameFacts, canon, cardShape, toCsv, HISTORY_DAYS, MAX_ENTRIES } = R;
 
 const DAY = 86400000;
 const NOW = Date.UTC(2026, 8, 18, 12, 0, 0);
@@ -73,11 +73,36 @@ assert.strictEqual(twice.seen, false);
 // A scan re-writes the description facts and stamps `at` (when the text was fetched).
 const scanned = apply(rec({ tier: 'high' }), { tier: 'high', scannedAt: NOW + 5000, card: { pos: ['ai'], neg: [] } }, NOW + 5000);
 assert.strictEqual(scanned.at, NOW + 5000);
-assert.deepStrictEqual(scanned.card, { pos: ['ai'], neg: [] });
+assert.deepStrictEqual(scanned.card, { pos: ['ai'], neg: [], goal: false, goalBy: null },
+  'apply completes the card shape, so what we write never omits a fact again (see sameFacts below)');
 // …and a later card-level-only update must NOT wipe the scan stamp.
 assert.strictEqual(apply(scanned, { tier: 'high', card: { pos: [], neg: [] } }, NOW + 6000).at, NOW + 5000);
 assert.deepStrictEqual(apply(scanned, { tier: 'high' }, NOW + 6000).detail, rec().detail,
   'an update that omits `detail` leaves the stored one alone');
+
+// ── an unchanged record is a NO-OP, whatever shape its `card` was stored in ──
+// The regression this pins, measured live at 45 rule passes per second on an idle search page with 48 of
+// 221 records affected: a record written before a fact existed omits the key, `canon` is JSON.stringify (so
+// it DROPS an absent key and KEEPS an explicit null), and the card therefore read as permanently changed —
+// every pass wrote storage and every write's echo re-ran the pass.
+assert.strictEqual(sameFacts(rec(), rec()), true);
+assert.strictEqual(sameFacts(rec({ card: { pos: [], neg: [], goal: true } }),
+  rec({ card: { pos: [], neg: [], goal: true, goalBy: null } })), true,
+  'a card stored before goalBy existed is NOT a change against a card that carries it as null');
+assert.strictEqual(sameFacts(rec({ card: { pos: ['ai'] } }), rec({ card: { pos: ['ai'], goal: false, goalBy: null } })), true);
+assert.strictEqual(sameFacts(rec({ card: { pos: [], neg: [], goal: false } }),
+  rec({ card: { pos: [], neg: [], goal: false, goalBy: 0.25 } })), false,
+  'a real margin is still a change');
+assert.strictEqual(sameFacts(rec({ card: { pos: [], neg: [], goal: true } }),
+  rec({ card: { pos: [], neg: [], goal: false } })), false, 'and so is meeting the goal');
+// The other legs still have to work: a tier move, a flag list, the settings signature, the seen flag.
+assert.strictEqual(sameFacts(rec(), rec({ tier: 'worth' })), false);
+assert.strictEqual(sameFacts(rec(), rec({ detail: { pos: [], neg: [], flags: ['ask'] } })), false);
+assert.strictEqual(sameFacts(rec(), rec({ sk: 12345 })), false);
+assert.strictEqual(sameFacts(rec(), rec({ seen: false })), false);
+assert.strictEqual(sameFacts(rec(), rec({ checkedAt: NOW + 999999, at: NOW + 999999 })), true,
+  'timestamps are not data: a re-derivation that only moves the clock is a no-op');
+assert.strictEqual(cardShape(null), null, 'no card stays no card');
 
 // ── the ↑/↓ mark ─────────────────────────────────────────────────────────
 assert.strictEqual(isChanged(fresh), false, 'a first sighting is not a change');

@@ -54,15 +54,8 @@
     ? tiers.detailFacts(text, S.settings, rules.matchKeywords, planner.plan)
     : null);
 
-  /** Was this record materially different from the last one? Timestamps do not count — if they did, every
-   *  pass would look like a change and storage would be rewritten forever. Nor does KEY ORDER: a record
-   *  that comes back from `chrome.storage.local` is the same record with its keys in Chrome's order, and
-   *  comparing those two with a plain stringify is false for a byte-identical record. Measured live, that
-   *  single comparison produced 2 184 record writes and ~75 rule passes per second, forever, on an idle
-   *  page. */
-  const sameFacts = (a, b) => a.tier === b.tier && a.prev === b.prev && a.seen === b.seen &&
-    a.sk === b.sk && canon(a.card) === canon(b.card) && canon(a.detail) === canon(b.detail) &&
-    canon(a.fields) === canon(b.fields);
+  /** See `records.js`'s `sameFacts`: pure, so it is pinned by the unit tests rather than by this glue. */
+  const sameFacts = pure.sameFacts;
 
   /** Merge the dirty records into what is on disk. Never a blind write of the in-memory map: another tab
    *  may have remembered a listing since this one booted, and a whole-map write would delete it. */
@@ -248,6 +241,15 @@
     // Another tab's write must not be able to delete a record this tab has changed but not yet written: the
     // disk value is older than `held` for exactly the ids still in `dirty`, so those win.
     for (const id of S.dirty) if (S.held[id]) next[id] = S.held[id];
+    // And a STALE snapshot must not undo a record this tab has already moved past — our own write's echo can
+    // arrive after a newer one is in flight, which is the other half of the 45-passes/second loop above:
+    // the echo was adopted wholesale, the difference it re-created was seen as a change, and the pass that
+    // saw it wrote storage again. `checkedAt` orders two copies of the same record; the newer one wins, and a
+    // tie keeps the in-memory copy because that is the one carrying this tab's work.
+    for (const id of Object.keys(next)) {
+      const mine = S.held[id];
+      if (mine && (mine.checkedAt || 0) >= (next[id].checkedAt || 0)) next[id] = mine;
+    }
     S.held = next;
     api.refreshRules();
   });

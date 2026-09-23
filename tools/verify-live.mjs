@@ -422,7 +422,7 @@ ${CLOSED_SRC}
   };
   const dupSet = OJRules.findDuplicates(cards.map(c => ({ key: dupKeyOf(c), at: postedAt(c) })));
   const tiers = { closed: 0, stale: 0, nosal: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0 };
-  let noDate = 0, noUtc = 0, negBadges = 0, posBadges = 0, flagBadges = 0, scanned = 0, overHours = 0, fresh = 0, dups = 0, negRescuedCount = 0;
+  let noDate = 0, noUtc = 0, negBadges = 0, posBadges = 0, flagBadges = 0, scanned = 0, overHours = 0, fresh = 0, dups = 0, negRescuedCount = 0, bothSides = 0;
   for (let i = 0; i < cards.length; i++) { const c = cards[i];
     const text = ownText(c);
     const p = c.querySelector('p[data-temp]');
@@ -464,6 +464,9 @@ ${CLOSED_SRC}
     if (noSalary && !/\\d/.test(ownSal(c)) && rescueNeg && OJRules.isNegotiable(ownSal(c)) && ['pos', 'worth'].includes(tier)) negRescuedCount++;
     const nm = card.neg.length > 0 || !!(detail && detail.neg && detail.neg.length);
     const pm = card.pos.length > 0 || !!(detail && detail.pos && detail.pos.length);
+    // The D40 count: a listing that matched a keyword you like AND one you asked to hide. With no goal met
+    // these must all be hidden, not yellow — that is the whole decision (see the bothSidesNoGoal probe).
+    if (pm && nm) bothSides++;
     const flagged = !!(detail && (detail.flags || []).length);
     // One badge per KIND, mirroring content.js: a ✓ on High yield and Highlighted, a ✗ on every card a
     // hide keyword matched (high via the super-green rule, worth and kw), a ⚠ on anything off-platform.
@@ -475,7 +478,7 @@ ${CLOSED_SRC}
   }
   return JSON.stringify({ cards: cards.length, tiers,
     closedExpected: tiers.closed, staleExpected: tiers.stale, noSalExpected: tiers.nosal,
-    negExpected: tiers.kw, reconExpected: tiers.worth, highExpected: tiers.high, posTierExpected: tiers.pos, freshExpected: fresh, dupExpected: dups, negRescuedExpected: negRescuedCount,
+    negExpected: tiers.kw, reconExpected: tiers.worth, highExpected: tiers.high, posTierExpected: tiers.pos, freshExpected: fresh, dupExpected: dups, negRescuedExpected: negRescuedCount, bothSides,
     flagTagExpected: flagBadges,
     posExpected: posBadges, negBadgeExpected: negBadges, flagBadgeExpected: flagBadges,
     hiddenExpected: tiers.closed + tiers.stale + tiers.nosal + tiers.kw,
@@ -709,6 +712,12 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
     // of the goal, and must move out of yellow into High yield. (Probe words: 'the' and 'a' are prose,
     // so the branch is reachable on any board.)
     const superGreen = await measure({ negative: ['the'], positive: ['the', 'a'], goalSalary: 1, goalHourly: 1 });
+    // D40 — the goal is a hard filter. The same both-sides cards as superGreen, with NO goal to clear: every
+    // one of them must be HIDDEN, where the old `good && neg` table kept them yellow. This is the one live
+    // case where a keyword you like used to hold a hide-keyword listing on the board, so it is the case the
+    // user closed — and `bothSides` proves the probe actually reached it rather than passing on a page with
+    // no such card.
+    const bothSidesNoGoal = await measure({ negative: ['the'], positive: ['the', 'a'], goalSalary: 0, goalHourly: 0 });
     // The negotiable rescue (0.12): a no-figure listing that says Negotiable/DOE and matches a keyword you
     // like stays on the board with a ⚠ negotiable tag, instead of hiding. 'the' again — prose. This
     // measure covers the NATURAL cards (and proves a salaried card that merely says DOE is not tagged);
@@ -778,7 +787,7 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
       }
       await tab.evaluate(`window.__ojcArrival.remove()`);
     }
-    return JSON.stringify({ hide, show, yellow, superGreen, negotiable, negSeam, arrival });
+    return JSON.stringify({ hide, show, yellow, superGreen, bothSidesNoGoal, negotiable, negSeam, arrival });
   }, 500));
 
   const branches = [
@@ -787,6 +796,8 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
     ['a hide keyword on a good listing turns yellow instead', r.yellow, r.yellow.counts.reconExpected > 0],
     ['super green: more positives than negatives, pay ≥ 150 % of the goal → high yield',
       r.superGreen, r.superGreen.counts.highExpected > r.yellow.counts.highExpected],
+    ['D40: keywords you like and keywords you hide, below the goal → hidden',
+      r.bothSidesNoGoal, r.bothSidesNoGoal.counts.bothSides > 0],
   ];
   for (const [name, m, reachable] of branches) {
     if (!reachable) {
@@ -805,7 +816,15 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
   }
   console.log(`branches  : keyword hides ${r.hide.dom.hidden}, highlights ${r.show.dom.pos}, ` +
     `yellow ${r.yellow.dom.recon}, super green ${r.superGreen.counts.highExpected - r.yellow.counts.highExpected} card(s) out of yellow, ` +
+    `both-sides-no-goal ${r.bothSidesNoGoal.counts.bothSides} hidden, ` +
     `negotiable ${r.negotiable.dom.negotiable} natural + ${r.negSeam.badge ? 'seam tagged' : 'seam NOT tagged'} — each branch had to fire`);
+  // D40, stated as the invariant rather than as a count: no listing may be Worth considering with no goal
+  // met. `bothSides` above proves the probe had cards to make yellow, so this cannot pass vacuously.
+  if (r.bothSidesNoGoal.counts.reconExpected !== 0) {
+    await fail(`${r.bothSidesNoGoal.counts.reconExpected} card(s) came out Worth considering with no salary goal ` +
+      `met (${r.bothSidesNoGoal.counts.bothSides} matched a keyword you like and one you asked to hide) — ` +
+      `the goal is a hard filter, so a keyword you like can never keep a hide-keyword listing on the board`);
+  }
   if (r.superGreen.counts.highExpected > r.yellow.counts.highExpected && r.superGreen.dom.both === 0) {
     await fail('a card matched keywords on both sides but shows only one badge — the user must see both');
   }
@@ -1688,6 +1707,9 @@ if (res.noSalExpected > 0) {
     // throws leaves the panel and the board exactly as they were, which looks identical to a click that was
     // never delivered — and that is not something to guess about twice.
     const errors = [];
+    // When this section began. The scan stamps `checkedAt` on every listing it reads, and on a board whose
+    // listings are already in the memory that stamp is the only observable proof the memory was WRITTEN.
+    const runStart = Date.now();
     tab.on('Runtime.exceptionThrown', p => errors.push(
       String((p.exceptionDetails.exception && p.exceptionDetails.exception.description) || p.exceptionDetails.text).split('\n').slice(0, 2).join(' | ')));
     let inflight = 0, peak = 0;
@@ -1766,9 +1788,18 @@ if (res.noSalExpected > 0) {
     await tab.evaluate(`document.querySelector('.ojc-view[data-view="all"]').click()`);
     await settle(500);
     const views = {};
+    // Read the live setting rather than reaching for one of the section-scoped copies: it is the value the
+    // DOM's hidden state was actually produced under, and hidden tiers are only visible when it is on.
+    const showHidden = (await readSettings()).showHidden;
     views.all = JSON.parse(await tab.evaluate(`(() => {
+      const HIDDEN_TIERS = ['closed', 'stale', 'nosal', 'kw'];
       const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
+      // 'shouldShow' is what the RULES leave on the board, and it is the baseline the "All must not lose
+      // cards" assertion uses. It is derived from the tiers rather than from a snapshot taken earlier in the
+      // run, because this harness drives the user's own browser: whichever view it happened to be left on is
+      // not the board's true size, and a check that treats it as one fails on a correct board (measured).
       return JSON.stringify({ visible: cards.filter(c => !c.hidden).length,
+        shouldShow: ${showHidden} ? cards.length : cards.filter(c => !HIDDEN_TIERS.includes(c.dataset.ojcTier)).length,
         on: document.querySelector('.ojc-view[data-view="all"]').classList.contains('is-on') }); })()`));
     for (const v of ['high', 'worth']) {
       await tab.evaluate(`document.querySelector('.ojc-view[data-view="${v}"]').click()`);
@@ -1802,7 +1833,7 @@ if (res.noSalExpected > 0) {
         on: document.querySelector('.ojc-view[data-view="all"]').classList.contains('is-on') }); })()`));
 
     return JSON.stringify({ before, afterFirst, idle, firstRun, secondRun, peak, peakSet, sawStop, refetched,
-      scannedOnce, labels: labels.filter(Boolean).slice(0, 8), cache, views, starts, errors });
+      scannedOnce, runStart, labels: labels.filter(Boolean).slice(0, 8), cache, views, starts, errors });
   }, 500));
 
   if (!r.before.scanBtn) await fail('no Scan button in the panel — the deep scan is not wired in');
@@ -1873,11 +1904,20 @@ if (res.noSalExpected > 0) {
     await fail('no card on the page was recognised as deep-scanned — the records are not reaching the rule pass');
   }
 
-  // What the scan remembered, and in what shape.
+  // What the scan remembered, and in what shape. "Remembered" is about what it READ, not what it CREATED: on
+  // a board whose listings the memory already knows — the permanent state for a search you have scanned before
+  // — there is nothing new to create, and an assertion that demands a new record fails on a memory that is
+  // working perfectly (measured: 222 stored, 222 before, 19 fetched, 0 new). What proves the scan WROTE is the
+  // `checkedAt` stamp `absorb` puts on every listing it reads, freshly, whether or not the record existed.
   const records = await readRecords();
+  const readIds = r.scannedOnce;                      // ids the scan fetched that have a verdict
+  const restamped = readIds.filter(id => Number((records[id] || {}).checkedAt || 0) >= r.runStart);
   const newIds = Object.keys(records).filter(id => !(id in recordsBefore));
-  if (!newIds.length) await fail('the scan fetched listings but remembered none of them (chrome.storage.local.jobRecords is empty)');
-  const badShape = newIds.filter(id => {
+  if (!restamped.length) {
+    await fail(`the scan read ${readIds.length} listing(s) but stamped none of them as checked just now — ` +
+      `the job memory is not being written (stored ${Object.keys(records).length}, ${newIds.length} of them new)`);
+  }
+  const badShape = restamped.filter(id => {
     const rec = records[id];
     return !rec || typeof rec.tier !== 'string' || typeof rec.sk !== 'number' ||
       !rec.detail || !Array.isArray(rec.detail.pos) || !Array.isArray(rec.detail.neg) ||
@@ -1912,9 +1952,9 @@ if (res.noSalExpected > 0) {
     }
   }
   if (!r.views.all.on) await fail('the board is not on All before the views are exercised — the check cannot start');
-  if (r.views.all.visible !== r.afterFirst.visible) {
-    await fail(`All shows ${r.views.all.visible} cards, the board had ${r.afterFirst.visible} before the views were ` +
-      `used — a tier view must not lose cards`);
+  if (r.views.all.visible !== r.views.all.shouldShow) {
+    await fail(`the All view shows ${r.views.all.visible} card(s) but the rules leave ${r.views.all.shouldShow} on ` +
+      `the board — All is the unfiltered board, so it must lose nothing`);
   }
   if (!r.views.allEnd.on || r.views.allEnd.visible !== r.views.all.visible) {
     await fail(`the board did not come back to All at the end (${JSON.stringify(r.views.allEnd)} vs ` +
@@ -2000,7 +2040,8 @@ if (res.noSalExpected > 0) {
   await storeEval(`chrome.storage.local.set({ settings: ${JSON.stringify(settings)} }).then(()=>1)`, 400);
 
   console.log(`scan      : ${r.firstRun} listing(s) fetched, peak ${r.peak} in flight · ` +
-    `2nd run +${r.secondRun - r.firstRun} (${r.refetched.length} of them re-reads) · ${newIds.length} remembered · ${parity.domTiers.high} high / ${parity.domTiers.pos} highlighted / ` +
+    `2nd run +${r.secondRun - r.firstRun} (${r.refetched.length} of them re-reads) · ` +
+    `${restamped.length}/${readIds.length} read stamped (${newIds.length} new) · ${parity.domTiers.high} high / ${parity.domTiers.pos} highlighted / ` +
     `${parity.domTiers.worth} worth / ${parity.counts.flagTagExpected} off-platform tag(s) · ${r.afterFirst.note || ''}`);
   console.log(`views     : high ${r.views.high.visible}/${r.views.high.button.match(/\d+$/)} · ` +
     `worth ${r.views.worth.visible}/${r.views.worth.button.match(/\d+$/)} · all ${r.views.all.visible} ` +

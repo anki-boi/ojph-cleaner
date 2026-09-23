@@ -151,12 +151,12 @@
       row('nosal', counts.noSal, 'No Salary', 'the listing states no figure'),
     ]);
     fill(u.statsBox, 'Stats', [
-      row('kw', counts.kw, 'Keywords Matched', 'matched a hide keyword and did not look good enough to reconsider'),
+      row('kw', counts.kw, 'Keywords Matched', 'matched a hide keyword and did not pay at or above your goal — a keyword you like highlights a listing, it never rescues one'),
       // Highlighted is NOT a tier: a keyword you like on a listing that pays below your goal. The user's
       // rule — positive keywords do not make a listing high-yield, only passing salary does.
       row('pos', counts.pos, 'Highlighted', 'matches a keyword you like, and pays below your goal'),
       row('high', counts.high, 'High yield', 'pays at or above your goal — including the super green: a hide keyword matched, but you like more of its keywords than you hate, and the pay clears your goal by more than half again'),
-      row('worth', counts.worth, 'Worth Considering', 'matches a hide keyword and still looks good, but is not clearly a keeper — the clearly-keeper ones count as super green under High yield'),
+      row('worth', counts.worth, 'Worth Considering', 'matched a hide keyword but pays at or above your goal, so you get to reconsider it — pay is the only thing that keeps a hide-keyword listing on the board. The clearly-keeper ones count as super green under High yield'),
       // A tag count, like Off-platform: fresh is a mark on high-yield cards, not a tier of its own.
       counts.fresh ? row('fresh', counts.fresh, 'Fresh', 'high yield, posted in the last 24 hours — the competition window is still open') : null,
       counts.dup ? row('dup', counts.dup, 'Duplicates', 'the same title and company posted again — the older copy is marked') : null,

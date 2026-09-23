@@ -33,17 +33,22 @@ options.html/js        standalone settings page (same storage, same effect)
 One pure function decides what every card is (`tiers.js`), and the order is the product:
 
 ```
-closed → stale → no salary (unless rescued) → HIGH YIELD → worth considering → highlighted → keyword-hide → nothing
+closed → stale → no salary (unless rescued) → HIGH YIELD → worth considering → keyword-hide → highlighted → nothing
 ```
 
 - **HIGH YIELD is about pay.** `money && !neg` — a goal met, and no keyword you asked to hide. A keyword you
   like is a bonus badge, never the reason: the user's correction, after a version where it was the reason,
   was *"having matched positive keywords does not make the job listing high-yield. It's either passing salary
   or passing salary with positive keywords"*.
-- **Worth considering** is `good && neg`: a hide keyword on a listing that still looks good (pay, or a keyword
-  you like). Shown in yellow, never hidden.
+- **Worth considering** is `money && neg`: a hide keyword on a listing that **pays at or above a goal**.
+  Shown in yellow, never hidden. This used to be `good && neg` — pay *or* a keyword you like — and the user
+  closed that door (D40): *"do not forget that the goal salary is a hard filter."*
+- **Keyword-hide is checked BEFORE highlighted** (`neg` before `pos`), which is what makes the filter hard: a
+  listing below your goal that matched a keyword you asked to hide is hidden no matter how many keywords you
+  like are on it. Ordering it the other way would show those listings green.
 - **Highlighted** is `pos` with no goal met — the green outline this extension has always drawn, in its own
-  bucket so the chip can count it and the High yield view can exclude it.
+  bucket so the chip can count it and the High yield view can exclude it. Unchanged by D40: it is the tier
+  for a listing you like the sound of, and it never needed the goal.
 - **Off-platform asks are tags**, not inputs: `detail.flags`, shown on the card and recorded in the listing's
   stats, and they never move a card between tiers. A week longer than 40 hours is the same shape of signal,
   but it lives with the hours in `fields.hoursPerWeek` (salary-cards.js prints it), never in `detail`.

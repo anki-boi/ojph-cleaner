@@ -3,7 +3,7 @@
 **Type:** audit + improvement spec + delegated build plan
 **Date:** 2026-09-18
 **Baseline commit:** `d759ffe` (0.3.0) · **Earlier plan:** `plans/2026-08-26_ojph-extension.md`
-**State (2026-09-21):** 4 406 source lines (js/css/html, 38 tracked files including 10 tests) · zero
+**State (2026-09-23):** 5 895 source lines (js/css/html, 37 tracked files, 9 of them tests) · zero
 dependencies · 1 live CDP harness · Chrome 153, unpacked, enabled in the automation profile
 
 **Status after the audit:** ✅ W1 (public face, hygiene, gates) and ✅ W2 (every defect in §2) landed
@@ -31,6 +31,16 @@ It also closes two holes the 0.12.0 work left in the checks themselves: the sett
 now covers the in-page panel as well as the options page, on all three legs (defaults, load, save), and
 the live harness's view check establishes its starting view instead of assuming the board is on All — a
 run that found the board already on High yield read a *correct* toggle-off as a click that never landed.
+0.13.0 makes the goal a **hard filter** (D40): *Worth considering* needs a salary goal met, not merely a
+keyword you like, and the keyword-hide branch is now evaluated before the highlighted one — so a listing
+that matched both a keyword you like and one you asked to hide while below a goal is **hidden** instead of
+yellow, unscanned and after a scan alike. A keyword you like below the goal with no hide keyword is
+untouched: still *Highlighted*, the green outline this extension has always drawn. It also fixes the two
+things that stopped that change being provable: the job memory's own change check could not converge — a
+record whose `card` omitted a fact that every live card carries (`goalBy`) compared as *changed* on every
+pass, so the page wrote storage and the write's echo re-ran the pass, **45 passes/second forever on an idle
+page** (§2.8) — and the live harness assumed a virgin job memory when it asserted the scan had remembered
+something, which is false on any board you have scanned before.
 
 ---
 
@@ -187,6 +197,40 @@ There is no `.gitattributes`, so a fresh Windows clone checks out `tools/gate.sh
 the only thing standing between a red gate and `main`. The suite treats this as load-bearing
 (`*.sh text eol=lf`) — fixed in W1.1.
 
+### 2.8 P1 — the memory's own change check could not converge, so the page wrote storage forever
+
+Found 2026-09-23 while proving D40, by the live harness's loop bound (it is the same class as §2.2,
+one layer down — that one is driven by the DOM, this one by storage).
+
+`sameFacts` decides whether a rule pass writes a record. It compares the **card** facts with `canon`,
+which is `JSON.stringify` and therefore **drops an absent key but keeps an explicit `null`**. A record
+written before a fact existed omits it; every live card carries it:
+
+```
+stored:  "card":{"goal":true,"neg":[],"pos":[]}        # 48 of 221 records, missing goalBy
+fresh:   "card":{"goal":true,"goalBy":null,"neg":[],"pos":[]}
+```
+
+So every pass saw a change, wrote `jobRecords`, and the write's `chrome.storage.onChanged` echo
+re-ran the pass. The echo guard made it permanent rather than transient: it holds one
+`lastWritten`, so a self-echo that arrives after the next write is in flight is mistaken for another
+tab's, and the handler adopted that older snapshot wholesale — re-creating the difference it had
+just removed.
+
+Measured live (automation Chrome, 30-card search page, 1.6 s of quiet, no interaction):
+
+```
+45 rule passes / second, forever   ·   44 of 44 echoes treated as foreign   ·   48/221 records affected
+```
+
+**Fix:** `records.js` gains `cardShape` (complete a card's facts before comparing, so an absent key
+and an explicit `null` mean the same thing) and `apply` writes the completed shape; `sameFacts` moves
+into `records.js`, where it is pure and `test-records.js` can pin it. The echo handler adopts a disk
+record only when it is **newer** (`checkedAt`), so a stale copy can never undo work this tab has
+done. **Proof:** on the same page, the pass count over 2 s is now **0** where it was ~55, the live
+harness's observer bound is back to `1 rule pass(es) in 812 ms`, and `test-records.js` pins the
+exact regression.
+
 ---
 
 ## 3. Decision points (approve or override)
@@ -223,7 +267,7 @@ the only thing standing between a red gate and `main`. The suite treats this as 
 | **D28** | The monthly figure on a detail page | Computed from the listing's **own `HOURS PER WEEK`** when it states one (14 of 18 listings do). `TBD` falls back to 40 h/week **with the disclaimer**, and only for full-time/unstated listings: part-time with no stated hours claims no month at all, because that is a 2× error, not a rounding one. A per-unit rate never claims one | ✅ decided 2026-09-18 |
 | **D29** | Closed-listing memory | Learned **only** when you open a listing whose page says it closed, **or when a deep scan you started passes one** (D37 — the page is fetched either way), kept 180 days, and never used to fetch anything on its own. A crawler that tested every card would fetch every listing — the property `docs/scraping.md` protects. Consequence: a saved job you have never opened cannot be known closed | ✅ amended 2026-09-19 |
 | **D30** | The no-salary rescue | **Opt-in, off by default** (`rescueNoSalary`). When on, a no-salary listing that also looks good falls through to the keyword rules instead of being hidden — `good` being the same predicate the reconsider state already uses, so nothing new defines what "looks good" means | ✅ decided 2026-09-18 |
-| **D31** | The two tiers | **High yield = passing salary** (a goal met), with or without a keyword you like. **Worth considering = a hide keyword matched, on a listing that still looks good.** A keyword you like on a listing below your goal is a third state, **Highlighted** — the green outline this extension always drew, counted and filtered separately. The user's correction, verbatim: *"having matched positive keywords does not make the job listing high-yield. It's either passing salary or passing salary with positive keywords"* | ✅ decided 2026-09-19 |
+| **D31** | The two tiers | **High yield = passing salary** (a goal met), with or without a keyword you like. **Worth considering = a hide keyword matched, on a listing that still looks good.** A keyword you like on a listing below your goal is a third state, **Highlighted** — the green outline this extension always drew, counted and filtered separately. The user's correction, verbatim: *"having matched positive keywords does not make the job listing high-yield. It's either passing salary or passing salary with positive keywords"* | ✅ decided 2026-09-19, **amended 2026-09-23 by D40** |
 | **D32** | How the tier buttons change the board | **Filter, never reorder** — and **scroll the first card of the chosen tier into view**, because hiding most of a 244-card list leaves the viewport pointing at empty space | ✅ decided 2026-09-19 |
 | **D33** | The scan's budget | **Button-triggered, never automatic** (`autoScan` is off by default): pages to the recency horizon, then opens listings **2 at a time, 400 ms between pairs**, with `Stop` and hard caps of 10 pages / 300 listings / 10 minutes | ✅ decided 2026-09-19 |
 | **D34** | What a scan covers | High yield first, then Worth considering (and Highlighted with them), then — only with `scanAll` — the unclassified and keyword-hidden cards. A second run of the same page reads the cache and spends nothing | ✅ decided 2026-09-19 |
@@ -232,6 +276,7 @@ the only thing standing between a red gate and `main`. The suite treats this as 
 | **D37** | Closures the scan passes | **Learned**, exactly as opening the listing would — the page is already fetched, and refusing to read its own notice would be superstition rather than politeness | ✅ decided 2026-09-19 |
 | **D38** | Off-platform asks | A **tag**, not a gate: shown beside the keyword badge on every card that carries one, never hidden and never demoted for it. An earlier version demoted, which moved 176 of 227 scanned listings out of High yield | ✅ decided 2026-09-19 |
 | **D39** | A week longer than 40 hours | **Flagged on the card** (`⚠ 45 h/week — over the 40 h full-time week`) and never demoted for | ✅ decided 2026-09-19 |
+| **D40** | The goal is a hard filter | **Worth considering needs `money` (a goal met), not merely a keyword you like.** `good && neg` becomes `money && neg`, and the keyword-hide branch is evaluated **before** the highlighted one, so below a goal a hide keyword wins outright — a keyword you like can highlight a listing and never rescue one. The user, on finding the yellow tier reachable by keywords alone: *"you might have promoted a lot of listings to worth considering due to the presence of positive keywords being more than the negative keywords, but do not forget that the goal salary is a hard filter."* Consequence, accepted: a listing that matched a keyword you like **and** one you asked to hide while below a goal goes from yellow to **hidden**, both unscanned and after a scan. A keyword you like below the goal with no hide keyword is untouched — still **Highlighted**, the green outline | ✅ decided 2026-09-23 |
 
 ---
 
@@ -243,7 +288,7 @@ the only thing standing between a red gate and `main`. The suite treats this as 
 manifest.json          MV3 entry; storage permission + onlinejobs.ph host permissions only
 rules.js               pure rules (no DOM): hasSalary, matchKeywords        ← unit-tested
 tiers.js               the verdict table: closed → stale → no salary → high yield (PAY) →
-                       highlighted → worth considering → keyword → nothing  ← unit-tested
+                       worth considering (PAY) → keyword-hide → highlighted → nothing  ← unit-tested
 records.js             the job memory's state machine (prune, cap, change)  ← unit-tested
 page.js                every coupling to the site's LIST markup (selectors, ownText, salary, date)
 detail-parse.js        one reader for a listing's own page (description, overview, closed)
@@ -657,7 +702,7 @@ silently drop.
 |---|---|---|---|
 | `test-rules.js` | ✅ | salary parsing, keyword matching, case, duplicates | `node test-rules.js` |
 | `test-tiers.js` | ✅ | every branch of the verdict table, the unscanned parity rule, the tier movements a scan can cause, and that off-platform / over-40 are tags and never demote | `node test-tiers.js` |
-| `test-records.js` | ✅ | the memory's prune, entry cap, change state machine, idempotence, and `canon` (key order is not data) | `node test-records.js` |
+| `test-records.js` | ✅ | the memory's prune, entry cap, change state machine, idempotence, `canon` (key order is not data) and `sameFacts` (a card stored before a fact existed is not a change, and a real margin still is) | `node test-records.js` |
 | `test-pager.js` | ✅ | next-page URL for all four list-URL shapes; "Displaying N out of M" parsing and its nulls; the recency horizon that stops the loader before a wholly stale page | `node test-pager.js` |
 | `test-salary.js` | ✅ | the suite's real-data corpus plus live formats; the hours policy (no month without stated hours), piece rates, day rates, currency codes after digits, and the thousands comma however the poster grouped it (`35,0000`) | `node test-salary.js` |
 | `test-manifest.js` | ✅ | every `chrome.*` namespace granted; referenced files exist; no orphan source; every setting reached by **both** settings surfaces (panel and options page) on all three legs — defaults, load and save | `node test-manifest.js` |

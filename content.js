@@ -205,9 +205,9 @@
         // re-evaluates the trade-off rather than trusting the colour alone.
         if (allPos.length) badge(box, 'ojc-pos-badge', '✓ ' + allPos.join(', '), why(allPos));
         tagOff();
-        c.title = 'Shown because it ' +
-          (allPos.length ? `matches "${allPos.join(', ')}"` : 'pays at or above your goal') +
-          (allNeg.length ? ` but also matches "${allNeg.join(', ')}"` : '') +
+        c.title = 'Shown because it pays at or above your goal' +
+          (allNeg.length ? ` even though it matches "${allNeg.join(', ')}"` : '') +
+          (allPos.length ? ` and matches "${allPos.join(', ')}"` : '') +
           ' — reconsider it';
         counts.worth++;
       } else if (tier === 'kw') {

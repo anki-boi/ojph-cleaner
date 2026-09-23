@@ -105,10 +105,12 @@ two things in one run, and nothing until you press it:
   the reason: a listing you like the sound of that pays below your goal is *not* high yield. A high-yield
   card posted within the last 24 h also carries a `● fresh` mark (counted in the panel) — the competition
   window is still open.
-- **Worth considering** — a hide keyword matched and the listing still looks good (it pays enough, or it
-  matches a keyword you like), but it is not clearly a keeper — that is the line between it and the
-  super green. These are the yellow cards, shown rather than hidden, and they badge both sides when
-  both matched.
+- **Worth considering** — a hide keyword matched and **the listing pays at or above one of your goals**,
+  but it is not clearly a keeper — that is the line between it and the super green. These are the yellow
+  cards, shown rather than hidden, and they badge both sides when both matched. Pay is the only thing that
+  earns this tier: a listing that matched a hide keyword and a keyword you like while paying below your goal
+  is **hidden**, not yellow — the goal is a hard filter, so a keyword you like can highlight a listing and
+  never rescue one.
 - **Highlighted** — a keyword you like on a listing that pays below your goal: the green outline and `✓`
   badge, exactly as before. Visible, never hidden, and deliberately not counted as high yield.
 

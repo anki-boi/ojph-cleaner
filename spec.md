@@ -3,8 +3,8 @@
 **Type:** audit + improvement spec + delegated build plan
 **Date:** 2026-09-18
 **Baseline commit:** `d759ffe` (0.3.0) · **Earlier plan:** `plans/2026-08-26_ojph-extension.md`
-**State (2026-09-23):** 5 895 source lines (js/css/html, 37 tracked files, 9 of them tests) · zero
-dependencies · 1 live CDP harness · Chrome 153, unpacked, enabled in the automation profile
+**State (2026-09-26):** 5 740 source lines (js/css/html, 77 tracked files) · zero
+dependencies · 1 live CDP harness · unpacked, enabled in the automation profile · HEAD `a024d3b` (0.14.1)
 
 **Status after the audit:** ✅ W1 (public face, hygiene, gates) and ✅ W2 (every defect in §2) landed
 in 0.4.0 — see `docs/HANDOFF.md` §4c for the measured before/after. ✅ W6 (perpetual pagination) landed
@@ -50,6 +50,14 @@ rank guesses. Sorting never converts a month into an hourly rate or the reverse 
 which `salary.js` refuses to assume anywhere else (D13) — so a ₱5,000/mo listing outranks a ₱500/hr one,
 and the card resting on the 40 h/week assumption keeps its own ⚠ label. The order is sticky: pages the
 loader appends afterwards are re-ranked, so the board stays in one piece as you read down it.
+
+0.14.1 ships the working configuration as the defaults (D42 — `maxAgeDays` 60, the two rescues on,
+`autoScan` on, `sortByPay` on, the goals set, and the owner's keyword lists themselves), and fixes the
+scan's closure reading: `detail-parse.js` read the fetched page's raw `textContent`, where an inline
+`<script>` pushed the *This job has been closed* notice ~4 900 characters past the head slice, so the
+deep scan missed it. The parse now strips `script`/`style`/`noscript`/`svg` before the slice, and
+settings are merged over `DEFAULTS` at read time, so a fresh install or a reset behaves exactly like a
+configured panel does.
 
 ---
 
@@ -247,7 +255,7 @@ exact regression.
 | # | Question | Answer | Status |
 |---|---|---|---|
 | **D1** | License | No `LICENSE` file; README states **all rights reserved** explicitly, noting the repo is public to read but grants no reuse. Asserted by the hygiene test. | ✅ decided 2026-09-18 |
-| **D2** | Distribution | Unpacked only until W3+W1 land; a Web Store listing needs a privacy justification for `host_permissions` on `onlinejobs.ph` and a stable version story | ⬜ **needs you** |
+| **D2** | Distribution | Unpacked only until W3+W1 land; a Web Store listing needs a privacy justification for `host_permissions` on `onlinejobs.ph` and a stable version story | ⬜ open — the listing's assets are all generated and documented in `docs/store.md` (icons, three 1280×800 screenshots, promo + marquee tiles); only the submission itself is outstanding |
 | **D3** | Deep-scan cache store | **IndexedDB** as planned (1 000 entries × ~3 KB, 7-day TTL, oldest evicted). `chrome.storage.local` is simpler but shares its quota with settings and rewrites the whole blob | ⬜ **needs you** |
 | **D4** | `autoScan` until W3 | Visible, **disabled**, labelled "needs the deep scan (not built yet)" | ✅ decided 2026-09-18 |
 | **D5** | Deep-scan politeness budget | **2 concurrent, 400 ms between pairs, and the scan paginates through the pages *it* loaded** (D33). It never walks the site for you: it stops at your recency horizon. A 429 or a network error leaves the rest unscanned and never retries harder. **Amended 2026-09-19** — the original said 3 concurrent and "current page's cards only", which the user's own feature request replaced | ✅ decided 2026-09-19 |
@@ -390,7 +398,7 @@ a one-line fix and the harness can name the selector that broke:
 | ID | Task | Files |
 |---|---|---|
 | W3.1 | `detail-parser.js` as a pure function + `test-detail-parser.js` (fixtures, no network) | new |
-| W3.2 | Fetch layer: current page's cards only, 3 concurrent, 400 ms between waves, 429 stops the fleet | `content.js` |
+| W3.2 | Fetch layer: pages to the recency horizon, 2 concurrent, 400 ms between pairs, 429 stops the fleet (D5, as amended) | `content.js` |
 | W3.3 | IndexedDB cache: job-URL key, 7-day TTL, 1 000-entry cap, oldest evicted (D3) | `content.js` |
 | W3.4 | Progress + stop button, rendered **only** when keywords are configured; enable `autoScan` (D4/D5) | `content.js`, `content.css` |
 | W3.5 | Live assertion: a detail page parses to non-empty description + a salary field | `tools/verify-live.mjs` |
@@ -570,6 +578,7 @@ the honest split is "the extension that filters" vs "the code that fetches" — 
 | **3. Deep scan** | W3.1 → W3.2 → W3.3/W3.4 → W3.5 | 2 agents | fixture tests green; live scan bounded; 429 leaves cards unscanned |
 | **4. Reach** | W4.1 → W5.* | 1 agent | banner live; distribution decision executed |
 | **5. Continuous** | Keep the gate green on every push; re-run `verify-live` after any selector report | ongoing | — |
+| **Next** | W5.1: the Web Store submission (D2) — assets ready in `docs/store.md`, privacy justification and version story to file. Everything else in this plan is landed | ongoing | — |
 
 ### 6.2 Hard sequencing constraints
 
@@ -609,8 +618,8 @@ closure, and `renderChip()` wiping the chip is the trap that has already cost on
 **Brief B — Content-script agent** (W2.2, W2.3, W2.6, W2.7, W3.2–W3.4)
 > Minimal diffs; the observer and the rule pass are the risky area. After W2.3, assert in the live
 > harness that a nudge produces a bounded number of passes. For W3: the politeness budget is a hard
-> constraint — any change must be provably unable to exceed 3 concurrent / 400 ms, and the scan must
-> be bounded to the cards on the current page.
+> constraint — any change must be provably unable to exceed 2 concurrent / 400 ms, and the scan must
+> be bounded to the recency horizon (D5, as amended).
 
 **Brief C — Docs agent** (W1.1–W1.7, W4.1 docs)
 > The README is the product's face: install steps that work from a fresh clone, screenshots that are
@@ -635,8 +644,8 @@ closure, and `renderChip()` wiping the chip is the trap that has already cost on
   site's own DOM beyond `hidden` + our own classes.
 - **Politeness is a feature.** No request the user did not ask for: with `autoLoad` off and nothing
   configured, the extension makes **zero** requests. With it on, one result page per real scroll to the
-  bottom, 600 ms apart, one in flight, stopping on the first sign of an end. The deep scan spends 3
-  concurrent / 400 ms and only for cards already loaded.
+  bottom, 600 ms apart, one in flight, stopping on the first sign of an end. The deep scan spends 2
+  concurrent / 400 ms and pages only to the recency horizon (D5, as amended).
 - **Nothing runs on an idle page.** No timers, no polling, no prefetch, no background worker. If the
   user does nothing, so does the extension.
 - **Everything stays local.** Local storage, no server, no analytics.

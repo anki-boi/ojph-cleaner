@@ -221,8 +221,11 @@
 
   // `autoScan` (D4, finally functional in W13.6): on by default (D42) — every run is bounded to the
   // recency window, 2 listings at a time, hard caps. Turned on, it waits for the page to settle first.
+  // Merge the stored value with the API's DEFAULTS: a fresh install (or a settings reset) stores no
+  // `settings`, and reading only raw storage then skipped the scan even though the default is on — the
+  // one consumer in the extension that did not merge DEFAULTS.
   chrome.storage.local.get('settings', (res) => {
-    if (res?.settings?.autoScan) setTimeout(start, 1200);
+    if (res?.settings?.autoScan ?? api.getSettings().autoScan) setTimeout(start, 1200);
   });
 
   self.OJCScan = { start, stop, toggle, isRunning, label, state: () => ({ ...st }), onSettings };

@@ -255,7 +255,10 @@
   });
 
   chrome.storage.local.get('settings', (res) => {
-    S.settings = { ...(res?.settings || {}) };
+    // Merge DEFAULTS like every other consumer: on a fresh install / reset there is no stored `settings`,
+    // and deriving cached facts under empty keywords would silently drop the keyword half of a scan's
+    // re-tiering. The API already holds the DEFAULTS-merged settings; the stored value wins.
+    S.settings = { ...(api.getSettings?.() || {}), ...(res?.settings || {}) };
     load();
   });
 

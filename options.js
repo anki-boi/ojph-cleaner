@@ -2,7 +2,17 @@
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const DEFAULTS = { negative: [], positive: [], noSalary: true, rescueNoSalary: true, rescueNegotiable: true, showHidden: false, autoScan: true, scanWorth: true, scanAll: false, autoLoad: true, goalSalary: 60000, goalHourly: 1000, maxAgeDays: 60, sortByPay: true };
+  const DEFAULTS = {
+    negative: ['editor', 'cold calling', 'cold call', 'graphic', 'aws', 'azure', 'bookkeeper',
+      'book keeper', 'accounting', 'medical coding', 'medical billing', 'billing', 'onboarding',
+      'marketing', 'social media', 'legal', 'paralegal', 'plumbing', 'video editor', 'graphic designer',
+      'medical coder', 'ICD-10'],
+    positive: ['aud', 'australia', 'australian', 'remote', 'flexible', 'ai', 'automation', 'claude',
+      'chatgpt', 'gemini', 'generation', 'vibe'],
+    noSalary: true, rescueNoSalary: true, rescueNegotiable: true, showHidden: false, autoScan: true,
+    scanWorth: true, scanAll: false, autoLoad: true, goalSalary: 60000, goalHourly: 1000,
+    maxAgeDays: 60, sortByPay: true,
+  };
   const toLines = (arr) => (arr || []).join('\n');
   const fromLines = (s) => [...new Set(s.split('\n').map(x => x.trim()).filter(Boolean))];
 

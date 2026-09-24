@@ -24,14 +24,24 @@
   const clean = (s) => (s || '').replace(/\s+/g, ' ').trim();
 
   /**
-   * The page's own words, as one string. `innerText` on a live page, `textContent` on a `DOMParser`
-   * document — a document with no browsing context has no layout, so `innerText` there is empty and a
-   * scan that asked for it would read every listing as "not closed".
+   * The page's own words, as one string, only as far as the closure notice can live (HEAD_CHARS).
+   *
+   * The two documents are not equal. A live page has a `defaultView` and its `innerText` is the
+   * viewer's text — layout-collapsed, no script/style, no markup indentation. A `DOMParser` document
+   * (the scan's fetch) has no `defaultView`, and Chrome returns `innerText` identical to `textContent`
+   * there: the inline `<script>`/`<style>` code and the newline indentation all present. Measured live
+   * on a closed listing the notice sat ~4 900 raw characters in (~2 400 after whitespace collapse, most
+   * of it inline script), so slicing that raw text read only whitespace, nav and script and the scan
+   * read every closed listing as open. So: live → `innerText`; scan → strip the non-rendered nodes,
+   * then collapse, then slice.
    */
   function pageText(doc) {
     const body = doc && doc.body;
     if (!body) return '';
-    return (body.innerText || body.textContent || '').slice(0, HEAD_CHARS);
+    if (doc.defaultView) return clean(body.innerText).slice(0, HEAD_CHARS);
+    const clone = body.cloneNode(true);
+    clone.querySelectorAll('script, style, noscript, svg').forEach((n) => n.remove());
+    return clean(clone.textContent || '').slice(0, HEAD_CHARS);
   }
 
   /**

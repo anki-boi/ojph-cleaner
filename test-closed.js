@@ -36,6 +36,33 @@ assert.strictEqual(isClosedText('Subtitles and closed captioning'), false);
 assert.strictEqual(isClosedText(''), false);
 assert.strictEqual(isClosedText(null), false);
 
+// ── the scan's head slice must see the closure notice despite what a DOMParser body carries ─────
+// Measured live on a closed listing: `body.textContent` held the notice ~4 900 raw characters in
+// (~2 400 after whitespace collapse, most of that inline <script> code). The live page's `innerText`
+// excludes that; a DOMParser document has no innerText, so `pageText` must drop the non-rendered
+// nodes (script/style/…) and collapse the remaining whitespace BEFORE slicing (detail-parse.js).
+const { pageText } = require('./detail-parse.js');
+/** A body stub for the DOMParser path: `parts` are {junk, text} in document order. A junk node is one
+ *  the clone's querySelectorAll returns and whose remove() empties its text — the script/style strip. */
+const fakeBody = (parts) => {
+  const clone = {
+    querySelectorAll: () => parts.filter(p => p.junk).map(p => ({ remove: () => { p.text = ''; } })),
+  };
+  Object.defineProperty(clone, 'textContent', { get: () => parts.map(p => p.text).join('') });
+  return { innerText: undefined, cloneNode: () => clone };
+};
+const scanDoc = { body: fakeBody([
+  { junk: false, text: '\n    '.repeat(600) },        // markup indentation: kept, collapsed by clean
+  { junk: true,  text: 'var x = 1; '.repeat(500) },   // inline <script>: dropped
+  { junk: false, text: 'This job has been closed' },  // the notice, now within the head
+]) };
+assert.ok(pageText(scanDoc).includes('This job has been closed'),
+  'the closure notice survives the head slice after script/style nodes are stripped and whitespace collapsed');
+// The notice split over several lines still reads as the phrase (clean collapses the newlines).
+const multiline = { body: fakeBody([{ junk: false, text: '\nThis\njob\nhas\nbeen\nclosed\n' }]) };
+assert.strictEqual(isClosedText(pageText(multiline)), true,
+  'whitespace between the words is collapsed, not left to break the phrase');
+
 // ── the 6-month cap ─────────────────────────────────────────────────────────────────────────────
 assert.strictEqual(HISTORY_DAYS, 180);
 const old = { at: NOW - 181 * DAY }, fresh = { at: NOW - 179 * DAY };

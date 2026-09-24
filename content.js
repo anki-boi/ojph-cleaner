@@ -9,8 +9,8 @@
   const { LIST_RE, cards, ownText, cardSalary, postedAt, dupKeyOf } = page;
 
   const DEFAULTS = {
-    negative: [],    // keyword list → hide (exact word/phrase, case-insensitive)
-    positive: [],    // keyword list → highlight only (exact word/phrase, case-insensitive)
+    negative: ['editor', 'cold calling', 'cold call', 'graphic', 'aws', 'azure', 'bookkeeper', 'book keeper', 'accounting', 'medical coding', 'medical billing', 'billing', 'onboarding', 'marketing', 'social media', 'legal', 'paralegal', 'plumbing', 'video editor', 'graphic designer', 'medical coder', 'ICD-10'],  // keyword list → hide (exact word/phrase, case-insensitive)
+    positive: ['aud', 'australia', 'australian', 'remote', 'flexible', 'ai', 'automation', 'claude', 'chatgpt', 'gemini', 'generation', 'vibe'],  // keyword list → highlight only (exact word/phrase, case-insensitive)
     noSalary: true,  // hide cards whose salary text has no digit
     rescueNoSalary: true,  // W10, D42: show a no-salary card that matches a keyword you like, or beats a goal
     rescueNegotiable: true, // 0.12, D42: show a "Negotiable"/"DOE" listing that matches a keyword you like

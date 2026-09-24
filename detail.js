@@ -30,7 +30,14 @@
     ask: 'this asks you to apply somewhere other than OnlineJobs.ph',
     redacted: 'OnlineJobs.ph removed a link here: the poster tried to send you off-platform',
   };
-  const DEFAULTS = { positive: [], negative: [], goalSalary: 60000, goalHourly: 1000 };
+  const DEFAULTS = {
+    positive: ['aud', 'australia', 'australian', 'remote', 'flexible', 'ai', 'automation', 'claude',
+      'chatgpt', 'gemini', 'generation', 'vibe'],
+    negative: ['editor', 'cold calling', 'cold call', 'graphic', 'aws', 'azure', 'bookkeeper',
+      'book keeper', 'accounting', 'medical coding', 'medical billing', 'billing', 'onboarding',
+      'marketing', 'social media', 'legal', 'paralegal', 'plumbing', 'video editor', 'graphic designer',
+      'medical coder', 'ICD-10'],
+    goalSalary: 60000, goalHourly: 1000 };
   let settings = { ...DEFAULTS };
   let rates = {};
   /** A figure is only real if both ends are numbers — NaN from a bad rate must read as "no figure", not "₱NaN". */

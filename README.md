@@ -5,6 +5,17 @@ It hides listings that are a waste of your time — no salary listed, or a keywo
 read again — and highlights the ones you do, without ever taking a listing away for a positive
 match. Everything runs on your machine: no account, no server, no analytics.
 
+**What it addresses.** The board gives you a list and no way to narrow it. The facts that
+decide whether a listing is worth your time — *does it pay, is it fresh, is it the kind of
+work you want* — are free text inside the card, or inside a description you have to open.
+Salaries aren't comparable (`5.5$/hr` next to `Php 1000/day` next to `TBD`), staleness is
+invisible until you're pages deep (a 297-job search measured **40–46 days old**), and the
+board remembers nothing — so the same judgement gets paid for again tomorrow.
+
+This is the filter the board doesn't ship: hide what's stale, salary-less or unwanted;
+highlight what you want, never for hiding; convert salaries into comparable figures;
+and let `Scan` re-decide each listing against its full description.
+
 **→ [Why this exists: the six problems it attacks, and the place it refuses to guess](PROBLEMS.md)**
 
 ![The chip counts what it hid, and the panel edits the rules in place](docs/img/list-chip.png)

@@ -45,12 +45,15 @@ and an empty field all fail. A label is not a number.
 `≈ ₱34,500/mo` — with the original wording never replaced, and no figure at all when the
 parser can't honestly read one.
 
-### 3. A careful filter is easy to build and easy to destroy
+### 3. The board can't express what you don't want
 
-The first version matched keywords as substrings. On a live search, the keyword `AI` matched
-**every single listing** on the page. Because a listing that also looks good is shown rather
-than hidden, a loose match doesn't produce obvious breakage — it quietly turns keyword
-hiding off altogether, and the user concludes the extension just doesn't work.
+The board gives you a keyword box and no way to say *don't show me this kind of job again* —
+no negative filter, no blocklist. And on this board the word-versus-substring line is
+everything: the first version matched keywords as substrings, and on a live search, `AI`
+as a substring matched **every single listing** on the page. Because a listing that also
+looks good is shown rather than hidden, a loose match doesn't produce obvious breakage —
+it quietly turns keyword hiding off altogether, and the user concludes the filter just
+doesn't work.
 
 → **Keywords are matched as exact words or phrases**, case-insensitively. `ai` matches
 `AI tools` and `AI-powered` but never `email` or `daily`. `video editor` doesn't match

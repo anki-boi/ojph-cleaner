@@ -567,7 +567,7 @@ paths out of tracked source (the gate enforces this).
   passes per second, forever, on an idle page. If you add a field to a record, it is compared in `sameFacts`.
 - **`annotate()` coalesces, never drops.** It is async; a dropped re-run is a note left showing a figure from
   before the scan's hours arrived.
-- **The scan runs only when the user asks.** `autoScan` is off by default, nothing else may start it, and its
+- **The scan is automatic by default, and bounded.** `autoScan` starts a run when a search page loads (D42); the `Scan` button starts the same run on demand, and nothing else may start it. Its
   budget is 2 listings at a time with ≥400 ms between pairs (asserted as a rate in `verify-live`: no three
   listing fetches inside 350 ms).
 - **PAY decides High yield.** A keyword you like is a highlight; a positive match on a listing below your goal

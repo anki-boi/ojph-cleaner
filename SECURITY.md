@@ -13,8 +13,8 @@
 - **Data:** keyword lists, toggles, the goal and the cached rates live in `chrome.storage.local`; the
   deep-scan description cache (when it ships, see `spec.md` W3) lives in IndexedDB. Nothing is uploaded
   anywhere: no analytics, no telemetry. Deleted by removing the extension.
-- **Network:** the extension makes **zero** requests while nothing happens: no keywords configured and
-  no scrolling means no traffic. Beyond that it makes exactly two kinds, both triggered by the user:
+- **Network:** the extension makes **zero** requests while nothing happens: no keywords configured,
+  no scrolling and `autoScan` off means no traffic. Beyond that it makes exactly two kinds:
   the next result page of `onlinejobs.ph` (one per real scroll to the bottom of a list — never on an
   idle page, never from a page's own programmatic scroll), and, only when a foreign-currency salary is
   on screen, the European Central Bank reference rate from `api.frankfurter.dev` (one per currency per

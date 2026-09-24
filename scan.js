@@ -219,8 +219,8 @@
    *  would leave a stale progress note behind, so the note is refreshed. */
   const onSettings = () => { if (!st.running && st.reason) api.setNote(outcome()); };
 
-  // `autoScan` (D4, finally functional in W13.6): off by default, because the promise of this feature is
-  // that the site sees no traffic you did not ask for. Turned on, it waits for the page to settle first.
+  // `autoScan` (D4, finally functional in W13.6): on by default (D42) — every run is bounded to the
+  // recency window, 2 listings at a time, hard caps. Turned on, it waits for the page to settle first.
   chrome.storage.local.get('settings', (res) => {
     if (res?.settings?.autoScan) setTimeout(start, 1200);
   });

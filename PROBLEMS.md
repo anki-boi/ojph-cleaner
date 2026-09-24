@@ -199,11 +199,12 @@ opinion.
 
 A browser extension that reads your job search is a serious position of trust.
 
-- **No request you didn't ask for.** With `autoLoad` off, no keywords and no scan running,
-  the extension talks to nothing at all. `autoScan` is **off** by default for exactly this
-  reason: the promise is that the site sees no traffic you did not ask for.
-- **The only reads of a job's own page are the ones you trigger.** Nothing opens a listing
-  unless you press `Scan` (or switch `autoScan` on), and even then it is bounded to listings
+- **Bounded, and switchable.** With `autoLoad` and `autoScan` both off, no keywords and no
+  scan running, the extension talks to nothing at all. A scan is automatic on search-page load
+  by default (`autoScan`), but every run is bounded to the recency window, two at a time, with
+  a Stop button and hard caps.
+- **Every read of a job's own page is a scan read.** A scan runs automatically on search-page
+  load by default, or on demand when you press `Scan`, and every run is bounded to listings
   inside your recency window, two at a time, with a Stop button and hard caps.
 - **One third-party call, on demand.** Foreign-currency conversion asks the ECB's reference
   rates (via `api.frankfurter.dev`) once per currency per 24 hours, and only when a card

@@ -94,8 +94,8 @@ listings immediately, with no reload.
 297-job search is one continuous scroll instead of eight clicks on *Next*. One page per scroll, one
 request per page, and it stops at the end of the results — or the moment a page adds nothing new.
 
-**Scan the whole window, then let every listing speak for itself.** The `Scan` button in the panel does
-two things in one run, and nothing until you press it:
+**Scan the whole window, then let every listing speak for itself.** The `Scan` run does two things in
+one pass — automatically when a search page loads (`autoScan`), or on demand when you press `Scan`:
 
 1. **Loads every result inside your recency window.** The board is sorted newest-first, so it pages until a
    page's newest listing is already older than your window and stops there — no scrolling needed, and it
@@ -107,7 +107,7 @@ two things in one run, and nothing until you press it:
    300 listings. Everything it reads is cached for 7 days, so a second run costs nothing — and changing a
    keyword re-tiers the page **without a single request**.
 
-**With `sortByPay` on, that run ends by ranking the board, best-paying first** (off by default). Sorting
+**With `sortByPay` on (it is, by default), that run ends by ranking the board, best-paying first.** Sorting
 waits for the scan for the same reason the scan exists: a card's figure is an *assumption* until the
 listing's own `HOURS PER WEEK` is known, and a pay order built on assumptions would rank guesses. The order
 persists as the loader appends later pages, so the board stays in one piece as you read down it.
@@ -203,17 +203,17 @@ same storage, and both take effect on every open tab immediately.
 | `negative` | empty | One keyword per line. A listing whose text contains any of them **as an exact word or phrase** is **hidden**. |
 | `positive` | empty | One keyword per line. A listing whose text contains any of them **as an exact word or phrase** is **highlighted**, never hidden. |
 | `noSalary` | on | Hide listings whose salary field contains no digit (`TBD`, `N/A`, `Negotiable`, `DOE`, empty). |
-| `rescueNoSalary` | off | With `noSalary` on: a listing with no figure that matches a keyword you like, or pays at or above one of your goals, is **shown** instead of hidden. Off by default — a listing that states no pay at all is usually one you did not want to read. |
-| `rescueNegotiable` | off | With `noSalary` on: a listing that says **Negotiable** or **DOE** and matches a keyword you like is shown with a `⚠ negotiable` tag, instead of hidden. Off by default — the plain `noSalary` rule is unchanged until you ask for this. |
-| `maxAgeDays` | 7 | Hide listings posted longer ago than this many days. `0` turns it off, `7` is the last week, `30` the last month. Applied **before** every other rule, and a listing whose date cannot be read is never hidden by it. |
+| `rescueNoSalary` | on | With `noSalary` on: a listing with no figure that matches a keyword you like, or pays at or above one of your goals, is **shown** instead of hidden. On by default (D42). |
+| `rescueNegotiable` | on | With `noSalary` on: a listing that says **Negotiable** or **DOE** and matches a keyword you like is shown with a `⚠ negotiable` tag, instead of hidden. On by default (D42). |
+| `maxAgeDays` | 60 | Hide listings posted longer ago than this many days. `0` turns it off, `7` the last week, `30` the last month (default: the last two months). Applied **before** every other rule, and a listing whose date cannot be read is never hidden by it. |
 | `showHidden` | off | Reveal what was hidden, with a red dashed marker. The panel's `Show All` writes this. |
 | `autoLoad` | on | Append the next page of results when you scroll to the bottom of the list. One page per real scroll, one request per page, and it stops at the end of the results. |
-| `goalSalary` | 0 (off) | A monthly PHP figure. Cards whose converted salary is **at least** this much get a green wash and a `★ at or above your monthly goal` line. Judged on the low end of a range — a "maybe" is not a yes. |
-| `goalHourly` | 0 (off) | The same, per hour: for listings that post an hourly rate, which a monthly goal cannot judge. A card is brightened if **either** goal is met. |
-| `autoScan` | off | Deep-scan a search page automatically as soon as it loads. Off by default: the `Scan` button does the same thing on demand, and the extension's promise is that the site sees no traffic you did not ask for. |
+| `goalSalary` | 60000 | A monthly PHP figure. Cards whose converted salary is **at least** this much get a green wash and a `★ at or above your monthly goal` line. Judged on the low end of a range — a "maybe" is not a yes. |
+| `goalHourly` | 1000 | The same, per hour: for listings that post an hourly rate, which a monthly goal cannot judge. A card is brightened if **either** goal is met. |
+| `autoScan` | on | Deep-scan a search page automatically as soon as it loads. On by default (D42): every run is bounded to the recency window, two listings at a time, with hard caps — the `Scan` button does the same thing on demand. |
 | `scanWorth` | on | After the High yield listings, continue a scan into the Worth considering (yellow) ones. Off means a scan stops after the green ones. |
 | `scanAll` | off | …and then the unclassified listings as well. This is the only pass that can promote a listing that matches no keyword and no goal, and it is the most expensive one. |
-| `sortByPay` | off | When a scan run ends, rank the board by the figure on each card: the highest **monthly** figure first, then listings that post only a rate (per hour or per day), then the ones with no figure at all, which keep the site's own order. A month and an hourly rate are never converted into each other — that would assume a work week — so a ₱5,000/mo listing outranks a ₱500/hr one. The order stays as you scroll more pages in, and only after a scan: until then the board is in the site's own newest-first order. |
+| `sortByPay` | on | When a scan run ends, rank the board by the figure on each card: the highest **monthly** figure first, then listings that post only a rate (per hour or per day), then the ones with no figure at all, which keep the site's own order. A month and an hourly rate are never converted into each other — that would assume a work week — so a ₱5,000/mo listing outranks a ₱500/hr one. The order stays as you scroll more pages in, and only after a scan: until then the board is in the site's own newest-first order. |
 
 Every keyword is an **exact word or phrase**, case-insensitively: `ai` matches `AI tools` and
 `AI-powered` but never `email` or `daily`, and `video editor` does not match `video editors`. Add the
@@ -228,11 +228,12 @@ door for keeping the same lists on two machines, or for a backup in a notes app.
 
 ## Privacy
 
-- **No request you did not ask for.** With `autoLoad` off, no keywords and no scan, the extension talks
-  to nothing at all. With `autoLoad` on it fetches one result page only when *you* scroll to the bottom of
-  the list you are already reading. The deep scan — which does open each listing's own page — runs **only**
-  when you press `Scan`, two listings at a time, with a Stop button and hard caps, and everything it reads
-  is cached so that a re-run asks for nothing.
+- **Bounded, and switchable.** With `autoLoad` off, `autoScan` off, no keywords and no scan, the
+  extension talks to nothing at all. With `autoLoad` on it fetches one result page only when *you* scroll
+  to the bottom of the list you are already reading. The deep scan — which does open each listing's own
+  page — runs on each search-page load when `autoScan` is on (the default), or on demand when you press
+  `Scan`; either way two listings at a time, with a Stop button and hard caps, and everything it reads is
+  cached so that a re-run asks for nothing.
 - **One third-party call, on demand.** To convert a foreign-currency salary, the extension asks the
   European Central Bank's reference rates (via `api.frankfurter.dev`) once per currency per 24 hours,
   and only when a card on screen actually pays in that currency. No amount, no keyword and nothing
@@ -244,9 +245,9 @@ door for keeping the same lists on two machines, or for a backup in a notes app.
 - **Local state.** Keywords, toggles, the cached rates and the remembered verdict for each listing live in
   `chrome.storage.local`; the listing pages a scan read are cached in IndexedDB, in the site's own origin.
   There is no server, no account, and no analytics. See `SECURITY.md`.
-- **No crawling on its own.** The loader fetches *result pages* the site would have served you anyway, one
-  per scroll. Nothing walks into a job's own page unless you press `Scan` or turn `autoScan` on, and even
-  then it is bounded to the listings inside your recency window, two at a time, with hard caps — see
+- **No unbounded crawling.** The loader fetches *result pages* the site would have served you anyway, one
+  per scroll. A scan — automatic on search-page load by default (`autoScan`), or on demand via `Scan` — is
+  bounded to the listings inside your recency window, two at a time, with hard caps — see
   `docs/scraping.md` for the request budget.
 
 ## Development

@@ -139,7 +139,7 @@ mark `salary-cards.js` puts on a listing at or above a goal. A negative match th
 the live ECB rate) `annotate()` asks for one extra pass when a mark moves. Without that, a listing that
 is good only because it pays well stays hidden.
 
-**The no-salary rescue reuses the same `good`** (W10 / D30) and is off by default: when `rescueNoSalary`
+**The no-salary rescue reuses the same `good`** (W10 / D30, D42) and is on by default: when `rescueNoSalary`
 is on, the no-salary branch yields and the card falls through to the keyword rules, so it ends green (or
 yellow) rather than gone. Nothing new decides what "looks good" means.
 
@@ -322,7 +322,7 @@ it. A month from a stated period, or from stated hours, carries no warning — n
 
 ## Ranking the board by pay (0.14.0 / D41)
 
-Off by default, and the order follows the same refusal as the goals above: a month and a rate are never
+On by default (D42), and the order follows the same refusal as the goals above: a month and a rate are never
 converted into each other, so the board is ranked in **three blocks** — a month, then a posted rate, then
 no figure — highest first inside each, with the site's own order kept inside a tie.
 

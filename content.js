@@ -12,17 +12,17 @@
     negative: [],    // keyword list → hide (exact word/phrase, case-insensitive)
     positive: [],    // keyword list → highlight only (exact word/phrase, case-insensitive)
     noSalary: true,  // hide cards whose salary text has no digit
-    rescueNoSalary: false, // W10: but show one that matches a keyword you like, or beats a goal (opt-in)
-    rescueNegotiable: false, // 0.12: but show a "Negotiable"/"DOE" listing that matches a keyword you like (opt-in)
+    rescueNoSalary: true,  // W10, D42: show a no-salary card that matches a keyword you like, or beats a goal
+    rescueNegotiable: true, // 0.12, D42: show a "Negotiable"/"DOE" listing that matches a keyword you like
     showHidden: false,
-    autoScan: false, // W13: run the scan when a list page loads. Off by default — nothing runs unprompted.
+    autoScan: true, // W13, D42: run the scan when a list page loads — bounded: recency window, 2 at a time, hard caps
     scanWorth: true, // W13: after High yield, continue into the Worth considering cards
     scanAll: false,  // W13: and then the unclassified ones (off: they can only be promoted by this pass)
     autoLoad: true,  // W6: load the next result page when you scroll to the bottom of the list
-    goalSalary: 0,   // W7: monthly PHP goal — listings at or above it brighten up (0 = off)
-    goalHourly: 0,   // W7: hourly PHP goal — for listings that post a rate, which no month can judge
-    maxAgeDays: 7,   // W8: hide listings posted longer ago than this (0 = off). The primary filter.
-    sortByPay: false, // D41: once a deep scan has finished, rank the board by the figure on each card
+    goalSalary: 60000,   // W7, D42: monthly PHP goal — listings at or above it brighten up (0 = off)
+    goalHourly: 1000,   // W7, D42: hourly PHP goal — for listings that post a rate, which no month can judge
+    maxAgeDays: 60,   // W8, D42: hide listings posted longer ago than this (0 = off). The primary filter.
+    sortByPay: true, // D41, D42: once a deep scan has finished, rank the board by the figure on each card
   };
   let settings = { ...DEFAULTS };
 

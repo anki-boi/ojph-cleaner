@@ -23,7 +23,7 @@
     goalHourly: 1000,   // W7, D42: hourly PHP goal — for listings that post a rate, which no month can judge
     maxAgeDays: 60,   // W8, D42: hide listings posted longer ago than this (0 = off). The primary filter.
     sortByPay: true, // D41, D42: once a deep scan has finished, rank the board by the figure on each card
-    dashboardUrl: 'http://127.0.0.1:8371', // 0.15: the local dashboard that scores resume fit; empty = bridge off
+    dashboardUrl: 'http://127.0.0.1:8371', // 0.15/0.15.1: the local dashboard that scores resume fit; empty = bridge off
   };
   let settings = { ...DEFAULTS };
 

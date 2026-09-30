@@ -29,7 +29,10 @@
 
   // 3-letter codes are checked before symbols: "$10 - $13 CAD per hour" is CAD, not USD. The lookbehind
   // allows a digit in front ("400USD/mo", "35,000PHP") but not a letter (so "plus" is not "us").
-  const CODE_RE = /(?<![a-z])(php|peso|usd|us|eur|gbp|aud|cad|sgd|nzd|jpy|yen)\b/;
+  // (?![a-z]) rather than \b: a code butted against a digit is still a code. "Php40,000" states
+  // pesos, and \b has no boundary between "php" and "40" — which left the currency labelled as an
+  // inference on every card that wrote "Php40,000" instead of "Php 40,000".
+  const CODE_RE = /(?<![a-z])(php|peso|usd|us|eur|gbp|aud|cad|sgd|nzd|jpy|yen)(?![a-z])/;
   const CODE_MAP = { php: 'PHP', peso: 'PHP', usd: 'USD', us: 'USD', eur: 'EUR', gbp: 'GBP',
                      aud: 'AUD', cad: 'CAD', sgd: 'SGD', nzd: 'NZD', jpy: 'JPY', yen: 'JPY' };
   const SYMBOLS = [[/₱/, 'PHP'], [/€/, 'EUR'], [/£/, 'GBP'], [/¥/, 'JPY'], [/\$/, 'USD']];

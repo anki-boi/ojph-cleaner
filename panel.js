@@ -91,6 +91,9 @@
           <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-scanWorth"><span>…then the Worth considering listings too</span></label>
           <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-scanAll"><span>…and the unclassified ones, which this pass can promote</span></label>
           <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-sortByPay"><span>…then rank the board by pay, best first</span></label>
+          <label class="ojc-field"><span>Local dashboard (resume fit)</span>
+            <input type="text" id="ojc-dashboardUrl" placeholder="http://127.0.0.1:8372">
+            <i class="ojc-hint">The onlinejobs.ph-suite dashboard on this machine. Its score for your resume goes on each card, linking back to that job. Empty turns the bridge off.</i></label>
         </div>
       </div>
       <div id="ojc-panel-foot">
@@ -148,6 +151,7 @@
     $p('#ojc-scanWorth').checked = s.scanWorth !== false;
     $p('#ojc-scanAll').checked = !!s.scanAll;
     $p('#ojc-sortByPay').checked = !!s.sortByPay;
+    $p('#ojc-dashboardUrl').value = s.dashboardUrl ?? '';
   }
 
   /** Mirror settings into an open panel without clobbering a field being typed in. */
@@ -184,6 +188,7 @@
       scanWorth: $p('#ojc-scanWorth').checked,
       scanAll: $p('#ojc-scanAll').checked,
       sortByPay: $p('#ojc-sortByPay').checked,
+      dashboardUrl: $p('#ojc-dashboardUrl').value.trim(),
     });
     api.refreshRules();
     api.persist();

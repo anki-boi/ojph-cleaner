@@ -14,6 +14,8 @@ manifest.json          ── injects on onlinejobs.ph only
    ├─ observer.js      the MutationObserver, and isOurs()
    ├─ salary.js        money: the parser and formatters (pure)    ← test-salary.js
    ├─ salary-cards.js  applies it: ECB rate, card figures, hours, goals
+   ├─ dashboard-fit.js   pure: the shape of the call to the local dashboard (onlinejobs.ph-suite)
+   ├─ dashboard-cards.js applies it: one batched localhost call per page, the resume-fit badge, the deep link
    ├─ detail-parse.js  one reader for a listing's own page
    ├─ detail-cache.js  IndexedDB: the listing's own words (7-day TTL)
    ├─ records-store.js  the memory's state + persistence (load/flush/absorb)

@@ -11,7 +11,7 @@
       'chatgpt', 'gemini', 'generation', 'vibe'],
     noSalary: true, rescueNoSalary: true, rescueNegotiable: true, showHidden: false, autoScan: true,
     scanWorth: true, scanAll: false, autoLoad: true, goalSalary: 60000, goalHourly: 1000,
-    maxAgeDays: 60, sortByPay: true,
+    maxAgeDays: 60, sortByPay: true, dashboardUrl: 'http://127.0.0.1:8372',
   };
   const toLines = (arr) => (arr || []).join('\n');
   const fromLines = (s) => [...new Set(s.split('\n').map(x => x.trim()).filter(Boolean))];
@@ -32,6 +32,7 @@
     $('scanWorth').checked = s.scanWorth !== false;
     $('scanAll').checked = !!s.scanAll;
     $('sortByPay').checked = !!s.sortByPay;
+    $('dashboardUrl').value = s.dashboardUrl ?? '';
   });
 
   $('save').onclick = () => {
@@ -50,6 +51,7 @@
       scanWorth: $('scanWorth').checked,
       scanAll: $('scanAll').checked,
       sortByPay: $('sortByPay').checked,
+      dashboardUrl: $('dashboardUrl').value.trim(),
     };
     chrome.storage.local.set({ settings }, () => {
       const el = $('saved');

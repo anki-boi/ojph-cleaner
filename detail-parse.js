@@ -15,6 +15,9 @@
 })(typeof self !== 'undefined' ? self : this, function (closed) {
   const DESC_SEL = 'p#job-description';
   const DD_SEL = 'dl.row.no-gutters dd';
+  const SKILL_SEL = 'a.card-worker-topskill';   // the listing's own skill tags
+  const CARD_SKILL_SEL = '.job-tag a';          // the same tags on a board card
+  const MAX_SKILLS = 20;
   /** A listing's own URL ends in its numeric id: `/jobseekers/job/some-slug-1733870`. */
   const JOB_RE = /\/jobseekers\/job\/(?:[^/?#]*-)?(\d+)\/?(?:[?#]|$)/;
   /** The closure notice sits above the description; reading only the head keeps a listing's own prose
@@ -86,6 +89,11 @@
       hoursRaw,
       hoursPerWeek: /^\d+$/.test(clean(hoursRaw)) ? Number(clean(hoursRaw)) : null,
       dateUpdated: overview(doc, /date updated/i),
+      // The listing's OWN skill tags — the same elements the sibling repo's parser reads
+      // (SELECTORS["detail.skills"]). They are what a resume-fit score is built from, and
+      // nothing here invents them: a listing that posts no tags gets an empty list.
+      skills: [...doc.querySelectorAll(SKILL_SEL)].map((a) => clean(a.textContent))
+        .filter(Boolean).slice(0, MAX_SKILLS),
       closed: closed.isClosedText(pageText(doc)),
       ok: !!raw,        // a page with no description is a page this extension cannot describe (2/20 live)
     };
@@ -94,5 +102,6 @@
   /** The job id in a pathname, or null — the memory's own reader, so both agree on what a listing is. */
   const jobIdOf = (pathname) => closed.jobIdFrom(pathname);
 
-  return { parse, pageText, textOf, overview, jobIdOf, DESC_SEL, DD_SEL, JOB_RE, HEAD_CHARS };
+  return { parse, pageText, textOf, overview, jobIdOf, DESC_SEL, DD_SEL, JOB_RE, HEAD_CHARS,
+           SKILL_SEL, CARD_SKILL_SEL, MAX_SKILLS };
 });

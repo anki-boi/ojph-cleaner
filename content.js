@@ -23,12 +23,12 @@
     goalHourly: 1000,   // W7, D42: hourly PHP goal — for listings that post a rate, which no month can judge
     maxAgeDays: 60,   // W8, D42: hide listings posted longer ago than this (0 = off). The primary filter.
     sortByPay: true, // D41, D42: once a deep scan has finished, rank the board by the figure on each card
+    dashboardUrl: 'http://127.0.0.1:8372', // 0.15: the local dashboard that scores resume fit; empty = bridge off
   };
   let settings = { ...DEFAULTS };
 
-  // Which tier the board is showing (W14, D32/D38). Session-only, per tab, deliberately: a way of reading
-  // the board, not a preference — a persisted view would reopen every search page filtered, with no
-  // obvious way to notice why.
+  // Which tier the board is showing (W14, D32/D38). Session-only, per tab, deliberately: a way of
+  // reading the board, not a preference — a persisted view would reopen every search page filtered.
   let view = 'all';
 
   // ── Chip (bottom-right status panel) ─────────────────────────────────────
@@ -232,7 +232,7 @@
     chipCounts = counts;
     passNo++;
     self.OJCLoader?.arm();        // pagination.js watches for the end of the list (W6)
-    self.OJCSalaryUI?.annotate(); // salary-cards.js adds the monthly figure per card (W7)
+    self.OJCSalaryUI?.annotate(); self.OJCDashboardUI?.annotate();  // figures, then the fit that reads them (W7 / 0.15)
     renderChip();
   }
 

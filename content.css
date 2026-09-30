@@ -123,6 +123,20 @@
 }
 .ojc-hours-over { color: #a3541c; }
 
+/* Resume fit (0.15): the local dashboard's score for YOUR resume against this listing, out of 60
+   (skills + keywords). It is a link, not just a label — it opens that job in the dashboard, where the
+   full breakdown, the tailored resume and your saved status for it live. */
+.ojc-fit {
+  display: block;
+  width: fit-content;
+  margin: 0 0 6px;
+  color: #1c5f4a;
+  font: 600 12px/1.4 system-ui, -apple-system, sans-serif;
+  text-decoration: underline dotted;
+}
+.ojc-fit:hover { color: #0d4032; }
+.ojc-fit[data-fit="0"] { color: #8a4b12; }
+
 /* Pagination sentinel (W6): 1px tall, sits after the last card, and is watched to
    know when the user has reached the end of the list. */
 #ojc-sentinel { height: 1px; }

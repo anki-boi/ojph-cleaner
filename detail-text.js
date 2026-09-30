@@ -54,13 +54,22 @@
 
   const PRIORITY = { warn: 0, neg: 1, pos: 2 };
 
-  /** Sentence index per character, so a tool can be tied to the sentence that asks. */
+  /**
+   * Sentence index per character, so a tool can be tied to the sentence that asks.
+   *
+   * A '.' only ends a sentence when it is not inside a word: "send your resume to
+   * hiring@gmail.com via Telegram" is ONE sentence, and splitting at the dot in
+   * "gmail.com" would put the tool in a different sentence from the ask naming it —
+   * which is exactly the guard in `plan` is supposed to catch.
+   */
   function sentenceMap(text) {
     const map = new Uint16Array(text.length);
     let s = 0;
     for (let i = 0; i < text.length; i++) {
       map[i] = s;
-      if (text[i] === '.' || text[i] === '!' || text[i] === '?') s++;
+      const ch = text[i];
+      if (ch === '!' || ch === '?' ||
+          (ch === '.' && !(i > 0 && /[a-z0-9]/i.test(text[i - 1]) && i + 1 < text.length && /[a-z0-9]/i.test(text[i + 1])))) s++;
     }
     return map;
   }

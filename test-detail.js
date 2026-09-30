@@ -81,3 +81,9 @@ for (const re of ASK_PATTERNS) assert.ok(re instanceof RegExp, 'the ask list is 
 assert.ok(TOOL_RE instanceof RegExp);
 
 console.log('detail-text: all assertions passed');
+
+// ── a '.' inside a word does not end the sentence (found by the suite's Python port) ──
+assert(hits('To apply, send your resume to hiring@gmail.com via Telegram.', {}).includes('warn:Telegram'),
+  'the dot in an email address must not move the tool into a different sentence');
+assert(hits('Apply now. We monitor Telegram accounts daily.', {}).indexOf('warn:Telegram') === -1,
+  'and a real sentence break still keeps job content out');

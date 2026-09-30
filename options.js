@@ -11,7 +11,7 @@
       'chatgpt', 'gemini', 'generation', 'vibe'],
     noSalary: true, rescueNoSalary: true, rescueNegotiable: true, showHidden: false, autoScan: true,
     scanWorth: true, scanAll: false, autoLoad: true, goalSalary: 60000, goalHourly: 1000,
-    maxAgeDays: 60, sortByPay: true, dashboardUrl: 'http://127.0.0.1:8372',
+    maxAgeDays: 60, sortByPay: true, dashboardUrl: 'http://127.0.0.1:8371',
   };
   const toLines = (arr) => (arr || []).join('\n');
   const fromLines = (s) => [...new Set(s.split('\n').map(x => x.trim()).filter(Boolean))];

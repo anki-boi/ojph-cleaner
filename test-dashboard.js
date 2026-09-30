@@ -52,4 +52,16 @@ assert.strictEqual(d.enabled(''), false, 'off is an empty URL');
 assert.strictEqual(d.enabled('   '), false);
 assert.strictEqual(d.enabled('http://127.0.0.1:8372'), true);
 
+// ── the default must be a port the manifest actually granted ─────────────
+// A content-script fetch to an origin host_permissions does not cover fails, and this
+// extension's rule is to fail SILENTLY — so a default pointing at an ungranted (or
+// unserved) port is a feature that quietly never runs. It happened: 8372, when main.py
+// listens on 8371.
+const manifest = JSON.parse(require('fs').readFileSync('./manifest.json', 'utf8'));
+const port = new URL(d.DEFAULT_DASHBOARD).port;
+assert.ok((manifest.host_permissions || []).some((h) => h.includes(`127.0.0.1:${port}`)),
+  `default dashboard is on :${port} but the manifest never grants it — the bridge cannot run`);
+assert.strictEqual(d.DEFAULT_DASHBOARD, 'http://127.0.0.1:8371',
+  "the suite's default port is 8371 (main.py --port); a default nobody serves is the same bug");
+
 console.log(`dashboard: ok (${d.MAX_BATCH} per request, ${d.FIT_MAX}-point scale, ${d.MAX_SKILLS} tags)`);

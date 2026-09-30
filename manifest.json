@@ -5,7 +5,7 @@
   "description": "Hides stale, no-salary and keyword-matching jobs on OnlineJobs.ph, highlights the ones you want, and re-reads listings in full",
   "permissions": ["storage"],
   "host_permissions": ["https://www.onlinejobs.ph/*", "https://onlinejobs.ph/*",
-                    "http://127.0.0.1:8372/*"],
+                    "http://127.0.0.1:8371/*", "http://127.0.0.1:8372/*"],
   "content_scripts": [
     {
       "matches": ["https://www.onlinejobs.ph/*", "https://onlinejobs.ph/*"],

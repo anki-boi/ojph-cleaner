@@ -92,7 +92,7 @@
           <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-scanAll"><span>…and the unclassified ones, which this pass can promote</span></label>
           <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-sortByPay"><span>…then rank the board by pay, best first</span></label>
           <label class="ojc-field"><span>Local dashboard (resume fit)</span>
-            <input type="text" id="ojc-dashboardUrl" placeholder="http://127.0.0.1:8372">
+            <input type="text" id="ojc-dashboardUrl" placeholder="http://127.0.0.1:8371">
             <i class="ojc-hint">The onlinejobs.ph-suite dashboard on this machine. Its score for your resume goes on each card, linking back to that job. Empty turns the bridge off.</i></label>
         </div>
       </div>

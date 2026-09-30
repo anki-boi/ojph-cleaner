@@ -14,7 +14,7 @@
   else root.OJCDashboard = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
 
-  const DEFAULT_DASHBOARD = 'http://127.0.0.1:8372';   // the suite's own default port
+  const DEFAULT_DASHBOARD = 'http://127.0.0.1:8371';   // main.py's own default port (8372 is its documented second-instance port)
   const MAX_BATCH = 50;          // the suite's own per-request cap
   const MAX_DESC = 1200;         // a fit score is built from the first screen of a description
   const MAX_SKILLS = 20;

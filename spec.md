@@ -51,6 +51,11 @@ which `salary.js` refuses to assume anywhere else (D13) — so a ₱5,000/mo lis
 and the card resting on the 40 h/week assumption keeps its own ⚠ label. The order is sticky: pages the
 loader appends afterwards are re-ranked, so the board stays in one piece as you read down it.
 
+**2026-10-04 — the revamp is planned** (`plans/2026-10-04_revamp.md`, D43–D65, W16–W24): plain words in one
+table, a sticky bar that never covers a card, a first-run setup, per-card *Not for me* with Undo, swipe mode,
+suggested block words, a `jobs.html` tracker, deterministic trust tags, and on-device pay insights. D55 (background
+alerts) still needs the user: it would overturn two §8 "never" rows.
+
 0.14.1 ships the working configuration as the defaults (D42 — `maxAgeDays` 60, the two rescues on,
 `autoScan` on, `sortByPay` on, the goals set, and the owner's keyword lists themselves), and fixes the
 scan's closure reading: `detail-parse.js` read the fetched page's raw `textContent`, where an inline
@@ -296,6 +301,29 @@ exact regression.
 | **D40** | The goal is a hard filter | **Worth considering needs `money` (a goal met), not merely a keyword you like.** `good && neg` becomes `money && neg`, and the keyword-hide branch is evaluated **before** the highlighted one, so below a goal a hide keyword wins outright — a keyword you like can highlight a listing and never rescue one. The user, on finding the yellow tier reachable by keywords alone: *"you might have promoted a lot of listings to worth considering due to the presence of positive keywords being more than the negative keywords, but do not forget that the goal salary is a hard filter."* Consequence, accepted: a listing that matched a keyword you like **and** one you asked to hide while below a goal goes from yellow to **hidden**, both unscanned and after a scan. A keyword you like below the goal with no hide keyword is untouched — still **Highlighted**, the green outline | ✅ decided 2026-09-23 |
 | **D41** | Ranking the board by pay | **Three blocks, and only after a scan run ends.** A month, then a posted rate, then no figure — each highest first, and the unranked cards keep the site's own order. Never one list: converting a month into an hourly rate (or back) needs a work week, which D13 refuses to assume anywhere else, so **a ₱5,000/mo listing outranks a ₱500/hr one** and the card resting on the 40 h/week assumption keeps its ⚠ label rather than being quietly promoted. The trigger is the **end of any scan run** — completed, stopped by you, or cut short by the site — and not the page load, because a card's figure is an assumption until the listing's own `HOURS PER WEEK` is read; the user: *"the sorting from highest to lowest salary should only happen after the deepscan is completely done. That's a lot cleaner."* The order is **sticky** (pages the loader appends later are re-ranked) and the whole feature is **off by default**, since reordering a board the user did not ask to reorder is the extension's one unpardonable move | ✅ decided 2026-09-23 |
 | **D42** | Ship the working defaults, not the cautious ones | The defaults move from the first-release caution set to the owner’s working configuration: `maxAgeDays` **60** (was 7), `rescueNoSalary` and `rescueNegotiable` **on** (was off), `autoScan` **on** (was off), `sortByPay` **on** (was off), `goalSalary` **60000** and `goalHourly` **1000** (was off). The user: *“make this the default extension options”* — the panel state of 2026-09-24. D33’s budget and D41’s end-of-scan trigger stand; what changed is that the bounded scan and the pay ranking now run without a prompt. Consequence: a fresh search page triggers a bounded scan (recency window, 2 at a time, hard caps), and a fresh install sorts the board by pay after the first scan run | ✅ decided 2026-09-24 |
+| **D43** | The user-facing vocabulary | **Plain words, one table** (`labels.js`): Top pick / Maybe / Liked, *Peek at hidden*, *Read posts*, *Download CSV*, *My minimum pay*, *Never show me* / *I'm into* — the full rename table is in `plans/2026-10-04_revamp.md` | ✅ decided 2026-10-04 |
+| **D44** | Internal names | **Unchanged** — tier keys, setting keys, record fields, classes and element ids stay; only display strings move | ✅ decided 2026-10-04 |
+| **D45** | Where the status UI lives | **A slim sticky bar at the top of the results column**, replacing the floating panel that covered the first card | ✅ decided 2026-10-04 |
+| **D46** | Views vs revealing hidden | **Two controls that share no word**: filter pills (`Everything` · `⭐ Top picks` · `🤔 Maybe` · `💚 Liked`) and `🙈 N hidden ▾` → breakdown + `Peek at hidden`. Keyword-hidden counts under Hidden | ✅ decided 2026-10-04 |
+| **D47** | Settings layout | **Basics / Advanced**, on both surfaces | ✅ decided 2026-10-04 |
+| **D48** | Undo | **One-step, 8-second toast** after a save and after `Not for me` | ✅ decided 2026-10-04 |
+| **D49** | First-run setup | **Fresh installs only** (no `ui.onboarded`, no saved settings); three skippable screens; `Run setup again` in ⚙ | ✅ decided 2026-10-04 |
+| **D50** | One minimum or two | **Both keys stay** (D13); setup suggests hourly = `round(monthly ÷ 173)`, editable. About the user's week, never a listing's (D10 untouched) | ✅ decided 2026-10-04 |
+| **D51** | `✕ Not for me` per card | **Hidden for good**, counted as *You passed*, Undo; stored in `myJobs` | ✅ decided 2026-10-04 |
+| **D52** | Swipe mode | **Keyboard-first overlay**: → save, ← pass, ↑ applied, Enter open, Esc close | ✅ decided 2026-10-04 |
+| **D53** | Suggested block words | **Deterministic counts, never auto-added** (≥ 8 passes; ≥ 50 % of passes, ≤ 10 % of saves) | ✅ decided 2026-10-04 |
+| **D54** | New since last visit | **Per search, zero requests** | ✅ decided 2026-10-04 |
+| **D55** | Alerts while the tab is closed | Recommended **no** — keeps §8 (no unprompted paging, no service worker); D54 + `Check my searches` instead. Override = `chrome.alarms` polling + notifications, striking two §8 rows | ⬜ **needs you** |
+| **D56** | Application tracker | **`jobs.html`**: Saved → Applied → Interview → Offer (+ Passed, Closed), `myJobs` key, follow-up nudge at 5 days | ✅ decided 2026-10-04 |
+| **D57** | "Always hiring" | **A tag**: same company + title, ≥ 3 job ids in 30 days. Records gain `company` | ✅ decided 2026-10-04 |
+| **D58** | Scam radar | **Deterministic 0–100 tag with reasons; never hides or demotes** (D38 precedent) | ✅ decided 2026-10-04 |
+| **D59** | Schedule in your time | **`Intl` conversion of a zoned time range; no zone → nothing**; optional `myHours` | ✅ decided 2026-10-04 |
+| **D60** | At a glance | **Extractive, deterministic.** LLM summaries stay rejected (§8); a cover letter is deferred to the sibling dashboard | ✅ decided 2026-10-04 — ⬜ revisit only if you want an LLM |
+| **D61** | Pay insights | **From `jobRecords` on this device only**, on `jobs.html` | ✅ decided 2026-10-04 |
+| **D62** | Compare | **Pin ≤ 3 per tab** | ✅ decided 2026-10-04 |
+| **D63** | Several searches as one board | **`Check my searches` button only**, D33 caps shared across all searches | ✅ decided 2026-10-04 |
+| **D64** | Streak | **Off by default** (`weeklyApplyGoal` 0) | ✅ decided 2026-10-04 |
+| **D65** | When to submit to the store (D2) | **After W17** — the bar changes every screenshot | ✅ decided 2026-10-04 |
 
 ---
 
@@ -538,6 +566,22 @@ D41, and the two things the user decided while it was scoped: sort only once a *
 | W15.4 | The trigger: **any** end of a scan run, and sticky — pages the loader appends later are re-ranked, so the board does not silently degrade as you scroll | `scan.js`, `pay-sort.js` |
 | W15.5 | The setting on both surfaces, its README row and its spec row; the live harness asserts the DOM order it produces and quotes the extension's own exceptions if it ever regresses | `panel.js`, `options.*`, `README.md`, `tools/verify-live.mjs` |
 
+### W16–W24 — The revamp ⬜ (0.16.0 → 0.23.0)
+
+Planned in full — tasks, files, acceptance checks — in **`plans/2026-10-04_revamp.md`** (D43–D65).
+
+| WS | What | Target |
+|---|---|---|
+| W16 | The words: `labels.js`, every label/tooltip/mark through it, harness reads it, README + store copy, the 7-vs-60-day README contradiction | 0.16.0 |
+| W17 | The bar: sticky in the results column, pills vs `Peek at hidden`, progress row, screenshots regenerated | 0.17.0 |
+| W18 | Settings Basics/Advanced on both surfaces; Undo toast | 0.17.x |
+| W19 | First-run setup (three screens, suggested hourly) | 0.18.0 |
+| W20 | Triage: `✕ Not for me`, swipe mode, suggested block words, new since last visit | 0.19.0 |
+| W21 | `jobs.html`: tracker, follow-up nudge, streak | 0.20.0 |
+| W22 | Trust: `company` in records, always-hiring tag, scam radar, schedule in your time | 0.21.0 |
+| W23 | Insights: at a glance, pay percentiles, compare | 0.22.0 |
+| W24 | `Check my searches` across saved searches, inside the D33 caps | 0.23.0 |
+
 ### W5 — Distribution (the original Task 8) → depends on W1, W3
 
 | ID | Task |
@@ -578,7 +622,8 @@ the honest split is "the extension that filters" vs "the code that fetches" — 
 | **3. Deep scan** | W3.1 → W3.2 → W3.3/W3.4 → W3.5 | 2 agents | fixture tests green; live scan bounded; 429 leaves cards unscanned |
 | **4. Reach** | W4.1 → W5.* | 1 agent | banner live; distribution decision executed |
 | **5. Continuous** | Keep the gate green on every push; re-run `verify-live` after any selector report | ongoing | — |
-| **Next** | W5.1: the Web Store submission (D2) — assets ready in `docs/store.md`, privacy justification and version story to file. Everything else in this plan is landed | ongoing | — |
+| **R1–R7. The revamp** | W16 → W17 → W18 (R1, the only hard prerequisite), then W19 · W20 · W21 · W22 in any order, then W23 → W24, then W5.1 (D65) — see `plans/2026-10-04_revamp.md` §Waves | 1 agent per wave | each wave's live gate in the plan |
+| **Next** | W5.1: the Web Store submission (D2) — assets ready in `docs/store.md`, privacy justification and version story to file. Moved after W17 (D65): the bar changes every screenshot | ongoing | — |
 
 ### 6.2 Hard sequencing constraints
 
@@ -668,6 +713,8 @@ Recorded so nobody re-proposes them. Each has a trigger that would change the an
 | LLM-based relevance scoring | Non-deterministic, needs a key, and sends the user's job data to a third party | never |
 | Auto-applying to jobs | ToS and account risk; an unreviewed application is unrecoverable | never |
 | Telemetry / analytics | The privacy statement is "nothing leaves the machine" | never |
+| Background alerts — a timer or service worker that fetches saved searches while no tab is open | The same two rows above: unprompted paging, and a worker MV3 kills. D54 (new since last visit) and `Check my searches` (D63) cover the need on demand | the user answers D55 with the override |
+| Generating summaries or cover letters with an LLM | Same reason as LLM scoring. At a glance is extractive (D60) | the sibling dashboard ships a local generator the bridge can call |
 | A second options UI hidden behind the toolbar icon | The panel is the UI; the standalone page is a fallback | a setting that cannot fit in the panel |
 | `chrome.storage.local` for the deep-scan cache | Shares quota with settings and rewrites the whole blob per write (D3) | IndexedDB proves unworkable on a real page |
 | Making `tools/verify-live.mjs` run in CI | Needs a real browser and the live site; a mocked DOM would test the mock | a headless Chrome with the extension + a recorded fixture page |

@@ -25,6 +25,7 @@
     currency: 'PHP', // D66: the currency figures and minimums are shown in (PHP or USD); every comparison stays in pesos
     weeklyApplyGoal: 0, // D64: applications a week you aim for; >0 puts the streak in the bar (0 = off)
     myHours: '', // D59: your working hours, "08:00-18:00", checked against a post's schedule ('' = off)
+    searches: [], // D63: saved searches (path+query) that "Check my searches" runs, on a button press only
   };
   let settings = { ...DEFAULTS };
 
@@ -230,10 +231,8 @@
     renderChip();
   }
 
-  // Show a tier: set the view, re-run the pass, and bring the FIRST CARD OF THAT TIER into sight. Measured
-  // live on a 298-card page: the filter took 237 ms, but the document shrank 92 000 px → 19 000 px and the
-  // viewport (the user had scrolled to the middle) ended up 18 000 px below the first high-yield card —
-  // the board was correct and showed nothing. The scroll is why the view does not look broken.
+  // Show a tier, and bring its FIRST CARD into sight: measured on a 298-card page, the document shrank 92 000 px →
+  // 19 000 px and left the viewport 18 000 px below the first match — correct, and showing nothing.
   function setView(next) {
     view = next;
     refreshRules();

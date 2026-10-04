@@ -209,6 +209,10 @@ try {
     // the top of the settings and silently loses the salary goals and the scan toggles — the two
     // things worth showing. Unclamp it, and give the viewport room for the taller panel (it is
     // position:fixed, so a panel taller than the viewport cannot be photographed at all).
+    // 0.16: the drawer is pinned top AND bottom (D47), and Advanced is folded — unpin the bottom and open
+    // Advanced, so the full-settings shot shows every setting rather than the viewport's worth of Basics.
+    await tab.evaluate(`(()=>{const a=document.getElementById('ojc-advanced'); if(a) a.open = true;
+      const p=document.getElementById('ojc-panel'); if(p) p.style.bottom = 'auto'; return 1})()`);
     await tab.evaluate(`(()=>{const p=document.getElementById('ojc-panel'), b=document.getElementById('ojc-panel-body');
       if(p) p.style.maxHeight = 'none';
       if(b) { b.style.maxHeight = 'none'; b.style.overflowY = 'visible'; }
@@ -226,7 +230,7 @@ try {
     await shot(tab, path.join(OUT, 'options-panel.png'), rect);
 
     await tab.evaluate(`(()=>{const p=document.getElementById('ojc-panel'), b=document.getElementById('ojc-panel-body');
-      if(p) p.style.maxHeight = '';
+      if(p) { p.style.maxHeight = ''; p.style.bottom = ''; }
       if(b) { b.style.maxHeight = ''; b.style.overflowY = ''; }
       return 1})()`);
     await tab.send('Emulation.setDeviceMetricsOverride', VIEW);

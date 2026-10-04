@@ -10,7 +10,11 @@
   else root.OJCRisk = api;
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
-  const FEE = /\b(training|registration|application|processing|membership|onboarding|starter)\s+fees?\b|\byou\s+(will\s+|must\s+|need\s+to\s+|have\s+to\s+)?pay\s+(a|the|an)\s+(small\s+|one-time\s+)?fee\b|\bstarter\s+kit\b|\brefundable\s+deposit\b/i;
+  const FEE = /\b(training|registration|application|membership|starter)\s+fees?\b|\byou\s+(will\s+|must\s+|need\s+to\s+|have\s+to\s+)?pay\s+(a|the|an)\s+(small\s+|one-time\s+)?fee\b|\bstarter\s+kit\b|\brefundable\s+deposit\b/i;
+  // …and only when the sentence puts that fee on the APPLICANT. Bookkeeping posts are full of fees ("account for
+  // platform fees, refunds and payment-processing fees" put a live bookkeeping job at "risky 70"): a fee is a red
+  // flag when someone has to pay it to get or start the job.
+  const ON_YOU = /\b(you|your|applicants?|candidates?)\b|\b(required|upfront|up-front|one-time|before\s+(you\s+)?start(ing)?)\b|[$₱]\s?\d|\b(php|usd)\s?\d/i;
   // "We cover the registration fee" is a perk, not a scam: a sentence where the employer pays is not a fee asked of you.
   const EMPLOYER_PAYS = /\b(we|company|employer|client)\s+(will\s+)?(pay|pays|cover|covers|shoulder|shoulders|reimburse|reimburses|handle|handles)\b/i;
   const sentences = (t) => String(t || '').split(/(?<=[.!?\n])\s+/);
@@ -19,7 +23,7 @@
   const SIGNALS = [
     // [id, points, why, test(input)]
     ['fee', 40, 'asks YOU to pay (a training, registration or starter fee)',
-      (i) => sentences(i.text).some(s => FEE.test(s) && !EMPLOYER_PAYS.test(s))],
+      (i) => sentences(i.text).some(s => FEE.test(s) && ON_YOU.test(s) && !EMPLOYER_PAYS.test(s))],
     ['offPlatform', 25, 'wants you to apply or talk outside OnlineJobs.ph', (i) => asks(i)],
     // A redaction is the SAME fact as an off-platform ask (the site removed the link the ask pointed at). It
     // counts fully only when it is the only trace of one — measured live: counting both put 17 of 30 cards at

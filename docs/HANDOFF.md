@@ -24,6 +24,25 @@ node tools/verify-live.mjs --url="https://www.onlinejobs.ph/jobseekers/jobsearch
 
 If `verify-live` cannot reach a browser it says so and points back to §2.
 
+### 0b. Testing without anyone's browser — the sandbox (0.16.0)
+
+```bash
+node tools/sandbox.mjs                       # throwaway Chrome + THIS folder's extension, CDP on :9444
+OJC_CDP_PORT=9444 OJC_RELOAD_URL=http://127.0.0.1:9445/reload node tools/verify-live.mjs      --url="https://www.onlinejobs.ph/jobseekers/jobsearch?jobkeyword=bookkeeper"
+node tools/shot.mjs --out=shot.png --eval="document.getElementById('ojc-gear').click()"   # look at it
+curl http://127.0.0.1:9445/reload            # reload after an edit
+node tools/reload.mjs                        # press Reload in the owner's Edge on :9222 (or --port=9333)
+```
+
+- `--load-extension` is a no-op on branded Chrome (§3.1), but CDP's `Extensions.loadUnpacked` works over
+  `--remote-debugging-pipe` with `--enable-unsafe-extension-debugging`. The sandbox holds the pipe, so it serves
+  the reload: `chrome.developerPrivate.reload` **disables** a pipe-loaded extension (measured: ENABLED → DISABLED,
+  every page ERR_BLOCKED_BY_CLIENT).
+- A worktree tests its own code: the extension is loaded from the folder `tools/sandbox.mjs` sits in.
+- Run `verify-live` on a **fresh** sandbox: a profile that has already read the board's posts knows their real
+  hours, so section 9 finds no 40 h/week disclaimer to probe and says so.
+- The machine's own time zone is the viewer zone the schedule tags convert into (America/Denver on this box).
+
 ---
 
 ## 1. What this repo is

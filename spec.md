@@ -54,7 +54,9 @@ loader appends afterwards are re-ranked, so the board stays in one piece as you 
 **2026-10-04 — the revamp is planned** (`plans/2026-10-04_revamp.md`, D43–D65, W16–W24): plain words in one
 table, a sticky bar that never covers a card, a first-run setup, per-card *Not for me* with Undo, swipe mode,
 suggested block words, a `jobs.html` tracker, deterministic trust tags, and on-device pay insights. D55 (background
-alerts) still needs the user: it would overturn two §8 "never" rows.
+alerts) was answered "no" — §8 stands. **Built 2026-10-04 as 0.16.0**, with the user's added request for a display
+currency (D66), and two pre-existing harness bugs fixed on the way (a fresh profile hung `verify-live`; section 4b
+failed on 0.15.1 itself because the seed omitted the D42 rescue flags).
 
 0.14.1 ships the working configuration as the defaults (D42 — `maxAgeDays` 60, the two rescues on,
 `autoScan` on, `sortByPay` on, the goals set, and the owner's keyword lists themselves), and fixes the
@@ -313,7 +315,7 @@ exact regression.
 | **D52** | Swipe mode | **Keyboard-first overlay**: → save, ← pass, ↑ applied, Enter open, Esc close | ✅ decided 2026-10-04 |
 | **D53** | Suggested block words | **Deterministic counts, never auto-added** (≥ 8 passes; ≥ 50 % of passes, ≤ 10 % of saves) | ✅ decided 2026-10-04 |
 | **D54** | New since last visit | **Per search, zero requests** | ✅ decided 2026-10-04 |
-| **D55** | Alerts while the tab is closed | Recommended **no** — keeps §8 (no unprompted paging, no service worker); D54 + `Check my searches` instead. Override = `chrome.alarms` polling + notifications, striking two §8 rows | ⬜ **needs you** |
+| **D55** | Alerts while the tab is closed | **No** — keeps §8 (no unprompted paging, no service worker); D54 (new since last visit) + `Check my searches` (D63) instead. Answered by the user ("Sounds good", 2026-10-04) | ✅ decided 2026-10-04 |
 | **D56** | Application tracker | **`jobs.html`**: Saved → Applied → Interview → Offer (+ Passed, Closed), `myJobs` key, follow-up nudge at 5 days | ✅ decided 2026-10-04 |
 | **D57** | "Always hiring" | **A tag**: same company + title, ≥ 3 job ids in 30 days. Records gain `company` | ✅ decided 2026-10-04 |
 | **D58** | Scam radar | **Deterministic 0–100 tag with reasons; never hides or demotes** (D38 precedent) | ✅ decided 2026-10-04 |
@@ -324,6 +326,7 @@ exact regression.
 | **D63** | Several searches as one board | **`Check my searches` button only**, D33 caps shared across all searches | ✅ decided 2026-10-04 |
 | **D64** | Streak | **Off by default** (`weeklyApplyGoal` 0) | ✅ decided 2026-10-04 |
 | **D65** | When to submit to the store (D2) | **After W17** — the bar changes every screenshot | ✅ decided 2026-10-04 |
+| **D66** | A preferred display currency (the user's request, 2026-10-04) | **PHP or USD, display only.** Figures and the minimums are shown in it; every comparison, the ranking and the records stay in pesos. Switching converts the minimums at the ECB rate (cents kept under $100) and a toast says the rates are the ECB's, refreshed daily. No USD rate → figures stay in pesos and the minimums are not judged (D9: never a guessed rate) | ✅ decided 2026-10-04 |
 
 ---
 
@@ -566,7 +569,7 @@ D41, and the two things the user decided while it was scoped: sort only once a *
 | W15.4 | The trigger: **any** end of a scan run, and sticky — pages the loader appends later are re-ranked, so the board does not silently degrade as you scroll | `scan.js`, `pay-sort.js` |
 | W15.5 | The setting on both surfaces, its README row and its spec row; the live harness asserts the DOM order it produces and quotes the extension's own exceptions if it ever regresses | `panel.js`, `options.*`, `README.md`, `tools/verify-live.mjs` |
 
-### W16–W24 — The revamp ⬜ (0.16.0 → 0.23.0)
+### W16–W25 — The revamp ✅ (0.16.0)
 
 Planned in full — tasks, files, acceptance checks — in **`plans/2026-10-04_revamp.md`** (D43–D65).
 
@@ -581,6 +584,9 @@ Planned in full — tasks, files, acceptance checks — in **`plans/2026-10-04_r
 | W22 | Trust: `company` in records, always-hiring tag, scam radar, schedule in your time | 0.21.0 |
 | W23 | Insights: at a glance, pay percentiles, compare | 0.22.0 |
 | W24 | `Check my searches` across saved searches, inside the D33 caps | 0.23.0 |
+| W25 | The display currency, PHP or USD, and its toast (D66) | 0.16.0 |
+
+All of it shipped together as **0.16.0** on the `worktree-revamp-spec` branch: every wave verified in a throwaway Chrome (`tools/sandbox.mjs`) against the live board, and `verify-live` PASS on a clean profile — see the plan's *Outcome* section for what live testing changed.
 
 ### W5 — Distribution (the original Task 8) → depends on W1, W3
 
@@ -622,7 +628,7 @@ the honest split is "the extension that filters" vs "the code that fetches" — 
 | **3. Deep scan** | W3.1 → W3.2 → W3.3/W3.4 → W3.5 | 2 agents | fixture tests green; live scan bounded; 429 leaves cards unscanned |
 | **4. Reach** | W4.1 → W5.* | 1 agent | banner live; distribution decision executed |
 | **5. Continuous** | Keep the gate green on every push; re-run `verify-live` after any selector report | ongoing | — |
-| **R1–R7. The revamp** | W16 → W17 → W18 (R1, the only hard prerequisite), then W19 · W20 · W21 · W22 in any order, then W23 → W24, then W5.1 (D65) — see `plans/2026-10-04_revamp.md` §Waves | 1 agent per wave | each wave's live gate in the plan |
+| **R1–R7. The revamp** ✅ | W16 → W17 → W18, W19, W20, W21, W22, W23 → W24, W25 — shipped as 0.16.0; see `plans/2026-10-04_revamp.md` §Outcome | 1 agent | verify-live PASS on a clean sandbox profile |
 | **Next** | W5.1: the Web Store submission (D2) — assets ready in `docs/store.md`, privacy justification and version story to file. Moved after W17 (D65): the bar changes every screenshot | ongoing | — |
 
 ### 6.2 Hard sequencing constraints
@@ -713,7 +719,7 @@ Recorded so nobody re-proposes them. Each has a trigger that would change the an
 | LLM-based relevance scoring | Non-deterministic, needs a key, and sends the user's job data to a third party | never |
 | Auto-applying to jobs | ToS and account risk; an unreviewed application is unrecoverable | never |
 | Telemetry / analytics | The privacy statement is "nothing leaves the machine" | never |
-| Background alerts — a timer or service worker that fetches saved searches while no tab is open | The same two rows above: unprompted paging, and a worker MV3 kills. D54 (new since last visit) and `Check my searches` (D63) cover the need on demand | the user answers D55 with the override |
+| Background alerts — a timer or service worker that fetches saved searches while no tab is open | The same two rows above: unprompted paging, and a worker MV3 kills. D54 (new since last visit) and `Check my searches` (D63) cover the need on demand. D55: the user agreed | the user asks for them explicitly |
 | Generating summaries or cover letters with an LLM | Same reason as LLM scoring. At a glance is extractive (D60) | the sibling dashboard ships a local generator the bridge can call |
 | A second options UI hidden behind the toolbar icon | The panel is the UI; the standalone page is a fallback | a setting that cannot fit in the panel |
 | `chrome.storage.local` for the deep-scan cache | Shares quota with settings and rewrites the whole blob per write (D3) | IndexedDB proves unworkable on a real page |

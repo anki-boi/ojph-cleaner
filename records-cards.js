@@ -115,8 +115,9 @@
      *  is cached, and never a guess: the scan compares it against the cache's own TTL. */
     cachedAt: (id) => (id != null && S.texts.get(String(id))?.at) || null,
     factsFor: (id) => S.facts.get(String(id)) || null,
-    /** The listing's own description, when a scan or a visit cached it (W22's risk and schedule read it). */
-    textFor: (id) => (id != null && S.texts.get(String(id))?.desc) || null,
+    /** The listing's own description as text, when a scan or a visit cached it (W22/W23 read it). Not `textFor`,
+     *  which returns the whole cached row — a second key of that name silently replaced the first. */
+    descFor: (id) => (id != null && S.texts.get(String(id))?.desc) || null,
     textFor: (id) => S.texts.get(String(id)) || null,
   };
 })();

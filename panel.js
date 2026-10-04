@@ -100,6 +100,11 @@
           <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-scanAll"><span>…then everything else (slowest — can find hidden gems)</span></label>
           <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-sortByPay"><span>…then sort by pay, best first</span></label>
           <div class="ojc-field" style="margin-top:14px">
+            <label for="ojc-searches">My saved searches</label>
+            <textarea id="ojc-searches" rows="2" spellcheck="false" placeholder="bookkeeper&#10;quickbooks"></textarea>
+            <span class="ojc-hint">A keyword or a search link per line. 🔎 in the bar adds their new listings to the board you are on. ☆ saves the one you are on.</span>
+          </div>
+          <div class="ojc-field" style="margin-top:14px">
             <label for="ojc-myHours">My working hours (my own time)</label>
             <input type="text" id="ojc-myHours" placeholder="08:00-18:00">
             <span class="ojc-hint">Posts that state their hours with a time zone get them in your time, with ✅ / ⚠ / ✗ against these.</span>
@@ -192,6 +197,7 @@
     $p('#ojc-dashboardUrl').value = s.dashboardUrl ?? '';
     $p('#ojc-weeklyApplyGoal').value = s.weeklyApplyGoal || '';
     $p('#ojc-myHours').value = s.myHours || '';
+    $p('#ojc-searches').value = toLines(s.searches);
     $p('#ojc-currency').value = formCur = s.currency || 'PHP';
     paintCurrency(formCur);
   }
@@ -245,6 +251,7 @@
       currency: cur,
       weeklyApplyGoal: num($p('#ojc-weeklyApplyGoal').value),
       myHours: $p('#ojc-myHours').value.trim(),
+      searches: fromLines($p('#ojc-searches').value),
     });
     api.refreshRules();
     api.persist();

@@ -20,13 +20,20 @@ assert.strictEqual(one({ text: 'x', pay: 300000, median: 60000, company: 'X' }).
 assert.strictEqual(one({ text: 'x', pay: 150000, median: 60000, company: 'X' }).score, 0, '2.5× is a good job, not a red flag');
 assert.strictEqual(one({ text: 'x', company: '' }).score, 5);
 assert.strictEqual(one({ text: 'x' }).score, 0, 'unknown company is not "no company"');
-const all = one({ text: 'starter kit, unpaid trial, bitcoin, ----------', flags: ['ask'], company: '', pay: 9e5, median: 5e4 });
+const all = one({ text: 'You must buy a starter kit, unpaid trial, bitcoin, ----------', flags: ['ask'], company: '', pay: 9e5, median: 5e4 });
 assert.strictEqual(all.score, 100, 'capped at 100');
 assert.strictEqual(all.reasons.length, 7, 'fee, ask, redactedToo, trial, crypto, too good, no company');
 assert.ok(all.reasons.every(r => r.why && r.points > 0), 'every point has a readable reason');
 assert.strictEqual(one({ text: 'We will pay the fee for your certification', company: 'X' }).score, 0, '"pay the fee" for you is not a fee asked of you');
 assert.strictEqual(one({ text: 'We cover the registration fee. Apply now.', company: 'X' }).score, 0, 'the employer paying is a perk');
 assert.strictEqual(one({ text: 'You must pay a one-time fee before training.', company: 'X' }).score, 40);
+// Measured live: a bookkeeping job's DUTIES are full of fees. None of these is a fee asked of you.
+for (const duty of ['Properly account for platform fees, refunds, chargebacks, returns, and payment-processing fees',
+  'Strong understanding of inventory, COGS, refunds, platform fees, and ecommerce payment processing',
+  'Track membership fees and registration fees for our clients in Xero.']) {
+  assert.strictEqual(one({ text: duty, company: 'X' }).score, 0, `a duty is not a scam: ${duty}`);
+}
+assert.strictEqual(one({ text: 'Applicants pay a $15 training fee before starting.', company: 'X' }).score, 40);
 assert.strictEqual(R.median([5, 1, 3]), 3);
 assert.strictEqual(R.median([4, 1, 3, 2]), 2.5);
 assert.strictEqual(R.median([]), 0);

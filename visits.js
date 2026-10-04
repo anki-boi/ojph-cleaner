@@ -30,6 +30,13 @@
     return path + (q.length ? '?' + q.map(([k, v]) => `${k}=${v}`).join('&') : '');
   }
 
+  /** What a person types in "My saved searches": a keyword ("bookkeeper") or any search URL → its key. */
+  function toSearchKey(input) {
+    const s = String(input || '').trim();
+    if (!s) return null;
+    return /^(https?:|\/)/i.test(s) ? searchKey(s) : searchKey('/jobseekers/jobsearch?jobkeyword=' + encodeURIComponent(s));
+  }
+
   /** Opening a search: the cutoff to mark against, and the entry to store. */
   function open(entry, now) {
     if (!entry || !entry.last) return { cutoff: null, entry: { last: now, prev: null } };
@@ -48,5 +55,5 @@
     return Object.fromEntries(rows);
   }
 
-  return { VISIT_GAP, searchKey, open, touch, isNew, prune };
+  return { VISIT_GAP, searchKey, toSearchKey, open, touch, isNew, prune };
 });

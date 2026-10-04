@@ -11,7 +11,7 @@
       'chatgpt', 'gemini', 'generation', 'vibe'],
     noSalary: true, rescueNoSalary: true, rescueNegotiable: true, showHidden: false, autoScan: true,
     scanWorth: true, scanAll: false, autoLoad: true, goalSalary: 60000, goalHourly: 1000,
-    maxAgeDays: 60, sortByPay: true, dashboardUrl: 'http://127.0.0.1:8371', currency: 'PHP', weeklyApplyGoal: 0, myHours: '',
+    maxAgeDays: 60, sortByPay: true, dashboardUrl: 'http://127.0.0.1:8371', currency: 'PHP', weeklyApplyGoal: 0, myHours: '', searches: [],
   };
   const toLines = (arr) => (arr || []).join('\n');
   const fromLines = (s) => [...new Set(s.split('\n').map(x => x.trim()).filter(Boolean))];
@@ -39,6 +39,7 @@
     $('currency').value = loadedCurrency = s.currency || 'PHP';
     $('weeklyApplyGoal').value = s.weeklyApplyGoal || '';
     $('myHours').value = s.myHours || '';
+    $('searches').value = toLines(s.searches);
   });
 
   // Switching the currency converts the two minimums in the form at the cached ECB rate (the content script
@@ -80,6 +81,7 @@
       currency: cur,
       weeklyApplyGoal: Math.max(0, Math.round(Number($('weeklyApplyGoal').value) || 0)),
       myHours: $('myHours').value.trim(),
+      searches: fromLines($('searches').value),
     };
     chrome.storage.local.set({ settings }, () => {
       const el = $('saved');

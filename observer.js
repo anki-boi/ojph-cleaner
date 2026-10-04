@@ -34,7 +34,9 @@
     // W20's triage marks: the card's own buttons and the "new since last visit" badge.
     'ojc-acts', 'ojc-new',
     // W22's trust tags.
-    'ojc-risk', 'ojc-again', 'ojc-sched'];
+    'ojc-risk', 'ojc-again', 'ojc-sched',
+    // W23/W24: the at-a-glance fold and the saved-search tag.
+    'ojc-glance', 'ojc-from'];
 
   function isOurs(node) {
     let n = node;

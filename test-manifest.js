@@ -163,5 +163,34 @@ const missingOptFields = optFields.filter(id => !optHtml.includes(`id="${id}"`))
 assert.deepStrictEqual(missingOptFields, [],
   `options.js references field(s) options.html does not define: ${missingOptFields.join(', ')}`);
 
+// ── a module's public API never names the same key twice ─────────────────
+// An object literal keeps the LAST of two equal keys without a word. That shipped once: records-cards gained a
+// second `textFor` (the description) under the original (the whole cached row), the original won, and both
+// the at-a-glance fold and the risk score read "[object Object]" — 0 glances on a board with 60 to show.
+let apis = 0;
+for (const f of sourceFiles) {
+  const src = fs.readFileSync(path.join(root, f), 'utf8');
+  for (const m of src.matchAll(/self\.OJC\w*\s*=\s*\{/g)) {
+    // The object runs to its matching brace — counted, skipping strings, so one-liners and nested bodies both work.
+    let depth = 0, i = m.index + m[0].length - 1, q = null;
+    for (; i < src.length; i++) {
+      const ch = src[i];
+      if (q) { if (ch === '\\') i++; else if (ch === q) q = null; continue; }
+      if (ch === "'" || ch === '"' || ch === '`') q = ch;
+      else if (ch === '{') depth++;
+      else if (ch === '}' && --depth === 0) break;
+    }
+    apis++;
+    const body = src.slice(m.index + m[0].length, i).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+    // Top-level keys only: strip anything nested in (), {} or [] before reading `name:` and shorthand names.
+    let flat = body, prev;
+    do { prev = flat; flat = flat.replace(/\([^()]*\)|\{[^{}]*\}|\[[^\[\]]*\]|`[^`]*`|'[^'\n]*'/g, ''); } while (flat !== prev);
+    const keys = flat.split(',').map(s => s.trim()).map(s => (s.match(/^\.\.\./) ? null : (s.match(/^([A-Za-z_$][\w$]*)\s*(?::|$)/) || [])[1])).filter(Boolean);
+    const dup = keys.filter((k, i) => keys.indexOf(k) !== i);
+    assert.deepStrictEqual(dup, [], `${f}: the API object names ${dup.join(', ')} twice — the first one is silently lost`);
+  }
+}
+assert.ok(apis > 10, `found only ${apis} module APIs — the duplicate-key check is not reading them`);
+
 console.log(`manifest: ok (${used.size} chrome APIs checked, ${sourceFiles.length} source files wired, ` +
   `${referenced.length} files verified, ${panelFields.length} panel fields declared)`);

@@ -31,6 +31,18 @@
       el('p', 'ojc-sw-pay', card.querySelector('.ojc-salary-note')?.textContent || ownText(card.querySelector(api.SELECTORS.cardSalary))),
       el('p', 'ojc-sw-sub', [card.querySelector('.ojc-salary-warn')?.textContent, card.querySelector('.ojc-hours')?.textContent].filter(Boolean).join(' · ')),
       el('p', 'ojc-sw-desc', desc + (desc.length >= 700 ? '…' : '')));
+    // At a glance (D60), when the post has been read: the fastest way to decide, so it goes first in line.
+    const g = self.OJCGlanceUI?.modelFor?.(card);
+    if (g && (g.doing.length || g.want.length)) {
+      const box = el('div', 'ojc-sw-glance');
+      for (const [label, lines] of [["You'd do", g.doing], ['They want', g.want]]) {
+        if (!lines.length) continue;
+        const ul = el('ul');
+        for (const l of lines) ul.appendChild(el('li', null, l));
+        box.append(el('b', null, label), ul);
+      }
+      wrap.insertBefore(box, wrap.querySelector('.ojc-sw-desc'));
+    }
     return wrap;
   }
 

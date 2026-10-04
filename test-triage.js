@@ -41,6 +41,9 @@ assert.strictEqual(V.searchKey('https://www.onlinejobs.ph/jobseekers/jobsearch/3
 assert.strictEqual(V.searchKey('https://www.onlinejobs.ph/jobseekers/jobsearch?jobkeyword=bookkeeper'),
   '/jobseekers/jobsearch?jobkeyword=bookkeeper');
 assert.strictEqual(V.searchKey('/jobseekers/search/c/virtual-assistant/60'), '/jobseekers/search/c/virtual-assistant');
+assert.strictEqual(V.toSearchKey('Virtual Assistant'), '/jobseekers/jobsearch?jobkeyword=virtual assistant');
+assert.strictEqual(V.toSearchKey('https://www.onlinejobs.ph/jobseekers/jobsearch/60?jobkeyword=xero'), '/jobseekers/jobsearch?jobkeyword=xero');
+assert.strictEqual(V.toSearchKey('  '), null);
 const H = 3600e3, T = 1e12;
 const first = V.open(undefined, T);
 assert.strictEqual(first.cutoff, null, 'the first visit marks nothing');

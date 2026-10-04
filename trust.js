@@ -46,7 +46,7 @@
     if (key && id && !sightings[key]?.[id]) { sightings[key] = { ...(sightings[key] || {}), [id]: now }; dirty = true; }
     if (card.hidden) return;
 
-    const desc = id ? self.OJCRecordsUI?.textFor?.(id) || '' : '';
+    const desc = id ? self.OJCRecordsUI?.descFor?.(id) || '' : '';
     const text = `${api.ownText(card)}\n${desc}`;
     const r = R.score({ text, flags: self.OJCRecordsUI?.detailFor?.(card)?.flags || [], company,
       pay: card.dataset.ojcPayUnit === 'month' ? Number(card.dataset.ojcPay) : 0, median: boardMedian(now) });

@@ -15,3 +15,4 @@
 
 # README screenshots must survive byte-for-byte.
 *.png binary
+*.gif binary

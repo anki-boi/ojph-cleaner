@@ -142,9 +142,9 @@
   bar?.addAction({ id: 'ojc-btn-suggest-x', order: 2, text: '✕', title: 'not this word — never suggest it again',
     hidden: () => !suggestion(), onClick: () => { const g = suggestion(); if (g) dismiss(g.word); } });
   bar?.addAction({ id: 'ojc-btn-streak', order: 4,
-    text: () => { const g = Number(api.getSettings().weeklyApplyGoal) || 0, s = M.streak(jobs, Date.now()); return `${s.days ? '🔥 ' + s.days + 'd · ' : ''}${s.week}/${g} this week`; },
+    text: () => { const g = Number(api.getSettings().weeklyApplyGoal) || 0, s = M.streak(jobs, Date.now()); return `${s.days ? '🔥 ' + s.days + 'd · ' : '📨 '}${s.week}/${g}`; },
     hidden: () => !(Number(api.getSettings().weeklyApplyGoal) > 0),
-    title: 'days in a row with an application, and applications this week against your goal',
+    title: 'your streak (days in a row with an application) and applications this week against your weekly goal — click for My jobs',
     onClick: () => window.open(chrome.runtime.getURL('jobs.html'), '_blank') });
   bar?.addAction({ id: 'ojc-btn-swipe', order: 5, text: '🃏 Swipe', title: 'go through the board one card at a time (keyboard: ← pass, → save, ↑ applied)',
     onClick: () => self.OJCSwipe?.open() });

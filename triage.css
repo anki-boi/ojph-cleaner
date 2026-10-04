@@ -30,6 +30,11 @@
 .ojc-acts button:disabled { cursor: default; opacity: .8; }
 @media (hover: none) { .ojc-acts { opacity: 1; } }
 
+/* W22's trust tags: risk in the warning orange, re-posts in grey, the hours in your time in slate. */
+.ojc-risk { background: rgba(192, 57, 43, .14); color: #8e2b20; }
+.ojc-again { background: rgba(107, 107, 119, .16); color: #4a4a58; }
+.ojc-sched { background: rgba(63, 110, 168, .12); color: #2b5385; }
+
 /* New since your last visit: the quiet blue of a fresh mark. */
 .ojc-new { background: rgba(77, 130, 193, .16); color: #1f5e8a; }
 

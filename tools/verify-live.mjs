@@ -2135,8 +2135,9 @@ if (res.noSalExpected > 0) {
   const expBtn = JSON.parse(await withTab(PORT, URL_, async (tab) => {
     if (!await activate(tab)) await fail(`the export check cannot run: ${HIDDEN_HINT}`);
     if (!await waitCards(tab)) await fail('no cards rendered on the board page (the site throttles after the scan)');
-    // The chip builds after the cards, on its own clock — wait for the button itself.
-    // The action buttons are identified by id (mk sets b.id), not class.
+    // The CSV lives in the settings drawer's foot (W17 — the bar had one button too many for one line): open it
+    // the way a person does, then wait for the button itself.
+    if (await waitFor(tab, `!!document.querySelector('#ojc-gear')`, { timeout: 15000 })) await realClick(tab, '#ojc-gear');
     if (!await waitFor(tab, `!!document.querySelector('#ojc-export')`, { timeout: 15000 }))
       await fail('the chip rendered no Export button');
     const btn = JSON.parse(await tab.evaluate(`(() => {

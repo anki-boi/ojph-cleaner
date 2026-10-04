@@ -100,6 +100,11 @@
           <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-scanAll"><span>…then everything else (slowest — can find hidden gems)</span></label>
           <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-sortByPay"><span>…then sort by pay, best first</span></label>
           <div class="ojc-field" style="margin-top:14px">
+            <label for="ojc-myHours">My working hours (my own time)</label>
+            <input type="text" id="ojc-myHours" placeholder="08:00-18:00">
+            <span class="ojc-hint">Posts that state their hours with a time zone get them in your time, with ✅ / ⚠ / ✗ against these.</span>
+          </div>
+          <div class="ojc-field" style="margin-top:14px">
             <label for="ojc-weeklyApplyGoal">Applications I aim for each week</label>
             <input type="number" id="ojc-weeklyApplyGoal" min="0" step="1" placeholder="0 = off">
             <span class="ojc-hint">Shows your streak in the bar. 0 turns it off.</span>
@@ -115,9 +120,11 @@
       <div id="ojc-panel-foot">
         <button id="ojc-save" type="button">Save changes</button>
         <span id="ojc-saved">Saved ✓</span>
+        <button id="ojc-export" type="button" class="ojc-quiet">⬇ CSV</button>
         <a href="${chrome.runtime.getURL('options.html')}" target="_blank">full page ↗</a>
       </div>`;
     panel.querySelector('#ojc-save').onclick = save;
+    panel.querySelector('#ojc-export').onclick = () => self.OJCExport?.run?.();
     panel.querySelector('#ojc-close').onclick = () => open(false);
     panel.querySelector('#ojc-currency').onchange = convertGoals;
     panel.querySelector('#ojc-rerun-setup').onclick = () => { open(false); self.OJCSetup?.open(); };
@@ -184,6 +191,7 @@
     $p('#ojc-sortByPay').checked = !!s.sortByPay;
     $p('#ojc-dashboardUrl').value = s.dashboardUrl ?? '';
     $p('#ojc-weeklyApplyGoal').value = s.weeklyApplyGoal || '';
+    $p('#ojc-myHours').value = s.myHours || '';
     $p('#ojc-currency').value = formCur = s.currency || 'PHP';
     paintCurrency(formCur);
   }
@@ -198,7 +206,14 @@
   function open(openTo) {
     const p = ensurePanel();
     p.hidden = !(openTo ?? p.hidden);
-    if (!p.hidden) { fillPanel(); $p('#ojc-neg').focus({ preventScroll: true }); }
+    if (!p.hidden) {
+      fillPanel();
+      // The CSV of everything remembered — moved here from the bar, which had one button too many for one line.
+      const ex = $p('#ojc-export');
+      ex.disabled = !(self.OJCRecordsUI?.size());
+      ex.title = ex.disabled ? L.btnTip.csvOff : `${L.btn.csv} — ${L.btnTip.csv}`;
+      $p('#ojc-neg').focus({ preventScroll: true });
+    }
   }
 
   /** Apply a whole settings object now, and keep it. */
@@ -229,6 +244,7 @@
       dashboardUrl: $p('#ojc-dashboardUrl').value.trim(),
       currency: cur,
       weeklyApplyGoal: num($p('#ojc-weeklyApplyGoal').value),
+      myHours: $p('#ojc-myHours').value.trim(),
     });
     api.refreshRules();
     api.persist();

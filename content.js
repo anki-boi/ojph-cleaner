@@ -24,6 +24,7 @@
     dashboardUrl: 'http://127.0.0.1:8371', // 0.15/0.15.1: the local dashboard that scores resume fit; empty = bridge off
     currency: 'PHP', // D66: the currency figures and minimums are shown in (PHP or USD); every comparison stays in pesos
     weeklyApplyGoal: 0, // D64: applications a week you aim for; >0 puts the streak in the bar (0 = off)
+    myHours: '', // D59: your working hours, "08:00-18:00", checked against a post's schedule ('' = off)
   };
   let settings = { ...DEFAULTS };
 

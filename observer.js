@@ -32,7 +32,9 @@
     // carry related-job cards that those rules *do* read.
     'ojc-hl-pos', 'ojc-hl-neg', 'ojc-hl-warn',
     // W20's triage marks: the card's own buttons and the "new since last visit" badge.
-    'ojc-acts', 'ojc-new'];
+    'ojc-acts', 'ojc-new',
+    // W22's trust tags.
+    'ojc-risk', 'ojc-again', 'ojc-sched'];
 
   function isOurs(node) {
     let n = node;

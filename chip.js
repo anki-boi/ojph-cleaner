@@ -5,7 +5,7 @@
  * (docs/img/list-chip.png). It is now one slim bar, sticky inside the site's own results column, so it scrolls
  * with the board and never covers a card:
  *
- *   [Everything] [⭐ Top picks 14] [🤔 Maybe 2] [💚 Liked 3]   🙈 3 hidden ▾      Read posts  ⬇  ⚙
+ *   [Everything] [⭐ Top picks 14] [🤔 Maybe 2] [💚 Liked 3]   🙈 3 hidden ▾      Read posts  ⚙
  *   ▓▓▓▓▓▓░░░░ Reading posts 12 of 40 · 1 better · 0 worse
  *
  * Two controls that never share a word (D46): the pills choose what you LOOK at; `N hidden ▾` opens the
@@ -15,7 +15,7 @@
  * **The interactive nodes are persistent.** A rule pass that replaced a button between mousedown and mouseup
  * made the browser dispatch the click on the common ancestor, so the handler never ran (measured live on the
  * old panel). Buttons are built once and only updated; the breakdown rows are rebuilt, because they are not
- * clickable. Ids kept from the panel (#ojc-chip, #ojc-toggle, #ojc-scan, #ojc-export, #ojc-gear, .ojc-view
+ * clickable. Ids kept from the panel (#ojc-chip, #ojc-toggle, #ojc-scan, #ojc-gear, .ojc-view
  * [data-view], data-ojc-pass) are what tools/verify-live.mjs holds on to.
  *
  * Reads nothing and decides nothing: content.js hands it the counts and the callbacks. Later waves add their
@@ -67,12 +67,10 @@
     const spacer = el('span', 'ojc-spacer');
     const extra = el('span', 'ojc-extra');   // buttons other modules register (swipe, my jobs, …)
     const scan = button('ojc-scan', 'ojc-act');
-    const exportB = button('ojc-export', 'ojc-act ojc-icon', '⬇');
-    exportB.setAttribute('aria-label', L.btn.csv);
     const gear = button('ojc-gear', 'ojc-act ojc-icon', '⚙');
     gear.setAttribute('aria-label', L.btn.settings);
     gear.title = L.btn.settings;
-    row.append(pills, hiddenBtn, fresh, spacer, extra, scan, exportB, gear);
+    row.append(pills, hiddenBtn, fresh, spacer, extra, scan, gear);
 
     const pop = el('div', 'ojc-pop');
     pop.id = 'ojc-hidden-pop';
@@ -91,7 +89,7 @@
 
     bar.append(row, pop, status);
     hiddenBtn.onclick = () => { popOpen = !popOpen; ui && paintPop(); };
-    ui = { bar, viewBtns, hiddenBtn, total, caret, fresh, extra, scan, exportB, gear, pop, list, toggle, status, progress, fill, note, extraBtns: {} };
+    ui = { bar, viewBtns, hiddenBtn, total, caret, fresh, extra, scan, gear, pop, list, toggle, status, progress, fill, note, extraBtns: {} };
     return ui;
   }
 
@@ -128,6 +126,8 @@
       b.textContent = key === 'all' ? L.tier.all : `${L.icon[key]} ${L.tier[key]} ${n}`;
       b.classList.toggle('is-on', view === key);
       b.classList.toggle('is-empty', n === 0);
+      // An empty tier is not worth a button on a one-line bar — unless it is the one you are looking at.
+      b.hidden = n === 0 && view !== key;
       b.setAttribute('aria-pressed', String(view === key));
       b.title = L.tierTip[key];
       b.onclick = () => onView(view === key ? 'all' : key);
@@ -157,9 +157,6 @@
     u.scan.disabled = !scanning && !canScan;
     u.scan.classList.toggle('is-running', scanning);
     u.scan.onclick = onScan;
-    u.exportB.disabled = !(self.OJCRecordsUI?.size());
-    u.exportB.title = u.exportB.disabled ? L.btnTip.csvOff : `${L.btn.csv} — ${L.btnTip.csv}`;
-    u.exportB.onclick = () => self.OJCExport?.run?.();
     u.gear.onclick = onSettings;
 
     for (const a of actions) {

@@ -1,10 +1,8 @@
 // content.js — OJ.ph Cleaner content script.
 (() => {
   'use strict';
-  const rules = self.OJRules, tiers = self.OJCTiers;
-  // Everything this file knows about the site's list markup lives in page.js. Destructured once here so the
-  // rule pass below reads as it always did, and spread into the API so every consumer (pagination,
-  // salary-cards, the harness) keeps working unchanged.
+  const rules = self.OJRules, tiers = self.OJCTiers, L = self.OJCLabels;
+  // Everything this file knows about the site's list markup lives in page.js (spread into the API below).
   const page = self.OJCPage;
   const { LIST_RE, cards, ownText, cardSalary, postedAt, dupKeyOf } = page;
 
@@ -24,6 +22,8 @@
     maxAgeDays: 60,   // W8, D42: hide listings posted longer ago than this (0 = off). The primary filter.
     sortByPay: true, // D41, D42: once a deep scan has finished, rank the board by the figure on each card
     dashboardUrl: 'http://127.0.0.1:8371', // 0.15/0.15.1: the local dashboard that scores resume fit; empty = bridge off
+    currency: 'PHP', // D66: the currency figures and minimums are shown in (PHP or USD); every comparison stays in pesos
+    weeklyApplyGoal: 0, // D64: applications a week you aim for; >0 puts the streak in the bar (0 = off)
   };
   let settings = { ...DEFAULTS };
 
@@ -31,8 +31,7 @@
   // reading the board, not a preference — a persisted view would reopen every search page filtered.
   let view = 'all';
 
-  // ── Chip (bottom-right status panel) ─────────────────────────────────────
-  // The DOM lives in chip.js; this file holds the counts and the callbacks the panel's buttons call.
+  // ── The bar (chip.js owns its DOM; this file holds the counts and the callbacks) ──
   let chipNote = '';
   /** How many times the rule pass has run, written on the chip as `data-ojc-pass` — an attribute, so the
    *  observer never sees it, and the live harness can count PASSES instead of guessing from mutations. */
@@ -51,7 +50,7 @@
       view,
       note: chipNote,
       scanning: self.OJCScan?.isRunning?.(),
-      progress: self.OJCScan?.label?.() || '',
+      progress: self.OJCScan?.progress?.() || null,
       canScan: hasSomethingToScanFor(),
       onToggle: () => {
         settings.showHidden = !settings.showHidden;
@@ -64,8 +63,7 @@
     });
   }
 
-  /** A scan with no keywords and no goals has nothing to decide with, so the button says so instead of
-   *  spending requests to re-derive "unclassified" for every listing on the board. */
+  /** No keywords and no goals: nothing to decide with, so the button says so instead of spending requests. */
   const hasSomethingToScanFor = () => (settings.negative?.length || settings.positive?.length ||
     Number(settings.goalSalary) > 0 || Number(settings.goalHourly) > 0) ? true : false;
 
@@ -83,7 +81,6 @@
     if (title) b.title = title;
     box.appendChild(b);
   };
-  const OFF_PLATFORM = 'this listing asks you to apply or contact outside OnlineJobs.ph';
   const FRESH_MS = 24 * 3600 * 1000;   // the fresh mark: a high-yield card posted within a day (a constant, not a setting)
 
   /** One flex row per card for its badges, at the top-right (individual positioning broke when two were
@@ -98,6 +95,8 @@
     return box;
   };
 
+  const HIDDEN_BY = { closed: 'closed', stale: 'stale', nosal: 'noSal', passed: 'passed' };
+  const cardHooks = [];   // (card, { tier, box, at, now, counts }) → void; registered through self.OJC.addCardHook
   /** The verdict per card — the scan's priority order and the live harness read the same data attribute. */
   const tierMap = new WeakMap();
   const cardFactsOf = (c) => ({
@@ -114,7 +113,7 @@
     // read only when something is genuinely missing.
     records?.hydrateNew?.();
     const closed = self.OJCClosed;
-    const counts = { closed: 0, stale: 0, noSal: 0, kw: 0, high: 0, pos: 0, worth: 0, offPlat: 0, fresh: 0, dup: 0 };
+    const counts = { closed: 0, stale: 0, noSal: 0, kw: 0, passed: 0, high: 0, pos: 0, worth: 0, offPlat: 0, fresh: 0, dup: 0 };
     const list = cards();
     // Duplicates are relational — no single card can know it is the older copy without the rest of the board.
     const dupSet = rules.findDuplicates(list.map(c => ({ key: dupKeyOf(c), at: postedAt(c) })));
@@ -124,7 +123,8 @@
       const detail = records?.detailFor(c) || null;
       const at = postedAt(c);   // one read per card: the recency rule and the fresh mark judge the same instant
       const salText = cardSalary(c);   // one read per card: the no-salary rule and the negotiable rescue read it
-      const tier = tiers.decide({
+      // D51: a listing you passed on is hidden for good — your decision, so it comes before every rule of ours.
+      const tier = self.OJCTriage?.isPassed?.(c) ? 'passed' : tiers.decide({
         closed: closed?.isHeld(c),
         stale: rules.isStale(at, now, settings.maxAgeDays),
         noSalary: settings.noSalary && !rules.hasSalary(salText),
@@ -158,25 +158,19 @@
        *  card that carries one, whatever its tier, and it never hides or demotes anything. */
       const tagOff = () => {
         if (!flags.length) return;
-        badge(box, 'ojc-flag-badge', '⚠ off-platform', OFF_PLATFORM + ' (' + flags.join(', ') + ')');
+        badge(box, 'ojc-flag-badge', L.mark.offPlatform, L.mark.offPlatformTip + ' (' + flags.join(', ') + ')');
         counts.offPlat++;
       };
       const tagDup = () => {
         if (!dupSet.has(i)) return;
-        badge(box, 'ojc-dup', '⚠ duplicate', 'the same title and company, posted again — this is the older copy');
+        badge(box, 'ojc-dup', L.mark.dup, L.mark.dupTip);
         counts.dup++;
       };
 
-      if (tier === 'closed') {
+      if (HIDDEN_BY[tier]) {   // closed, too old, no pay, you passed: hidden unless peeking, counted by reason
         c.hidden = !settings.showHidden;
-        closed.mark(c);
-        counts.closed++;
-      } else if (tier === 'stale') {
-        c.hidden = !settings.showHidden;
-        counts.stale++;
-      } else if (tier === 'nosal') {
-        c.hidden = !settings.showHidden;
-        counts.noSal++;
+        if (tier === 'closed') closed.mark(c);
+        counts[HIDDEN_BY[tier]]++;
       } else if (tier === 'high') {
         // HIGH YIELD = passing salary (the user's rule). A positive keyword is a bonus badge, never the reason;
         // a super-green card carries a hide keyword too, and the user sees BOTH sides to re-evaluate.
@@ -186,7 +180,7 @@
         tagOff();
         // Fresh: high yield posted within a day — the competition window is still open (a tag, like off-platform:
         // it annotates the verdict, it never changes it).
-        if (at != null && now - at < FRESH_MS) { badge(box, 'ojc-fresh', '● fresh', 'posted in the last 24 hours — the competition window is open'); counts.fresh++; }
+        if (at != null && now - at < FRESH_MS) { badge(box, 'ojc-fresh', L.mark.fresh, L.mark.freshTip); counts.fresh++; }
         counts.high++;
       } else if (tier === 'pos') {
         // A keyword you like on a listing that does NOT meet your goal: the green highlight this extension
@@ -205,10 +199,9 @@
         // re-evaluates the trade-off rather than trusting the colour alone.
         if (allPos.length) badge(box, 'ojc-pos-badge', '✓ ' + allPos.join(', '), why(allPos));
         tagOff();
-        c.title = 'Shown because it pays at or above your goal' +
-          (allNeg.length ? ` even though it matches "${allNeg.join(', ')}"` : '') +
-          (allPos.length ? ` and matches "${allPos.join(', ')}"` : '') +
-          ' — reconsider it';
+        c.title = 'Maybe: it meets your minimum pay' +
+          (allNeg.length ? ` but mentions "${allNeg.join(', ')}", which you block` : '') +
+          (allPos.length ? `, and mentions "${allPos.join(', ')}", which you're into` : '') + ' — your call';
         counts.worth++;
       } else if (tier === 'kw') {
         c.hidden = !settings.showHidden;
@@ -222,11 +215,11 @@
       }
       if (!c.hidden) tagDup();   // a tag like off-platform: it annotates whatever tier the card landed in
       if (!c.hidden && settings.rescueNegotiable && rules.isNegotiable(salText) && !rules.hasSalary(salText))
-        badge(box, 'ojc-flag-badge', '⚠ negotiable', 'states no figure — the pay is negotiable');
+        badge(box, 'ojc-flag-badge', L.mark.negotiable, L.mark.negotiableTip);
       // The remembered verdict: recomputed for a listing the scan has met, so a moved tier is recorded and
       // marked. `note` returns null for a card with no record and for an unchanged one — no storage write.
-      records?.note(c, tier, cardFacts);
-      records?.mark(c);
+      if (tier !== 'passed') { records?.note(c, tier, cardFacts); records?.mark(c); }   // a pass is yours, not a verdict
+      for (const hook of cardHooks) hook(c, { tier, box, at, now, counts });   // triage marks and buttons (W20)
       if (view !== 'all' && tier !== view) c.hidden = true;   // the view has the last word
     }
     chipCounts = counts;
@@ -260,7 +253,10 @@
     await chrome.storage.local.set({ settings: { ...DEFAULTS, ...(stored || {}), [key]: value } });
   }
   function applySettings(next) {
+    const was = settings.currency;
     settings = { ...DEFAULTS, ...(next || {}) };
+    // D66: a currency changed elsewhere (the options page, another tab) says so here too; the panel's own Save toasts itself.
+    if (booted && was !== settings.currency) self.OJCToast?.show(L.toast.currency(settings.currency));
     if (!settings.autoLoad) self.OJCLoader?.stop();
     else self.OJCLoader?.rearm?.();   // a wider recency window can mean more pages are worth loading (W6)
     // Re-derive the cached descriptions BEFORE the pass reads them: this is what makes a keyword edit
@@ -284,13 +280,16 @@
     tierOf: (c) => tierMap.get(c) || null,
     cardFactsOf,
     hasSomethingToScanFor,
+    addCardHook: (fn) => { cardHooks.push(fn); },
     // panel.js writes a whole form; assigning (not merging) is the point of a Save button.
     setSettings: (next) => { settings = { ...DEFAULTS, ...next }; },
   };
 
   // ── Boot ─────────────────────────────────────────────────────────────────
+  let booted = false;
   chrome.storage.local.get('settings', (res) => {
     applySettings(res.settings);
+    booted = true;
     console.log('[OJ Cleaner] active', settings);
   });
 

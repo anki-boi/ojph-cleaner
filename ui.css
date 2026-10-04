@@ -1,250 +1,257 @@
-/* ui.css — the floating UI: the status panel (chip.js) and the options panel (panel.js).
-   Split out of content.css, which hit the gate's 300-line cap. content.css owns what is painted ON
-   the site (cards, marks, the detail bar); this file owns what floats over it. */
+/* ui.css — the extension's own UI: the status bar (chip.js), the settings drawer (panel.js) and the toast
+   (toast.js). content.css owns what is painted ON the site's cards; this file owns what we add beside them.
+   One dark palette for all three, so they read as one tool sitting on a light site. */
 
-/* Bottom-right status panel. A panel rather than a line: five numbers separated by commas stopped
-   being readable, so the hidden reasons and the matching stats are separate groups, and each row's dot
-   and number carry the hue of the mark it refers to on the cards (.ojc-closed grey, .ojc-neg red,
-   .ojc-pos green, .ojc-recon yellow). Muted enough to sit over a page all day. */
-#ojc-chip {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 2147483000;
-  min-width: 250px;
+/* ── The bar (D45) ─────────────────────────────────────────────────────────────────────────────────────
+   Sticky inside the site's results column: it scrolls with the board and never covers a card (the old
+   bottom-right panel sat on the first card's salary). */
+#ojc-chip.ojc-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  margin: 0 0 14px;
   background: #1f2933;
   color: #e6edf3;
-  font: 12px/1.5 system-ui, -apple-system, sans-serif;
-  border-radius: 8px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
-  overflow: hidden;
+  font: 13px/1.4 system-ui, -apple-system, sans-serif;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
 }
-#ojc-chip-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+#ojc-chip.ojc-floating { position: fixed; top: auto; bottom: 16px; right: 16px; left: 16px; max-width: 900px; margin: 0 auto; z-index: 2147483000; }
+.ojc-bar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 7px 8px; }
+.ojc-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+.ojc-spacer { flex: 1 1 8px; }
+.ojc-extra { display: contents; }
+#ojc-chip button {
+  border: 0;
+  border-radius: 999px;
+  background: #2c3946;
+  color: #e6edf3;
+  font: 600 12px/1 system-ui, sans-serif;
   padding: 7px 10px;
-  font-size: 13px;
   cursor: pointer;
-  user-select: none;
+  white-space: nowrap;
 }
-#ojc-chip-head:hover { background: #26323d; }
-#ojc-chip-total { color: #fff; font-weight: 700; }
-#ojc-chip-caret { color: #9fb3c8; font-size: 11px; }
-#ojc-chip-body { padding: 0 10px 4px; }
-.ojc-chip-group + .ojc-chip-group { margin-top: 6px; }
-/* The note is a persistent node now (so nothing the user clicks is ever replaced), and an empty one must not
-   take space. */
-#ojc-note[hidden] { display: none; }
-.ojc-chip-group > i {
-  display: block;
-  color: #8a9aa8;
-  font: 600 10px/1.4 system-ui, sans-serif;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-}
-.ojc-chip-group ul { margin: 2px 0 0; padding: 0; list-style: none; }
-.ojc-chip-row { display: flex; align-items: center; gap: 7px; padding: 1px 0; }
-.ojc-chip-count { min-width: 22px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
-/* The label stays neutral and the dot + number carry the row's hue, so a line is identifiable at a
-   glance without reading it. (The first version made the dot `flex: 0 0 1px` — a 1px vertical bar — and
-   left `currentColor` on the neutral label, so every row got an identical grey tick.) */
-.ojc-chip-row > span:last-child { color: #e6edf3; }
-.ojc-chip-row::before {
-  content: '';
-  flex: 0 0 8px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: currentColor;
-}
-.ojc-chip-closed { color: #9aa7b3; }
-.ojc-chip-stale { color: #7ea6cc; }
-.ojc-chip-nosal { color: #e0a800; }
-.ojc-chip-kw { color: #e2705f; }
-.ojc-chip-pos { color: #8fb877; }
-.ojc-chip-recon { color: #e8b93c; }
-.ojc-chip-high { color: #8fb877; }
-/* The tier rows carry the tier's own name, not the old class name: `Worth Considering` is `worth`, and a
-   missing rule here is invisible in every test — the dot just falls back to the panel's near-white text
-   colour (found by looking at a screenshot, not by a gate). */
-.ojc-chip-worth { color: #e8b93c; }
-.ojc-chip-offplat { color: #e08b4a; }
-/* The views (W14). Three buttons, one of which is on: the whole board, or one tier of it. The active
-   tier keeps its card colour, so the panel says which tier you are looking at without a second label. */
-.ojc-view-bar { display: flex; gap: 6px; margin-top: 4px; }
-#ojc-chip .ojc-view { flex: 1; background: #2c3946; font-weight: 600; padding: 4px 6px; font-size: 11px; white-space: nowrap; }
-#ojc-chip .ojc-view:hover { background: #3d4d5c; }
-#ojc-chip .ojc-view.is-on { background: #4d82c1; }
+#ojc-chip button:hover { background: #3d4d5c; }
+#ojc-chip button:focus-visible { outline: 2px solid #8ab4f8; outline-offset: 2px; }
+#ojc-chip button:disabled { opacity: .45; cursor: default; }
+#ojc-chip button[hidden] { display: none; }
+/* The active pill carries its tier's card colour, so the bar says which tier you are reading. */
+#ojc-chip .ojc-view.is-on { background: #4d82c1; color: #fff; }
 #ojc-chip .ojc-view-high.is-on { background: #3f7a4a; }
 #ojc-chip .ojc-view-worth.is-on { background: #8a6d1f; }
-#ojc-chip .ojc-view-all { flex: 0 0 auto; }
-#ojc-chip button.ojc-off { opacity: .45; cursor: default; }
-#ojc-chip button.ojc-off:hover { background: #3a4a5a; }
-#ojc-chip-actions {
-  display: flex;
-  gap: 6px;
-  padding: 8px 10px 10px;
-}
-#ojc-chip button {
-  flex: 1;
-  background: #3a4a5a;
-  border: 0;
-  color: #fff;
-  font: 600 12px system-ui, sans-serif;
-  padding: 5px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-#ojc-chip button:hover { background: #4d617a; }
-#ojc-chip #ojc-toggle { background: #3f6ea8; }
-#ojc-chip #ojc-toggle:hover { background: #4d82c1; }
-/* Folded away: the header and buttons stay, the lists go. */
-#ojc-chip.ojc-chip-collapsed #ojc-chip-body { display: none; }
+#ojc-chip .ojc-view-pos.is-on { background: #4e6b41; }
+#ojc-chip .ojc-view.is-empty:not(.is-on) { color: #8a9aa8; }
+#ojc-chip .ojc-hidden-btn { background: transparent; color: #cbd5e0; }
+#ojc-chip .ojc-hidden-btn b { font-weight: 700; color: #fff; }
+.ojc-newcount { color: #8ab4f8; font-weight: 700; font-size: 12px; }
+.ojc-newcount[hidden] { display: none; }
+#ojc-chip .ojc-act { background: #33414f; }
+#ojc-chip #ojc-scan { background: #3f6ea8; color: #fff; }
+#ojc-chip #ojc-scan:hover { background: #4d82c1; }
+#ojc-chip #ojc-scan.is-running { background: #8e2b20; }
+#ojc-chip .ojc-icon { padding: 6px 8px; font-size: 13px; }
 
-/* In-page options panel — a sibling of the status panel, anchored above it (panel.js measures the
-   status panel and sets `bottom` so the two never overlap, whatever height the status panel has).
-   Three parts: a fixed head, a scrolling body, a fixed foot, so Save is always reachable even though
-   the form is taller than a short viewport. */
+/* The hidden breakdown: a dropdown under the bar, closed by default. */
+.ojc-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 10px;
+  min-width: 220px;
+  padding: 10px 12px;
+  background: #1f2933;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  z-index: 1001;
+}
+.ojc-pop[hidden] { display: none; }
+.ojc-pop-list { margin: 0 0 10px; padding: 0; list-style: none; }
+.ojc-pop-row { display: flex; gap: 10px; padding: 2px 0; }
+.ojc-pop-n { min-width: 26px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ojc-pop-stale .ojc-pop-n { color: #7ea6cc; }
+.ojc-pop-noSal .ojc-pop-n { color: #e0a800; }
+.ojc-pop-kw .ojc-pop-n { color: #e2705f; }
+.ojc-pop-closed .ojc-pop-n, .ojc-pop-passed .ojc-pop-n { color: #9aa7b3; }
+#ojc-chip .ojc-peek { width: 100%; background: #3f6ea8; color: #fff; border-radius: 8px; }
+
+/* Status: the read progress and the last thing that happened. Gone when there is nothing to say. */
+.ojc-bar-status { display: flex; align-items: center; gap: 10px; padding: 0 12px 8px; color: #9fb3c8; font-size: 12px; }
+.ojc-bar-status[hidden] { display: none; }
+.ojc-progress { flex: 0 0 120px; height: 6px; border-radius: 3px; background: #2c3946; overflow: hidden; }
+.ojc-progress[hidden] { display: none; }
+.ojc-progress > i { display: block; height: 100%; background: #6aa4e0; transition: width .4s ease; }
+
+/* ── The settings drawer (D47) ─────────────────────────────────────────────────────────────────────────
+   Full height on the right: a fixed head, a scrolling body, a fixed foot, so Save is always in reach. */
 #ojc-panel {
   position: fixed;
-  right: 16px;
-  bottom: 60px;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
   z-index: 2147483000;
-  width: 340px;
+  width: min(380px, calc(100vw - 24px));
   display: flex;
   flex-direction: column;
   background: #1f2933;
   color: #e6edf3;
-  border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, .45);
-  font: 12px/1.45 system-ui, -apple-system, sans-serif;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .45);
+  font: 13px/1.45 system-ui, -apple-system, sans-serif;
   overflow: hidden;
 }
 #ojc-panel[hidden] { display: none; }
-#ojc-panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 9px 10px 9px 14px;
-  border-bottom: 1px solid #2c3946;
-}
-#ojc-panel-head b { font-size: 13px; color: #fff; letter-spacing: .01em; }
-#ojc-close {
-  background: transparent;
-  border: 0;
-  color: #8a9aa8;
-  font-size: 13px;
-  line-height: 1;
-  padding: 4px 6px;
-  border-radius: 5px;
-  cursor: pointer;
-}
+#ojc-panel-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 12px 16px; border-bottom: 1px solid #2c3946; }
+#ojc-panel-head b { font-size: 15px; color: #fff; }
+#ojc-close { background: transparent; border: 0; color: #8a9aa8; font-size: 15px; line-height: 1; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
 #ojc-close:hover { background: #33414f; color: #fff; }
-/* The body scrolls, the head and foot do not: the form is ~640px tall and Save below the fold is a form
-   you cannot finish. Thin scrollbar so it does not read as a browser control. */
-#ojc-panel-body { overflow-y: auto; padding: 4px 14px 12px; }
+#ojc-panel-body { flex: 1; overflow-y: auto; padding: 4px 16px 16px; }
 #ojc-panel-body::-webkit-scrollbar { width: 8px; }
 #ojc-panel-body::-webkit-scrollbar-thumb { background: #3a4a5a; border-radius: 4px; }
-.ojc-sec { padding-top: 10px; }
-.ojc-sec + .ojc-sec { margin-top: 10px; border-top: 1px solid #2c3946; }
-/* Same group-label treatment as the status panel, so the two read as one design. */
-.ojc-sec > i {
+.ojc-sec { padding-top: 12px; }
+.ojc-sec + .ojc-sec { margin-top: 12px; border-top: 1px solid #2c3946; }
+.ojc-sec > i, #ojc-panel summary {
   display: block;
   margin-bottom: 8px;
   color: #8a9aa8;
-  font: 600 10px/1.4 system-ui, sans-serif;
+  font: 600 11px/1.4 system-ui, sans-serif;
+  font-style: normal;
   letter-spacing: .07em;
   text-transform: uppercase;
 }
-.ojc-field + .ojc-field { margin-top: 10px; }
+#ojc-panel details { margin-top: 14px; border-top: 1px solid #2c3946; padding-top: 12px; }
+#ojc-panel summary { cursor: pointer; list-style: none; }
+#ojc-panel summary::before { content: '▸ '; }
+#ojc-panel details[open] summary::before { content: '▾ '; }
+#ojc-panel summary::-webkit-details-marker { display: none; }
+.ojc-field + .ojc-field { margin-top: 12px; }
 .ojc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-#ojc-panel label { display: block; margin-bottom: 4px; color: #cbd5e0; font-weight: 500; }
-#ojc-panel .ojc-hint { margin: 4px 0 0; color: #8a9aa8; font-size: 11px; line-height: 1.4; }
+#ojc-panel label { display: block; margin-bottom: 4px; color: #e6edf3; font-weight: 600; }
+#ojc-panel .ojc-hint { display: block; margin: 4px 0 0; color: #8a9aa8; font-size: 12px; font-weight: 400; font-style: normal; line-height: 1.4; }
 #ojc-panel .ojc-hint b { color: #cbd5e0; }
-/* Inputs: one dark field style for numbers and textareas, with the unit as a gutter inside the same box
-   so "₱ 70000" and "30 days" read as one control instead of a number floating next to a word. */
-#ojc-panel input[type=number],
-#ojc-panel textarea {
+#ojc-panel input[type=number], #ojc-panel input[type=text], #ojc-panel textarea, #ojc-panel select {
   width: 100%;
   box-sizing: border-box;
   background: #16202a;
   border: 1px solid #33414f;
   border-radius: 6px;
   color: #fff;
-  font: 12px/1.4 system-ui, sans-serif;
-  padding: 6px 8px;
+  font: 13px/1.4 system-ui, sans-serif;
+  padding: 7px 9px;
   outline: none;
 }
 #ojc-panel textarea {
-  padding-right: 14px;   /* never let a long keyword sit under the 8px scrollbar */
-  min-height: 58px;
-  max-height: 132px;
+  padding-right: 14px;
+  min-height: 64px;
+  max-height: 150px;
   resize: vertical;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   line-height: 1.5;
 }
-#ojc-panel textarea::-webkit-scrollbar { width: 8px; }
-#ojc-panel textarea::-webkit-scrollbar-thumb { background: #3a4a5a; border-radius: 4px; }
-#ojc-panel input[type=number]:focus,
-#ojc-panel textarea:focus { border-color: #4d82c1; box-shadow: 0 0 0 2px rgba(77, 130, 193, .25); }
+#ojc-panel input:focus, #ojc-panel textarea:focus, #ojc-panel select:focus { border-color: #4d82c1; box-shadow: 0 0 0 2px rgba(77, 130, 193, .25); }
 .ojc-input { display: flex; align-items: center; background: #16202a; border: 1px solid #33414f; border-radius: 6px; }
 .ojc-input:focus-within { border-color: #4d82c1; box-shadow: 0 0 0 2px rgba(77, 130, 193, .25); }
-.ojc-input input[type=number] { border: 0; background: transparent; box-shadow: none; border-radius: 0; }
-.ojc-input > span { padding: 0 2px 0 9px; color: #8a9aa8; font-size: 12px; }
-.ojc-input > span:last-child { padding: 0 9px 0 6px; }
-/* Checkbox rows: the box never shrinks and the text wraps beside it, aligned to the first line. */
+#ojc-panel .ojc-input input { border: 0; background: transparent; box-shadow: none; border-radius: 0; }
+.ojc-input > span { padding: 0 2px 0 10px; color: #8a9aa8; }
+.ojc-input > span:last-child { padding: 0 10px 0 6px; }
 #ojc-panel .ojc-check {
   display: grid;
   grid-template-columns: 16px 1fr;
   gap: 8px;
   align-items: start;
-  margin: 8px 0 0;
-  color: #e6edf3;
+  margin: 10px 0 0;
   font-weight: 400;
   cursor: pointer;
 }
-#ojc-panel .ojc-check input { width: 14px; height: 14px; margin: 2px 0 0; accent-color: #4d82c1; cursor: pointer; }
+#ojc-panel .ojc-check input { width: 15px; height: 15px; margin: 2px 0 0; accent-color: #4d82c1; cursor: pointer; }
 #ojc-panel .ojc-sub { margin-left: 24px; color: #cbd5e0; }
-#ojc-panel .ojc-off { color: #8a9aa8; cursor: default; }
-#ojc-panel .ojc-off input { cursor: default; }
-.ojc-soon { color: #8a9aa8; font-style: italic; }
-#ojc-panel-foot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-top: 1px solid #2c3946;
-  background: #1b242d;
-}
+#ojc-panel-foot { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-top: 1px solid #2c3946; background: #1b242d; }
 #ojc-panel-foot button {
   background: #3f6ea8;
   border: 0;
   color: #fff;
-  font: 600 12px system-ui, sans-serif;
-  padding: 6px 14px;
-  border-radius: 6px;
+  font: 600 13px system-ui, sans-serif;
+  padding: 8px 16px;
+  border-radius: 7px;
   cursor: pointer;
 }
 #ojc-panel-foot button:hover { background: #4d82c1; }
-
-/* F3: the keyword-list copy/paste buttons, a quieter blue than Save. */
-.ojc-keyword-io { display: flex; gap: 8px; }
-.ojc-keyword-io button {
-  background: #33414f; border: 0; color: #cdd8e2; font: 600 11px system-ui, sans-serif;
-  padding: 4px 10px; border-radius: 6px; cursor: pointer;
+.ojc-keyword-io, .ojc-row-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.ojc-keyword-io button, .ojc-row-btns button {
+  background: #33414f; border: 0; color: #cdd8e2; font: 600 12px system-ui, sans-serif;
+  padding: 5px 11px; border-radius: 6px; cursor: pointer;
 }
-.ojc-keyword-io button:hover { background: #445465; }
-#ojc-saved { display: none; color: #9ed38a; font-weight: 600; font-size: 11px; }
+.ojc-keyword-io button:hover, .ojc-row-btns button:hover { background: #445465; }
+#ojc-saved { display: none; color: #9ed38a; font-weight: 600; font-size: 12px; }
 #ojc-panel a { margin-left: auto; color: #8a9aa8; text-decoration: none; }
 #ojc-panel a:hover { color: #cbd5e0; text-decoration: underline; }
 
-/* The loader's message ("loaded page 2 of 3"). Outside the collapsible body: folding the panel away
-   must not hide the one line that says what just happened. */
-#ojc-note {
-  padding: 0 10px 2px;
-  color: #9fb3c8;
-  font-style: italic;
-  font-size: 11px;
+/* ── The toast (D48, D66) ──────────────────────────────────────────────────────────────────────────────
+   Bottom-centre, one at a time, with an optional action (Undo). It never blocks the board. */
+#ojc-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 2147483001;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 10px 12px 10px 16px;
+  background: #1f2933;
+  color: #e6edf3;
+  font: 13px/1.4 system-ui, -apple-system, sans-serif;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .4);
+  animation: ojc-toast-in .18s ease-out;
 }
+#ojc-toast[hidden] { display: none; }
+#ojc-toast button {
+  flex: none;
+  background: transparent;
+  border: 0;
+  color: #8ab4f8;
+  font: 700 13px system-ui, sans-serif;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+#ojc-toast button:hover { background: #2c3946; }
+@keyframes ojc-toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@media (prefers-reduced-motion: reduce) { #ojc-toast { animation: none; } .ojc-progress > i { transition: none; } }
+
+/* ── First-run setup (D49) ─────────────────────────────────────────────────────────────────────────────
+   A centred card over a dimmed page: three short questions, each skippable. */
+#ojc-setup { position: fixed; inset: 0; z-index: 2147483002; display: grid; place-items: center; padding: 16px; background: rgba(15, 23, 31, .55); }
+.ojc-setup-card {
+  width: min(520px, 100%); max-height: calc(100vh - 32px); overflow: auto; box-sizing: border-box;
+  background: #1f2933; color: #e6edf3; border-radius: 14px; box-shadow: 0 20px 60px rgba(0, 0, 0, .5);
+  font: 14px/1.5 system-ui, -apple-system, sans-serif; padding: 18px 22px 20px;
+}
+.ojc-setup-top { display: flex; align-items: center; gap: 12px; }
+.ojc-setup-top b { font-size: 13px; color: #9fb3c8; letter-spacing: .02em; }
+.ojc-setup-dots { display: flex; gap: 6px; margin-right: auto; }
+.ojc-setup-dots i { width: 8px; height: 8px; border-radius: 50%; background: #33414f; }
+.ojc-setup-dots i.is-on { background: #6aa4e0; }
+.ojc-setup-body h2 { margin: 18px 0 6px; font-size: 22px; line-height: 1.25; color: #fff; }
+.ojc-setup-body p { margin: 0 0 14px; color: #cbd5e0; }
+.ojc-setup-body .ojc-setup-hint { margin: 8px 0 0; color: #8a9aa8; font-size: 13px; }
+.ojc-setup-body a { color: #8ab4f8; }
+.ojc-setup-body textarea, .ojc-setup-body input, .ojc-setup-body select {
+  width: 100%; box-sizing: border-box; background: #16202a; border: 1px solid #33414f; border-radius: 8px;
+  color: #fff; font: 15px/1.4 system-ui, sans-serif; padding: 9px 11px; outline: none;
+}
+.ojc-setup-body textarea:focus, .ojc-setup-body input:focus, .ojc-setup-body select:focus { border-color: #4d82c1; box-shadow: 0 0 0 2px rgba(77, 130, 193, .3); }
+.ojc-setup-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+.ojc-setup-row label { display: block; font-weight: 600; font-size: 13px; color: #e6edf3; }
+.ojc-setup-money { display: flex; align-items: center; gap: 6px; margin-top: 4px; color: #8a9aa8; }
+.ojc-setup-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+#ojc-setup button { border: 0; border-radius: 999px; font: 600 13px system-ui, sans-serif; padding: 8px 14px; cursor: pointer; background: #2c3946; color: #e6edf3; }
+#ojc-setup button:hover { background: #3d4d5c; }
+#ojc-setup button:focus-visible { outline: 2px solid #8ab4f8; outline-offset: 2px; }
+#ojc-setup .ojc-chipbtn.is-on { background: #8e2b20; color: #fff; }
+#ojc-setup #ojc-setup-skip { background: transparent; color: #8a9aa8; padding: 6px 8px; }
+#ojc-setup button[hidden] { display: none; }
+.ojc-setup-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+#ojc-setup .is-primary { background: #3f6ea8; color: #fff; padding: 9px 22px; }
+#ojc-setup .is-primary:hover { background: #4d82c1; }
+@media (max-width: 480px) { .ojc-setup-row { grid-template-columns: 1fr; } }

@@ -32,7 +32,7 @@ assert.deepStrictEqual(d.chunk(cards, 0).map((b) => b.length), [50, 50, 20],
 const b = d.badge({ fit: 28.6, total: 64, hygiene: 36, fit_max: 40, profile: 'master' });
 assert.strictEqual(b.fit, 29, 'rounded, not floored, not invented');
 assert.strictEqual(d.badge({ fit: 28.4, total: 64, fit_max: 40 }).fit, 28, 'rounded, not ceiled');
-assert.strictEqual(b.text, 'resume fit 29/40', 'the denominator says what was scorable');
+assert.strictEqual(b.text, 'fits your resume 29/40', 'the denominator says what was scorable');
 assert.match(b.title, /29\/40/, 'or 29 means nothing');
 assert.match(b.title, /profile: master/, 'which resume was scored is part of the answer');
 assert.strictEqual(d.badge({ fit: 0, fit_max: 0 }), null,

@@ -9,7 +9,7 @@
 // fallback exists for unstated hours — not 40, and not 20 for "Part Time", which states no number at all.
 const assert = require('assert');
 const {
-  parseSalary, toPhp, ratePhp, formatNote, formatRate, meetsGoal, goalBand, hoursPerWeekFrom, pickFresh,
+  parseSalary, toPhp, ratePhp, formatNote, formatRate, meetsGoal, goalBand, hoursPerWeekFrom, pickFresh, goalInPhp,
 } = require('./salary.js');
 
 /** [min, max, currency] of the monthly figure, or [null, null, null] when no month is claimed. */
@@ -222,5 +222,22 @@ assert.strictEqual(goalBand(2), 'b50');
 assert.strictEqual(goalBand(null), '');
 assert.strictEqual(goalBand(NaN), '');
 assert.strictEqual(goalBand(undefined), '');
+
+// ── D66: the display currency — computed in pesos, SHOWN in the chosen currency ──
+const usd = { code: 'USD', rate: 58 };   // ₱58 per $1
+assert.strictEqual(formatNote({ min: 58000, max: 58000 }, usd), '≈ $1,000/mo');
+assert.strictEqual(formatNote({ min: 29000, max: 58000 }, usd), '≈ $500 - $1,000/mo');
+assert.strictEqual(formatRate({ min: 319, max: 319 }, 'hour', usd), '≈ $5.50/hr', 'a small rate keeps its cents');
+assert.strictEqual(formatRate({ min: 348, max: 348 }, 'hour', usd), '≈ $6/hr', 'a whole number drops them');
+assert.strictEqual(formatNote({ min: 58000, max: 58000 }), '≈ ₱58,000/mo', 'no display currency = pesos, as before');
+assert.strictEqual(formatNote({ min: 58000, max: 58000 }, { code: 'USD', rate: 0 }), '≈ ₱58,000/mo',
+  'a currency with no rate is never shown — the figure stays in pesos rather than being guessed');
+assert.strictEqual(formatNote({ min: 58000, max: 58000 }, { code: 'PHP' }), '≈ ₱58,000/mo');
+// Goals are typed in the display currency and judged in pesos.
+assert.strictEqual(goalInPhp(1000, 'USD', { USD: 58 }), 58000);
+assert.strictEqual(goalInPhp(60000, 'PHP', {}), 60000);
+assert.strictEqual(goalInPhp(1000, 'USD', {}), 0, 'no rate → the goal is off, never judged at a guessed rate');
+assert.strictEqual(goalInPhp('', 'USD', { USD: 58 }), 0);
+assert.ok(meetsGoal({ min: 60000, max: 60000 }, goalInPhp(1000, 'USD', { USD: 58 })));
 
 console.log('salary: all assertions passed');

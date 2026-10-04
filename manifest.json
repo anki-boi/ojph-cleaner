@@ -10,14 +10,17 @@
     {
       "matches": ["https://www.onlinejobs.ph/*", "https://onlinejobs.ph/*"],
       "js": [
-        "rules.js", "tiers.js", "page.js", "detail-text.js", "closed.js", "detail-parse.js", "detail-cache.js",
-        "records.js", "chip.js", "content.js", "observer.js", "salary.js", "salary-cards.js",
+        "labels.js", "rules.js", "tiers.js", "page.js", "detail-text.js", "closed.js", "detail-parse.js", "detail-cache.js",
+        "records.js", "toast.js", "chip.js", "content.js", "observer.js", "salary.js", "salary-cards.js",
         "closed-cards.js", "records-store.js", "records-cards.js", "export.js", "pagination.js", "scan.js", "pay-sort.js",
-        "dashboard-fit.js", "dashboard-cards.js", "panel.js", "detail.js"
+        "dashboard-fit.js", "dashboard-cards.js", "panel.js", "setup.js", "myjobs.js", "suggest.js", "visits.js", "triage.js", "swipe.js", "detail.js", "detail-actions.js"
       ],
-      "css": ["ui.css", "content.css"],
+      "css": ["ui.css", "content.css", "triage.css"],
       "run_at": "document_idle"
     }
+  ],
+  "web_accessible_resources": [
+    { "resources": ["jobs.html", "options.html"], "matches": ["https://www.onlinejobs.ph/*", "https://onlinejobs.ph/*"] }
   ],
   "options_page": "options.html",
   "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" }

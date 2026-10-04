@@ -30,7 +30,9 @@
     // W4's detail-page marks. Not because the board's rules read them — a detail page has no cards to hide
     // — but because a mutation we cannot recognise schedules a rule pass, and a listing's own page can
     // carry related-job cards that those rules *do* read.
-    'ojc-hl-pos', 'ojc-hl-neg', 'ojc-hl-warn'];
+    'ojc-hl-pos', 'ojc-hl-neg', 'ojc-hl-warn',
+    // W20's triage marks: the card's own buttons and the "new since last visit" badge.
+    'ojc-acts', 'ojc-new'];
 
   function isOurs(node) {
     let n = node;

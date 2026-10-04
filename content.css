@@ -77,14 +77,14 @@
 }
 .ojc-goal .ojc-salary-note { color: #14571f; }
 .ojc-goal .ojc-salary-note[data-goal='monthly']::after {
-  content: '★ at or above your monthly goal';
+  content: '★ meets your monthly minimum';
   display: block;
   color: #2f5a1c;
   font: 600 12px/1.5 system-ui, sans-serif;
   letter-spacing: .3px;
 }
 .ojc-goal .ojc-salary-note[data-goal='hourly']::after {
-  content: '★ at or above your hourly goal';
+  content: '★ meets your hourly minimum';
   display: block;
   color: #2f5a1c;
   font: 600 12px/1.5 system-ui, sans-serif;
@@ -93,10 +93,10 @@
 /* The premium bands: the green tracks HOW MUCH the pay clears the goal by, not just that it does.
    b25 = 25 %+ above it, b50 = 50 %+ above it (the super-green threshold). Only the content differs;
    the base rule above supplies the style. */
-.ojc-goal .ojc-salary-note[data-goal='monthly'][data-band='b25']::after { content: '★★ 25 %+ above your monthly goal'; }
-.ojc-goal .ojc-salary-note[data-goal='monthly'][data-band='b50']::after { content: '★★★ 50 %+ above your monthly goal'; }
-.ojc-goal .ojc-salary-note[data-goal='hourly'][data-band='b25']::after { content: '★★ 25 %+ above your hourly goal'; }
-.ojc-goal .ojc-salary-note[data-goal='hourly'][data-band='b50']::after { content: '★★★ 50 %+ above your hourly goal'; }
+.ojc-goal .ojc-salary-note[data-goal='monthly'][data-band='b25']::after { content: '★★ 25 %+ over your monthly minimum'; }
+.ojc-goal .ojc-salary-note[data-goal='monthly'][data-band='b50']::after { content: '★★★ 50 %+ over your monthly minimum'; }
+.ojc-goal .ojc-salary-note[data-goal='hourly'][data-band='b25']::after { content: '★★ 25 %+ over your hourly minimum'; }
+.ojc-goal .ojc-salary-note[data-goal='hourly'][data-band='b50']::after { content: '★★★ 50 %+ over your hourly minimum'; }
 
 /* Reconsider (W8): a listing that matches a hide keyword but also looks worth your time — a positive
    keyword match, or pay at/above one of your goals. Shown, never hidden (spec.md D15): a yellow marker

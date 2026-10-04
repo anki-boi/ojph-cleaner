@@ -57,8 +57,7 @@
   /** How interesting a verdict is, for reading a tier move as a promotion or a demotion. High yield is
    *  the top, because PAY is what makes it high yield (the user's rule); a keyword you like sits below. */
   const RANK = { none: 0, nosal: 0, stale: 0, closed: 0, kw: 1, pos: 2, worth: 3, high: 4 };
-  const LABEL = { high: 'High yield', worth: 'Worth considering', pos: 'Highlighted',
-    kw: 'hidden by a keyword', nosal: 'no salary', stale: 'stale', closed: 'closed', none: 'unclassified' };
+  const LABEL = self.OJCLabels.tierOne;
 
   /**
    * The change mark: `↑ promoted` / `↓ demoted` on a card whose tier moved since you last looked at it.
@@ -70,9 +69,9 @@
     const up = (RANK[rec.tier] ?? 0) > (RANK[rec.prev] ?? 0);
     const el = document.createElement('span');
     el.className = 'ojc-tier-badge';
-    el.textContent = up ? '↑ promoted' : '↓ demoted';
+    el.textContent = up ? self.OJCLabels.mark.up : self.OJCLabels.mark.down;
     el.title = `this listing was "${LABEL[rec.prev] || rec.prev}" when it was last checked and is now ` +
-      `"${LABEL[rec.tier] || rec.tier}" — opening it clears this mark`;
+      `"${LABEL[rec.tier] || rec.tier}" after reading the full post — opening it clears this mark`;
     card.prepend(el);
     return rec;
   }

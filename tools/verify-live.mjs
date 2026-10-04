@@ -48,6 +48,9 @@ const RECORDS_SRC = fs.readFileSync(new URL('../records.js', import.meta.url), '
 // detail-text.js is the off-platform detector (W4). Injected so the harness derives a scanned listing's
 // facts with the SAME planner the extension used — an ask is only an ask if this file says so.
 const DETAILTEXT_SRC = fs.readFileSync(new URL('../detail-text.js', import.meta.url), 'utf8');
+// The words on the bar (D43): every label this harness waits for comes from the extension's own table.
+const LABELS = (await import('../labels.js')).default;
+const SCAN_IDLE = LABELS.btn.scan;
 
 const fail = async msg => {
   console.error('verify-live: FAIL — ' + msg);
@@ -260,7 +263,10 @@ if (RESTORE_ONLY) {
 }
 // Reload so edits on disk take effect. (runtimeErrors are historical and persist
 // across reloads, so the pass/fail decision below is based on behaviour.)
-await withTab(PORT, 'chrome://extensions', tab => tab.evaluate(
+// In the sandbox (tools/sandbox.mjs) the extension was loaded over the debugging pipe, and developerPrivate's
+// reload disables such an extension — the sandbox serves the reload that works instead.
+if (process.env.OJC_RELOAD_URL) await fetch(process.env.OJC_RELOAD_URL).then(r => { if (!r.ok) throw new Error('sandbox reload ' + r.status); });
+else await withTab(PORT, 'chrome://extensions', tab => tab.evaluate(
   `chrome.developerPrivate.reload(${JSON.stringify(EXT_ID)}, { failQuietly: true }).then(()=>1)`));
 await settle(2500);
 // After the reload: reloading the extension invalidates any extension page already open.
@@ -289,7 +295,11 @@ console.log(`storage   : snapshot taken (${Object.keys(SNAPSHOT).join(', ') || '
 // under test and not on the keywords the user happened to have typed. The seeding is reversible (see
 // `restoreStorage`), and every assertion below recomputes its expectation from the DOM, so it holds for
 // any settings — the flags only decide which branches this run is guaranteed to reach.
-const settings = { negative: neg, positive: pos, noSalary: true, showHidden: false, autoScan: false, goalSalary: GOAL, goalHourly: GOAL_HOURLY, maxAgeDays: MAX_AGE };
+// The two rescues are stated, not left out: the extension merges its DEFAULTS under whatever is stored, and since
+// D42 those defaults turn both rescues ON — so a seed that omitted them ran the page with rescues on while every
+// prediction below (ruleEval's `rescue = false`) assumed them off. Measured: section 4b failed on 0.15.1 itself
+// (1 hidden + 1 negotiable tag where the rule said 3 hidden). A section that wants a rescue turns it on itself.
+const settings = { negative: neg, positive: pos, noSalary: true, rescueNoSalary: false, rescueNegotiable: false, showHidden: false, autoScan: false, goalSalary: GOAL, goalHourly: GOAL_HOURLY, maxAgeDays: MAX_AGE };
 await storeEval(`chrome.storage.local.set({ settings: ${JSON.stringify(settings)} }).then(()=>1)`, 900);
 // Drop the FX cache so the live ECB path is exercised on every run (otherwise a 24h-old rate from a
 // previous run would silently satisfy it).
@@ -344,8 +354,14 @@ const primeCache = (tab) => tab.evaluate(`new Promise((res) => {
   const out = {};
   if (!ids.length) { self.__ojcCache = out; return res(0); }
   const r = indexedDB.open('ojc', 1);
+  // Never CREATE the extension's database: on a fresh profile (tools/sandbox.mjs) this open used to run before
+  // the extension's own, made an empty v1 database with no 'details' store — which the extension's open then
+  // accepted as-is — and the transaction below threw inside a callback, so this promise never settled and the
+  // whole run hung. Aborting the upgrade leaves the database for the extension to create properly.
+  r.onupgradeneeded = () => r.transaction.abort();
   r.onerror = () => { self.__ojcCache = out; res(0); };
   r.onsuccess = () => {
+    if (!r.result.objectStoreNames.contains('details')) { r.result.close(); self.__ojcCache = out; return res(0); }
     const store = r.result.transaction('details', 'readonly').objectStore('details');
     let pending = ids.length;
     const finish = () => { if (--pending === 0) { self.__ojcCache = out; res(Object.keys(out).length); } };
@@ -746,7 +762,10 @@ if (res.noSalExpected + res.negExpected + res.staleExpected > 0) {
       for (let i = 0; i < 40; i++) {
         Object.assign(negSeam, JSON.parse(await tab.evaluate(`(() => { const c = window.__ojcNegSeam;
           return JSON.stringify({ hidden: c.hidden, tier: c.dataset.ojcTier,
-            badge: (c.querySelector('.ojc-badges .ojc-flag-badge') || {}).textContent || null }); })()`)));
+            // ANY flag badge, not the first: the clone copies a real card's job link, and a listing the scan has
+            // already read can carry its own off-platform tag ahead of the negotiable one.
+            badge: [...c.querySelectorAll('.ojc-badges .ojc-flag-badge')].map(b => b.textContent).find(t => t.includes('negotiable'))
+              || (c.querySelector('.ojc-badges .ojc-flag-badge') || {}).textContent || null }); })()`)));
         if (negSeam.tier === 'pos' && negSeam.badge && String(negSeam.badge).includes('negotiable')) break;
         await settle(250);
       }
@@ -1314,7 +1333,8 @@ if (res.noSalExpected > 0) {
       `e.g. ${JSON.stringify((wantWarn.find(x => !x.warn) || hasWarn.find(x => !wantWarn.includes(x)) || {}).posted)}`);
   }
   for (const x of hasWarn) {
-    if (!/assumes \d+ h\/week/.test(x.warn) || !/verify/.test(x.warn)) {
+    // It must name the hours it assumed and tell you to check them — in the words the extension ships (D43).
+    if (!/\d+ h\/wk/.test(x.warn) || x.warn !== LABELS.mark.assumes(Number((x.warn.match(/(\d+) h\/wk/) || [])[1]))) {
       await fail(`the disclaimer does not state the assumption: ${JSON.stringify(x.warn)}`);
     }
   }
@@ -1422,13 +1442,22 @@ if (res.noSalExpected > 0) {
       const siteText = (c) => { const o = c.cloneNode(true);
         for (const i of o.querySelectorAll('[class^="ojc-"]')) i.remove(); return o.textContent.toLowerCase(); };
       const warn = document.querySelector('.ojc-salary-warn');
-      // siteText() already lower-cases; take the first word of the disclaimer as the keyword
-      const word = warn ? warn.textContent.trim().split(/\\s+/)[0].toLowerCase() : '';
+      // siteText() already lower-cases. The probe is the disclaimer word the site's own text uses LEAST (ideally
+      // never): the first word used to be "assumes", and after the D43 rewording it is "if", which half the
+      // board says — a probe the site also says proves nothing.
+      const texts = cards.map(siteText);
+      const words = warn ? [...new Set(warn.textContent.toLowerCase().match(/[a-z]{5,}/g) || [])] : [];
+      const word = words.map(w => [w, texts.filter(t => t.includes(w)).length])
+        .sort((a, b) => a[1] - b[1])[0]?.[0] || '';
       return JSON.stringify({
         word,
         badges: cards.filter(c => c.querySelector('.ojc-pos-badge')).length,
         warned: cards.filter(c => c.querySelector('.ojc-salary-warn')).length,
         siteTextHasWord: cards.filter(c => siteText(c).includes(word)).length,
+        // The proof does not need a word the site never says: it needs cards whose OWN text lacks the word while
+        // our disclaimer on them has it. Any such card that ends up badged was matched on our text.
+        warnedClean: cards.filter(c => c.querySelector('.ojc-salary-warn') && !siteText(c).includes(word)).length,
+        badgedOnOurText: cards.filter(c => c.querySelector('.ojc-pos-badge') && !siteText(c).includes(word)).length,
       });
     })()`);
     const before = JSON.parse(await read());
@@ -1458,17 +1487,18 @@ if (res.noSalExpected > 0) {
     await fail('no card carries the h/week disclaimer on this page — cannot test that our own text ' +
       'stays out of the rules (run with a page that has hourly full-time listings)');
   }
-  if (r.before.siteTextHasWord !== 0) {
-    await fail(`the disclaimer word ${JSON.stringify(r.before.word)} also appears in the site's own text ` +
-      `on ${r.before.siteTextHasWord} card(s) — this check would not prove anything on this page`);
+  if (!r.before.warnedClean) {
+    await fail(`every disclaimed card's own text also says ${JSON.stringify(r.before.word)} — this check would not ` +
+      'prove anything on this page');
   }
-  if (r.polluted.badges > 0) {
-    await fail(`${r.polluted.badges} card(s) were highlighted by our own disclaimer text ` +
+  if (r.polluted.badgedOnOurText > 0) {
+    await fail(`${r.polluted.badgedOnOurText} card(s) were highlighted by our own disclaimer text ` +
       `(keyword ${JSON.stringify(r.before.word)}, present in ${r.before.warned} disclaimer(s) and in 0 ` +
       'listings) — our injected DOM is feeding the rule that decides what to show');
   }
   console.log(`own text  : keyword ${JSON.stringify(r.before.word)} (in ${r.before.warned} disclaimer(s), ` +
-    `0 listings) highlighted 0 card(s) — our annotation stays out of the rules`);
+    `${r.before.siteTextHasWord} listing(s) of its own) — ${r.before.warnedClean} card(s) carry it only in our text, ` +
+    `and none of them was highlighted — our annotation stays out of the rules`);
 }
 
 // ── 10. the listing's own page (spec.md W4) ─────────────────────────────
@@ -1672,12 +1702,16 @@ if (res.noSalExpected > 0) {
   /** The ids in the page's own IndexedDB store — same origin as the content script's cache. */
   const cacheKeys = (tab) => tab.evaluate(`new Promise(res => {
     const r = indexedDB.open('ojc', 1);
-    r.onsuccess = () => { const q = r.result.transaction('details', 'readonly').objectStore('details').getAllKeys();
+    r.onupgradeneeded = () => r.transaction.abort();   // never create it (see primeCache)
+    r.onsuccess = () => { if (!r.result.objectStoreNames.contains('details')) return res('[]');
+      const q = r.result.transaction('details', 'readonly').objectStore('details').getAllKeys();
       q.onsuccess = () => res(JSON.stringify(q.result)); };
     r.onerror = () => res('[]'); })`);
   const cacheDrop = (tab, ids) => tab.evaluate(`new Promise(res => {
     const r = indexedDB.open('ojc', 1);
-    r.onsuccess = () => { const t = r.result.transaction('details', 'readwrite'); const s = t.objectStore('details');
+    r.onupgradeneeded = () => r.transaction.abort();   // never create it (see primeCache)
+    r.onsuccess = () => { if (!r.result.objectStoreNames.contains('details')) return res(0);
+      const t = r.result.transaction('details', 'readwrite'); const s = t.objectStore('details');
       for (const id of ${JSON.stringify(ids)}) s.delete(String(id));
       t.oncomplete = () => res(1); t.onerror = () => res(0); };
     r.onerror = () => res(0); })`);
@@ -1744,8 +1778,8 @@ if (res.noSalExpected > 0) {
       await settle(1500);
       const l = await tab.evaluate(btnLabel);
       labels.push(l);
-      if (l && l !== 'Scan') sawStop = true;
-      if (l === 'Scan') break;
+      if (l && l !== SCAN_IDLE) sawStop = true;
+      if (l === SCAN_IDLE) break;
     }
     await settle(1500);
     const afterFirst = JSON.parse(await tab.evaluate(FACT));
@@ -1762,7 +1796,7 @@ if (res.noSalExpected > 0) {
       await tab.evaluate(`document.getElementById('ojc-scan').click()`);
       for (let i = 0; i < 240; i++) {
         await settle(1000);
-        if (await tab.evaluate(btnLabel) === 'Scan') break;
+        if (await tab.evaluate(btnLabel) === SCAN_IDLE) break;
       }
       await settle(1000);
     }
@@ -2146,7 +2180,7 @@ if (res.noSalExpected > 0) {
   // F2: on the saved-jobs table, every row whose listing a scan has judged carries the tier mark — and
   // no row without a judged tier does. The records are read from storage and handed in, so the check
   // runs entirely in the page world, like the rest of the harness.
-  const MARK = { high: '★ high yield', worth: 'worth considering', pos: '✓ highlighted' };
+  const MARK = LABELS.row;   // the words the saved-jobs table shows (D43)
   const saved = JSON.parse(await withTab(PORT, 'https://www.onlinejobs.ph/jobseekers/bookmarked_jobs', async (tab) => {
     if (!await activate(tab)) await fail(`the tier-mark check cannot run: ${HIDDEN_HINT}`);
     // The table renders in batches; an empty bookmarks list has no rows at all, so a timeout here is

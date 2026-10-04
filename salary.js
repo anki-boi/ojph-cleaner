@@ -190,19 +190,40 @@
     return { min: Math.round(amount.min * rate), max: Math.round(amount.max * rate) };
   }
 
-  const money = (n) => '₱' + Math.round(n).toLocaleString('en-US');
-  const span = (v) => (v.min === v.max ? money(v.min) : `${money(v.min)} - ${money(v.max)}`);
+  /**
+   * The display currency (D66). Every figure is computed in PHP — the goals, the ranking, the records — and only
+   * the TEXT is shown in `disp = { code: 'USD', rate }`, where `rate` is pesos per dollar (the same ECB row the
+   * conversion used). No disp, or no rate, is pesos: a figure is never shown in a currency we cannot convert to.
+   */
+  const SYMBOL = { PHP: '₱', USD: '$' };
+  const money = (n, disp) => {
+    if (!disp || disp.code === 'PHP' || !(disp.rate > 0)) return '₱' + Math.round(n).toLocaleString('en-US');
+    const v = n / disp.rate;
+    // Small amounts keep their cents ($5.50/hr), large ones read as whole dollars ($1,034/mo).
+    const text = v < 100 ? (Math.round(v * 100) / 100).toFixed(Number.isInteger(Math.round(v * 100) / 100) ? 0 : 2)
+      : Math.round(v).toLocaleString('en-US');
+    return (SYMBOL[disp.code] || disp.code + ' ') + text;
+  };
+  const span = (v, disp) => (v.min === v.max ? money(v.min, disp) : `${money(v.min, disp)} - ${money(v.max, disp)}`);
 
   /** "≈ ₱26,700 - ₱34,000/mo" — no currency code, no decimals above 1,000. */
-  function formatNote(php) {
-    return php ? `≈ ${span(php)}/mo` : null;
+  function formatNote(php, disp) {
+    return php ? `≈ ${span(php, disp)}/mo` : null;
   }
 
   /** "≈ ₱1,882/hr" — a rate that is true on its own, with no month claimed. */
-  function formatRate(php, unit) {
+  function formatRate(php, unit, disp) {
     if (!php) return null;
-    return `≈ ${span(php)}/${unit === 'day' ? 'day' : 'hr'}`;
+    return `≈ ${span(php, disp)}/${unit === 'day' ? 'day' : 'hr'}`;
   }
+
+  /** A goal entered in the display currency, in pesos — or 0 (off) when that currency has no rate right now. */
+  const goalInPhp = (goal, code, rates) => {
+    const g = Number(goal) || 0;
+    if (!g || !code || code === 'PHP') return g;
+    const r = rates && rates[code];
+    return r > 0 ? g * r : 0;
+  };
 
   /** Above-goal is judged on the LOW end of the range: a "maybe" must not count as a yes. */
   const meetsGoal = (php, goalPhp) => !!php && goalPhp > 0 && php.min >= goalPhp;
@@ -239,6 +260,6 @@
     return { fresh, needed };
   }
 
-  return { parseSalary, toPhp, ratePhp, formatNote, formatRate, meetsGoal, goalBand, hoursPerWeekFrom, pickFresh,
+  return { parseSalary, toPhp, ratePhp, formatNote, formatRate, goalInPhp, meetsGoal, goalBand, hoursPerWeekFrom, pickFresh,
            WEEKS_PER_MONTH, FULL_TIME_HOURS };
 });

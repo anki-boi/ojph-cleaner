@@ -1,50 +1,36 @@
 /**
- * chip.js — the status panel in the bottom-right corner (spec.md §4.3, W14).
+ * chip.js — the status bar at the top of the results column (spec.md D45/D46, W17).
  *
- * Split out of content.js, which was at 299 of the gate's 300 lines: the rule pass and the status UI have
- * nothing to say to each other, and this file is the one that grows every time the panel says more.
+ * It used to be a panel floating in the bottom-right corner, and it sat on top of the first card's salary
+ * (docs/img/list-chip.png). It is now one slim bar, sticky inside the site's own results column, so it scrolls
+ * with the board and never covers a card:
  *
- * It is a panel, not a line, because a single line stopped being readable the moment it had five numbers in
- * it ("137 hidden (0 stale, 36 no salary, 101 keywords, 6 highlighted, 87 to reconsider)"). So: the hidden
- * total with its reasons, then the tier stats, then the views, then the buttons. Colour does the grouping:
- * each row's dot and number carry the same hue as the mark it refers to on the cards themselves
- * (.ojc-closed grey, .ojc-neg red, .ojc-pos green, .ojc-recon yellow).
+ *   [Everything] [⭐ Top picks 14] [🤔 Maybe 2] [💚 Liked 3]   🙈 3 hidden ▾      Read posts  ⬇  ⚙
+ *   ▓▓▓▓▓▓░░░░ Reading posts 12 of 40 · 1 better · 0 worse
  *
- * **The buttons are persistent nodes.** The first version rebuilt the whole panel on every rule pass
- * (`innerHTML = ''`), which is correct for the numbers and fatal for clicking: a mousedown lands on one
- * `<button id="ojc-gear">`, the pass replaces it, the mouseup lands on a *different* node, and the browser
- * dispatches the click on their nearest common ancestor — so the handler never runs. Measured live on an
- * idle page: pointerdown, mousedown and mouseup all reported `ojc-gear`, and no click event at all. The
- * Settings button (and Show all, Scan and the view buttons) failed whenever the page happened to mutate
- * mid-click. So the interactive parts — the head, the three action buttons and the three view buttons — are
- * created once and only *updated*; the non-interactive rows are still rebuilt, because a stale number is a
- * bug and a stale row is not clickable.
+ * Two controls that never share a word (D46): the pills choose what you LOOK at; `N hidden ▾` opens the
+ * reasons and `Peek at hidden`, which shows what the rules took away. The old panel had a view called "All"
+ * beside a button called "Show All" that did something else.
  *
- * Reads nothing and decides nothing: content.js hands it the counts and the callbacks.
+ * **The interactive nodes are persistent.** A rule pass that replaced a button between mousedown and mouseup
+ * made the browser dispatch the click on the common ancestor, so the handler never ran (measured live on the
+ * old panel). Buttons are built once and only updated; the breakdown rows are rebuilt, because they are not
+ * clickable. Ids kept from the panel (#ojc-chip, #ojc-toggle, #ojc-scan, #ojc-export, #ojc-gear, .ojc-view
+ * [data-view], data-ojc-pass) are what tools/verify-live.mjs holds on to.
+ *
+ * Reads nothing and decides nothing: content.js hands it the counts and the callbacks. Later waves add their
+ * own buttons through `addAction` instead of editing this file.
  */
 (() => {
   'use strict';
   if (typeof document === 'undefined') return;
+  const L = self.OJCLabels;
 
   const ID = 'ojc-chip';
-  const VIEW_LABEL = { high: 'High yield', worth: 'Worth considering' };
-  let collapsed = false;   // session-only: a collapsed panel that forgets is worse than one that does not
-  /** The persistent skeleton. Created on the first render, then only ever updated. */
+  const VIEWS = ['all', 'high', 'worth', 'pos'];
   let ui = null;
-
-  /** `137 Hidden:` / `137 would be hidden:` — the same wording the harness asserts on the toggle. */
-  const totalLabel = (counts, showHidden) => {
-    const total = counts.closed + counts.stale + counts.noSal + counts.kw;
-    return showHidden ? `${total} would be hidden:` : `${total} Hidden:`;
-  };
-
-  /** Why the header says 137 when the Hidden list only adds to 36: the keyword row lives under Stats. */
-  const totalTitle = (counts) => [
-    `${counts.stale} stale`,
-    `${counts.noSal} no salary`,
-    `${counts.kw} matched a hide keyword`,
-    counts.closed ? `${counts.closed} already seen closed` : null,
-  ].filter(Boolean).join(' + ');
+  let popOpen = false;
+  const actions = [];   // { id, text, title, onClick, order, hidden() } registered by other modules
 
   const el = (tag, cls, text) => {
     const n = document.createElement(tag);
@@ -52,166 +38,166 @@
     if (text != null) n.textContent = text;
     return n;
   };
+  const button = (id, cls, text) => { const b = el('button', cls, text); if (id) b.id = id; b.type = 'button'; return b; };
 
-  /** Build the panel once. Every node here outlives a rule pass. */
   function build() {
-    const chip = document.getElementById(ID) || el('div');
-    chip.id = ID;
-    chip.innerHTML = '';
-    if (!chip.isConnected) document.body.appendChild(chip);
+    const bar = document.getElementById(ID) || el('div');
+    bar.id = ID;
+    bar.className = 'ojc-bar';
+    bar.innerHTML = '';
+    const row = el('div', 'ojc-bar-row');
 
-    const head = el('div');
-    head.id = 'ojc-chip-head';
-    const total = el('b');
-    total.id = 'ojc-chip-total';
-    const caret = el('span');
-    caret.id = 'ojc-chip-caret';
-    head.append(total, caret);
-
-    const body = el('div');
-    body.id = 'ojc-chip-body';
-    const hiddenBox = el('div', 'ojc-chip-group');
-    hiddenBox.id = 'ojc-chip-hidden';
-    const statsBox = el('div', 'ojc-chip-group');
-    statsBox.id = 'ojc-chip-stats';
-    // The views: three buttons, created once, so a click can never be swallowed by a rebuild.
-    const views = el('div', 'ojc-chip-group ojc-views');
-    const viewsHead = el('i', null, 'Views');
-    const bar = el('div', 'ojc-view-bar');
+    const pills = el('div', 'ojc-pills');
     const viewBtns = {};
-    for (const [key, label] of [['high', 'High yield'], ['worth', 'Worth considering']]) {
-      const b = el('button', 'ojc-view');
-      b.type = 'button';
+    for (const key of VIEWS) {
+      const b = button(null, `ojc-view ojc-view-${key}`);
       b.dataset.view = key;
       viewBtns[key] = b;
-      bar.appendChild(b);
+      pills.appendChild(b);
     }
-    const all = el('button', 'ojc-view ojc-view-all');
-    all.type = 'button';
-    all.dataset.view = 'all';
-    all.textContent = 'All';
-    viewBtns.all = all;
-    bar.appendChild(all);
-    // Tooltips and handlers are set on every render (they close over that render's counts), but the NODES
-    // never change identity after this function runs.
-    views.append(viewsHead, bar);
 
-    const note = el('div');
+    // The hidden total is the bar's one <b>: the harness reads `#ojc-chip b` for the "would be hidden" wording.
+    const hiddenBtn = button('ojc-hidden-btn', 'ojc-hidden-btn');
+    const total = el('b');
+    total.id = 'ojc-chip-total';
+    const caret = el('span', 'ojc-caret');
+    hiddenBtn.append(L.icon.hidden + ' ', total, caret);
+
+    const fresh = el('span', 'ojc-newcount');   // D54: how many cards are new since your last visit
+    const spacer = el('span', 'ojc-spacer');
+    const extra = el('span', 'ojc-extra');   // buttons other modules register (swipe, my jobs, …)
+    const scan = button('ojc-scan', 'ojc-act');
+    const exportB = button('ojc-export', 'ojc-act ojc-icon', '⬇');
+    exportB.setAttribute('aria-label', L.btn.csv);
+    const gear = button('ojc-gear', 'ojc-act ojc-icon', '⚙');
+    gear.setAttribute('aria-label', L.btn.settings);
+    gear.title = L.btn.settings;
+    row.append(pills, hiddenBtn, fresh, spacer, extra, scan, exportB, gear);
+
+    const pop = el('div', 'ojc-pop');
+    pop.id = 'ojc-hidden-pop';
+    pop.hidden = true;
+    const list = el('ul', 'ojc-pop-list');
+    const toggle = button('ojc-toggle', 'ojc-peek');
+    pop.append(list, toggle);
+
+    const status = el('div', 'ojc-bar-status');
+    const progress = el('span', 'ojc-progress');
+    const fill = el('i');
+    progress.appendChild(fill);
+    const note = el('span');
     note.id = 'ojc-note';
+    status.append(progress, note);
 
-    const actions = el('div');
-    actions.id = 'ojc-chip-actions';
-    const mk = (id, text) => { const b = el('button'); b.id = id; b.type = 'button'; b.textContent = text; return b; };
-    const toggle = mk('ojc-toggle', 'Show All');
-    const scan = mk('ojc-scan', 'Scan');
-    const exportB = mk('ojc-export', 'Export');
-    const gear = mk('ojc-gear', 'Settings');
-    actions.append(toggle, scan, exportB, gear);
-
-    body.append(hiddenBox, statsBox, views);
-    chip.append(head, body, note, actions);
-    ui = { chip, head, total, caret, body, hiddenBox, statsBox, views, viewsHead, viewBtns, note, actions, toggle, scan, exportB, gear };
+    bar.append(row, pop, status);
+    hiddenBtn.onclick = () => { popOpen = !popOpen; ui && paintPop(); };
+    ui = { bar, viewBtns, hiddenBtn, total, caret, fresh, extra, scan, exportB, gear, pop, list, toggle, status, progress, fill, note, extraBtns: {} };
     return ui;
   }
 
-  const row = (kind, count, label, title) => {
-    const li = el('li', `ojc-chip-row ojc-chip-${kind}`);
-    li.append(el('span', 'ojc-chip-count', String(count)), el('span', null, label));
-    if (title) li.title = title;
-    return li;
-  };
+  /** Inside the site's results column, above the first card; floating only if the page has no list at all. */
+  function mount(u) {
+    const first = document.querySelector('.jobpost-cat-box.latest-job-post');
+    const host = first && first.parentElement;
+    u.bar.classList.toggle('ojc-floating', !host);
+    if (host) { if (host.firstElementChild !== u.bar) host.prepend(u.bar); }
+    else if (u.bar.parentElement !== document.body) document.body.appendChild(u.bar);
+  }
 
-  /** Replace a group's rows. `rows` are not interactive, so rebuilding them cannot swallow a click — and a
-   *  number left behind by a partial update is the class of bug this extension keeps finding (§2.2). */
-  function fill(box, label, rows) {
-    box.innerHTML = '';
-    box.append(el('i', null, label));
-    const ul = el('ul');
-    ul.append(...rows.filter(Boolean));
-    box.appendChild(ul);
+  const hiddenTotal = (c) => c.closed + c.stale + c.noSal + c.kw + (c.passed || 0);
+
+  function paintPop() {
+    const u = ui;
+    u.pop.hidden = !popOpen;
+    u.caret.textContent = popOpen ? ' ▴' : ' ▾';
+    u.hiddenBtn.setAttribute('aria-expanded', String(popOpen));
   }
 
   function render({ counts, showHidden, note, view = 'all', scanning = false, canScan = true,
-                    onToggle, onView, onScan, onSettings, progress = '', pass = 0 }) {
-    const u = ui && ui.chip.isConnected ? ui : build();
-    u.chip.style.display = '';
-    // One attribute write per pass, for the live harness: mutating a data attribute is not a mutation the
-    // observer reports (it watches children and text), so this cannot feed the loop it exists to measure.
-    u.chip.dataset.ojcPass = String(pass);
-    u.chip.classList.toggle('ojc-chip-collapsed', collapsed);
+                    onToggle, onView, onScan, onSettings, progress = null, pass = 0 }) {
+    const u = ui && ui.bar.isConnected ? ui : build();
+    mount(u);
+    u.bar.style.display = '';
+    // One attribute write per pass, for the live harness: an attribute is not a child/text mutation, so the
+    // observer never sees it and it cannot feed the loop it exists to measure.
+    u.bar.dataset.ojcPass = String(pass);
 
-    u.head.title = totalTitle(counts);
-    u.head.onclick = () => { collapsed = !collapsed; render({ counts, showHidden, note, view, scanning, canScan, onToggle, onView, onScan, onSettings, progress, pass }); };
-    u.total.textContent = totalLabel(counts, showHidden);
-    u.caret.textContent = collapsed ? '▸' : '▾';
-
-    fill(u.hiddenBox, 'Hidden', [
-      counts.closed ? row('closed', counts.closed, 'Closed', 'you saw these listings close — hidden from now on') : null,
-      row('stale', counts.stale, 'Stale', 'posted longer ago than your recency window'),
-      row('nosal', counts.noSal, 'No Salary', 'the listing states no figure'),
-    ]);
-    fill(u.statsBox, 'Stats', [
-      row('kw', counts.kw, 'Keywords Matched', 'matched a hide keyword and did not pay at or above your goal — a keyword you like highlights a listing, it never rescues one'),
-      // Highlighted is NOT a tier: a keyword you like on a listing that pays below your goal. The user's
-      // rule — positive keywords do not make a listing high-yield, only passing salary does.
-      row('pos', counts.pos, 'Highlighted', 'matches a keyword you like, and pays below your goal'),
-      row('high', counts.high, 'High yield', 'pays at or above your goal — including the super green: a hide keyword matched, but you like more of its keywords than you hate, and the pay clears your goal by more than half again'),
-      row('worth', counts.worth, 'Worth Considering', 'matched a hide keyword but pays at or above your goal, so you get to reconsider it — pay is the only thing that keeps a hide-keyword listing on the board. The clearly-keeper ones count as super green under High yield'),
-      // A tag count, like Off-platform: fresh is a mark on high-yield cards, not a tier of its own.
-      counts.fresh ? row('fresh', counts.fresh, 'Fresh', 'high yield, posted in the last 24 hours — the competition window is still open') : null,
-      counts.dup ? row('dup', counts.dup, 'Duplicates', 'the same title and company posted again — the older copy is marked') : null,
-      // A TAG count, not a tier: these listings are graded exactly like any other one (the user's rule).
-      counts.offPlat ? row('offplat', counts.offPlat, 'Off-platform', 'ask you to apply or contact outside OnlineJobs.ph — a tag on the card, not a filter: they are graded like any other listing') : null,
-    ]);
-
-    u.viewsHead.textContent = view === 'all' ? 'Views' : `Views · showing ${VIEW_LABEL[view]}`;
-    const counts4 = { high: counts.high, worth: counts.worth };
-    for (const key of ['high', 'worth']) {
+    for (const key of VIEWS) {
       const b = u.viewBtns[key];
-      b.textContent = `${key === 'high' ? 'High yield' : 'Worth considering'} ${counts4[key]}`;
+      const n = key === 'all' ? null : counts[key] || 0;
+      b.textContent = key === 'all' ? L.tier.all : `${L.icon[key]} ${L.tier[key]} ${n}`;
       b.classList.toggle('is-on', view === key);
-      b.title = view === key
-        ? 'showing only these — click "All" to show the whole board again'
-        : `show only the ${counts4[key]} listing(s) in this tier, hiding every other card`;
+      b.classList.toggle('is-empty', n === 0);
+      b.setAttribute('aria-pressed', String(view === key));
+      b.title = L.tierTip[key];
       b.onclick = () => onView(view === key ? 'all' : key);
     }
-    u.viewBtns.all.classList.toggle('is-on', view === 'all');
-    u.viewBtns.all.title = 'show the board with only the normal rules applied';
-    u.viewBtns.all.onclick = () => onView('all');
 
-    // Outside the collapsible body on purpose: the loader and the scan report here ("loaded page 2 of 3",
-    // "168 scanned · 9 promoted"), and a message about what just happened must not be hidden by a panel the
-    // user folded away.
-    u.note.textContent = note || '';
-    u.note.hidden = !note;
-
-    u.toggle.textContent = showHidden ? 'Hide All' : 'Show All';
+    const total = hiddenTotal(counts);
+    u.total.textContent = L.hiddenTotal(total, showHidden);
+    u.hiddenBtn.title = 'why these are hidden';
+    u.list.innerHTML = '';
+    for (const key of ['stale', 'noSal', 'kw', 'closed', 'passed']) {
+      if ((key === 'closed' || key === 'passed') && !counts[key]) continue;
+      const li = el('li', `ojc-pop-row ojc-pop-${key}`);
+      li.append(el('span', 'ojc-pop-n', String(counts[key] || 0)), el('span', null, L.hidden[key]));
+      li.title = L.hiddenTip[key];
+      u.list.appendChild(li);
+    }
+    u.toggle.textContent = showHidden ? L.btn.unpeek : `${L.btn.peek} (${total})`;
+    u.toggle.disabled = !total && !showHidden;
     u.toggle.onclick = onToggle;
-    u.scan.textContent = scanning ? (progress ? `Stop ${progress}` : 'Stop') : 'Scan';
-    u.scan.title = scanning
-      ? 'stop the scan — everything finished so far is kept, and a re-run skips what is cached'
-      : canScan
-        ? 'load every result inside your recency window, then open each listing to re-decide it (2 at a time)'
-        : 'add a keyword or a salary goal first — there is nothing for a scan to decide with';
+    paintPop();
+    u.fresh.textContent = counts.newSince ? `● ${counts.newSince} new` : '';
+    u.fresh.title = 'posted since you last looked at this search';
+    u.fresh.hidden = !counts.newSince;
+
+    u.scan.textContent = scanning ? L.btn.stop : L.btn.scan;
+    u.scan.title = scanning ? L.btnTip.stop : canScan ? L.btnTip.scan : L.btnTip.scanOff;
     u.scan.disabled = !scanning && !canScan;
-    u.scan.classList.toggle('ojc-off', u.scan.disabled);
+    u.scan.classList.toggle('is-running', scanning);
     u.scan.onclick = onScan;
-    // The memory door (F1): records live in chrome.storage.local, and this button is what takes them
-    // out as CSV. Disabled while the memory is empty — there is nothing to export yet.
     u.exportB.disabled = !(self.OJCRecordsUI?.size());
-    u.exportB.classList.toggle('ojc-off', u.exportB.disabled);
-    u.exportB.title = u.exportB.disabled
-      ? 'the job memory is empty — run a scan first'
-      : 'download the job memory as CSV: tier, keywords, hours, pay, and when each listing was last checked';
+    u.exportB.title = u.exportB.disabled ? L.btnTip.csvOff : `${L.btn.csv} — ${L.btnTip.csv}`;
     u.exportB.onclick = () => self.OJCExport?.run?.();
     u.gear.onclick = onSettings;
-    return u.chip;
+
+    for (const a of actions) {
+      let b = u.extraBtns[a.id];
+      if (!b || !b.isConnected) { b = u.extraBtns[a.id] = button(a.id, 'ojc-act'); u.extra.appendChild(b); }
+      b.textContent = typeof a.text === 'function' ? a.text() : a.text;
+      b.title = a.title || '';
+      b.hidden = a.hidden ? !!a.hidden() : false;
+      b.onclick = a.onClick;
+    }
+
+    // Progress: a bar while a run is going, then the outcome line; the row disappears when there is nothing to say.
+    const pct = progress && progress.total ? Math.min(100, Math.round(100 * progress.done / progress.total)) : null;
+    u.progress.hidden = !scanning;
+    u.fill.style.width = (pct ?? 4) + '%';
+    u.note.textContent = note || '';
+    u.status.hidden = !note && !scanning;
+    return u.bar;
   }
 
   const hide = () => {
-    const chip = document.getElementById(ID);
-    if (chip) chip.style.display = 'none';
+    const bar = document.getElementById(ID);
+    if (bar) bar.style.display = 'none';
   };
 
-  self.OJCChip = { render, hide, isCollapsed: () => collapsed };
+  /** Register a bar button — later waves (swipe, my jobs) add theirs here instead of editing this file. */
+  function addAction(a) {
+    const at = actions.findIndex(x => x.id === a.id);
+    if (at >= 0) actions.splice(at, 1);
+    actions.push(a);
+    actions.sort((x, y) => (x.order || 0) - (y.order || 0));
+    if (ui) { for (const b of Object.values(ui.extraBtns)) b.remove(); ui.extraBtns = {}; }
+  }
+
+  // A click anywhere else folds the hidden breakdown away, like any other dropdown.
+  document.addEventListener('click', (e) => {
+    if (popOpen && ui && !ui.pop.contains(e.target) && !ui.hiddenBtn.contains(e.target)) { popOpen = false; paintPop(); }
+  });
+
+  self.OJCChip = { render, hide, addAction, hiddenTotal };
 })();

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My jobs — OJ.ph Cleaner</title>
+<style>
+  :root {
+    --ink: #1f2933; --muted: #616e7c; --line: #d9dee3; --bg: #f3f5f8; --card: #fff; --accent: #3f6ea8;
+    --saved: #4d82c1; --applied: #8a6d1f; --interview: #6b4fa3; --offer: #3f7a4a; --nudge: #a3541c; --chip: #eef2f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #e6edf3; --muted: #9aa7b3; --line: #33414f; --bg: #121a22; --card: #1f2933; --accent: #6aa4e0;
+      --saved: #6aa4e0; --applied: #e0b84a; --interview: #a98ae0; --offer: #7cc48a; --nudge: #f0a060; --chip: #2c3946;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.5 system-ui, -apple-system, sans-serif; color: var(--ink); background: var(--bg); }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 20px; padding: 24px 24px 8px; max-width: 1400px; margin: 0 auto; }
+  h1 { margin: 0; font-size: 24px; }
+  #streak { color: var(--muted); }
+  #streak b { color: var(--ink); }
+  main { max-width: 1400px; margin: 0 auto; padding: 8px 24px 48px; }
+  .board { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 14px; align-items: start; }
+  .col { background: color-mix(in srgb, var(--card) 55%, var(--bg)); border: 1px solid var(--line); border-radius: 12px; padding: 10px; min-height: 120px; }
+  .col h2 { display: flex; align-items: center; gap: 8px; margin: 2px 4px 10px; font-size: 13px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+  .col h2::before { content: ''; width: 10px; height: 10px; border-radius: 50%; background: var(--dot); }
+  .col h2 span { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .empty { color: var(--muted); font-size: 13px; padding: 6px 4px; }
+  .job { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--dot); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+  .job a.t { color: var(--ink); font-weight: 650; text-decoration: none; }
+  .job a.t:hover { text-decoration: underline; }
+  .job .co, .job .when { color: var(--muted); font-size: 12.5px; }
+  .job .pay { font-weight: 700; color: var(--offer); margin: 2px 0; }
+  .nudge { display: inline-block; margin: 6px 0 2px; padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--nudge) 16%, transparent); color: var(--nudge); font-size: 12px; font-weight: 600; }
+  .job textarea { width: 100%; min-height: 34px; margin-top: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font: 13px/1.4 system-ui, sans-serif; resize: vertical; }
+  .moves { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  button { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 999px; padding: 4px 10px; font: 600 12px system-ui, sans-serif; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible, a:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.quiet { color: var(--muted); }
+  details { margin-top: 22px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+  summary { cursor: pointer; font-weight: 650; }
+  .passed { list-style: none; margin: 10px 0 0; padding: 0; }
+  .passed li { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+  .passed li a { color: var(--ink); flex: 1; }
+  .lede { color: var(--muted); margin: 0 0 14px; }
+  #insights { margin-top: 22px; }
+  /* Insights (D61): one series, one hue — the reference blue, validated against this page's surfaces. */
+  .viz { --series-1: #2a78d6; --axis: #c3c2b7; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .viz { --series-1: #3987e5; --axis: #3b4754; } }
+  .ins-h { font-size: 18px; margin: 0 0 2px; }
+  .ins-lede { color: var(--muted); margin: 0 0 12px; }
+  .ins-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .ins-fig { margin: 0; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .ins-cap { font-weight: 650; margin-bottom: 4px; }
+  .ins-sum, .ins-goal, .ins-note { margin: 2px 0; color: var(--muted); }
+  .ins-sum b { color: var(--ink); }
+  .ins-goal { color: var(--ink); font-weight: 600; }
+  .ins-plot { position: relative; margin-top: 8px; }
+  .ins-svg { width: 100%; height: auto; display: block; overflow: visible; }
+  .ins-bar { fill: var(--series-1); }
+  .ins-axis { stroke: var(--axis); stroke-width: 1; }
+  .ins-hit { fill: transparent; cursor: default; outline: none; }
+  .ins-hit:focus-visible { stroke: var(--accent); stroke-width: 2; }
+  .ins-tick { fill: var(--muted); font: 11px system-ui, sans-serif; }
+  .ins-goal-line { stroke: var(--ink); stroke-width: 2; }
+  .ins-goal-text { fill: var(--ink); font: 600 11px system-ui, sans-serif; }
+  .ins-tip { position: absolute; top: -6px; transform: translate(-50%, -100%); padding: 4px 8px; border-radius: 6px; background: var(--ink); color: var(--bg); font-size: 12px; white-space: nowrap; pointer-events: none; }
+  .ins-tip[hidden] { display: none; }
+  .ins-table { margin-top: 8px; border: 0; padding: 0; background: none; }
+  .ins-table summary { font-weight: 500; color: var(--muted); font-size: 13px; }
+  .ins-table table { border-collapse: collapse; margin-top: 6px; font-size: 13px; }
+  .ins-table td, .ins-table th { padding: 3px 14px 3px 0; text-align: left; border-bottom: 1px solid var(--line); }
+  @media (max-width: 900px) { .board, .ins-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 520px) { .board, .ins-grid { grid-template-columns: 1fr; } header, main { padding-left: 16px; padding-right: 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>📋 My jobs</h1>
+  <span id="streak"></span>
+</header>
+<main>
+  <p class="lede">Everything you saved or applied to from the board. Changes here show up on every open OnlineJobs tab.</p>
+  <div class="board" id="board"></div>
+  <details id="passed-box"><summary id="passed-sum">Passed</summary><ul class="passed" id="passed"></ul></details>
+  <section id="insights" class="viz"></section>
+</main>
+<script src="labels.js"></script>
+<script src="myjobs.js"></script>
+<script src="salary.js"></script>
+<script src="insights.js"></script>
+<script src="jobs.js"></script>
+</body>
+</html>

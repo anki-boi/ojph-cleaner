@@ -41,6 +41,8 @@
 
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   const label = () => (st.running && st.total ? `${st.attempted}/${st.total}` : '');
+  /** For the bar's progress strip: how far a run is, or null when none is going. */
+  const progress = () => (st.running ? { done: st.attempted, total: st.total } : null);
   const isRunning = () => st.running;
 
   /** The most recent posted time among these cards, or null when none of them states one. */
@@ -90,7 +92,7 @@
         st.reason = `every job on page ${st.pages + 1} is older than your ${days}-day window`;
         return;
       }
-      api.setNote(`scanning: loaded ${api.cards().length} jobs…`);
+      api.setNote(self.OJCLabels.note.loadedJobs(api.cards().length));
     }
     st.reason = st.pages >= MAX_PAGES ? `stopped at the ${MAX_PAGES}-page cap` : 'reached the end of the results';  }
 
@@ -155,7 +157,7 @@
       // waves in a full run). Every fifth wave — ten listings at 2 at a time — keeps the re-tiering visibly
       // live without paying a full pass per listing; the run always ends with one.
       if ((i / CONCURRENCY) % 5 === 0 || i + CONCURRENCY >= items.length) api.refreshRules();
-      api.setNote(`scanning ${st.attempted}/${st.total} · ${st.promoted} promoted · ${st.demoted} demoted`);
+      api.setNote(self.OJCLabels.note.progress(st.attempted, st.total, st.promoted, st.demoted));
       if (i + CONCURRENCY < items.length && !st.stopped) await sleep(GAP_MS);
     }
   }
@@ -163,11 +165,11 @@
   // ── The button ───────────────────────────────────────────────────────────
   const outcome = () => {
     const n = st.attempted - st.failed - st.noDesc;
-    const bits = [`${n} scanned`];
-    if (st.promoted) bits.push(`${st.promoted} promoted`);
-    if (st.demoted) bits.push(`${st.demoted} demoted`);
+    const bits = [`Read ${n} post${n === 1 ? '' : 's'}`];
+    if (st.promoted) bits.push(`${st.promoted} better than they looked`);
+    if (st.demoted) bits.push(`${st.demoted} worse`);
     if (st.closed) bits.push(`${st.closed} closed`);
-    if (st.cached) bits.push(`${st.cached} already cached`);
+    if (st.cached) bits.push(`${st.cached} already read`);
     if (st.failed) bits.push(`${st.failed} fetch error${st.failed === 1 ? '' : 's'}`);
     if (st.noDesc) bits.push(`${st.noDesc} with no description`);
     if (st.pages) bits.push(`${st.pages} result page${st.pages === 1 ? '' : 's'}`);
@@ -184,17 +186,17 @@
   async function start() {
     if (st.running) return;
     if (!api.hasSomethingToScanFor()) {
-      api.setNote('nothing to scan for: add a keyword or a salary goal first');
+      api.setNote(self.OJCLabels.note.nothingToScan);
       return;
     }
     if (!api.LIST_RE.test(location.pathname)) {
-      api.setNote('the scan runs on a job list page');
+      api.setNote(self.OJCLabels.note.notAList);
       return;
     }
     Object.assign(st, { running: true, stopped: false, attempted: 0, total: 0, pages: 0, promoted: 0,
       demoted: 0, closed: 0, cached: 0, failed: 0, noDesc: 0, reasons: [], reason: '' });
     const startedAt = Date.now();
-    api.setNote('scanning: loading result pages…');
+    api.setNote(self.OJCLabels.note.loadingPages);
     try {
       await paginate();
       const queue = buildQueue();
@@ -228,5 +230,5 @@
     if (res?.settings?.autoScan ?? api.getSettings().autoScan) setTimeout(start, 1200);
   });
 
-  self.OJCScan = { start, stop, toggle, isRunning, label, state: () => ({ ...st }), onSettings };
+  self.OJCScan = { start, stop, toggle, isRunning, label, progress, state: () => ({ ...st }), onSettings };
 })();

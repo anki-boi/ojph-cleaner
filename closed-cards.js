@@ -44,8 +44,8 @@
   function badgeEl() {
     const b = document.createElement('span');
     b.className = 'ojc-closed-badge';
-    b.textContent = '⊘ closed';
-    b.title = 'you saw this listing closed — remembered so it stops appearing';
+    b.textContent = self.OJCLabels.mark.closed;
+    b.title = self.OJCLabels.mark.closedTip;
     return b;
   }
 
@@ -58,7 +58,7 @@
   /** The tier a scan gave the listing, as a mark on its saved row (F2): the saved table is where the
    *  user comes back to, so a row the scan has graded says so there. A mark, not a filter — the row
    *  stays exactly where the site put it. Tiers a scan never reached carry no mark at all. */
-  const TIER_MARK = { high: '★ high yield', worth: 'worth considering', pos: '✓ highlighted' };
+  const TIER_MARK = self.OJCLabels.row;
 
   /**
    * Mark the saved-jobs table's rows (a React table — different markup from the board, and the only
@@ -90,7 +90,7 @@
           cell.appendChild(mark);
         }
         mark.textContent = label;
-        mark.title = 'what the deep scan judged this listing to be';
+        mark.title = 'what reading the full post decided about this listing';
       } else if (mark) mark.remove();
     }
     return n;

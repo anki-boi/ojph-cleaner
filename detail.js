@@ -37,9 +37,12 @@
       'book keeper', 'accounting', 'medical coding', 'medical billing', 'billing', 'onboarding',
       'marketing', 'social media', 'legal', 'paralegal', 'plumbing', 'video editor', 'graphic designer',
       'medical coder', 'ICD-10'],
-    goalSalary: 60000, goalHourly: 1000 };
+    goalSalary: 60000, goalHourly: 1000, currency: 'PHP' };
   let settings = { ...DEFAULTS };
   let rates = {};
+  /** D66: the display currency, or null (pesos) while it has no rate. */
+  const disp = () => (settings.currency && settings.currency !== 'PHP' && rates[settings.currency]
+    ? { code: settings.currency, rate: rates[settings.currency] } : null);
   /** A figure is only real if both ends are numbers — NaN from a bad rate must read as "no figure", not "₱NaN". */
   const finite = (o) => (o && Number.isFinite(o.min) && Number.isFinite(o.max) ? o : null);
 
@@ -136,11 +139,11 @@
                  : 'the listing does not state hours per week'));
 
     if (f.php) {
-      const note = salary.formatNote(f.php);
+      const note = salary.formatNote(f.php, disp());
       bar.appendChild(item('ojc-bar-pay', note, notes(f)));
-      if (f.assumed) bar.appendChild(item('ojc-bar-assumed', `assumes ${salary.FULL_TIME_HOURS} h/week — verify`, notes(f)));
+      if (f.assumed) bar.appendChild(item('ojc-bar-assumed', self.OJCLabels.mark.assumes(salary.FULL_TIME_HOURS), notes(f)));
     } else if (f.rate) {
-      bar.appendChild(item('ojc-bar-pay', salary.formatRate(f.rate, f.parsed.unit) + ' (rate only)',
+      bar.appendChild(item('ojc-bar-pay', salary.formatRate(f.rate, f.parsed.unit, disp()) + ' (rate only)',
         'the listing states no hours per week, so no monthly figure is claimed'));
     } else if (f.posted) {
       bar.appendChild(item('ojc-bar-pay ojc-bar-unknown', `pay: ${f.posted}`,
@@ -157,7 +160,8 @@
     // part-time listing that quotes both a rate and its own HOURS PER WEEK was judged monthly on
     // this page and hourly on the board, so one card could carry a green goal mark next to a red
     // "below your monthly goal".
-    const goalM = Number(settings.goalSalary) || 0, goalH = Number(settings.goalHourly) || 0;
+    const goalM = salary.goalInPhp(settings.goalSalary, settings.currency, rates),
+      goalH = salary.goalInPhp(settings.goalHourly, settings.currency, rates);
     // The board's `hourlyPhp`, word for word: a posted rate exists whenever the listing quotes one,
     // even alongside a computed month.
     const postedRate = f.parsed && (f.parsed.unit === 'hour' || f.parsed.unit === 'hour?')
@@ -173,11 +177,11 @@
       const met = judgeMonthly ? salary.meetsGoal(f.php, goalM) : salary.meetsGoal(postedRate, goalH);
       const unit = judgeMonthly ? '/mo' : '/hr';
       bar.appendChild(item(met ? 'ojc-bar-goal ojc-bar-met' : 'ojc-bar-goal',
-        `${met ? '✔' : '✗'} your ₱${goal.toLocaleString('en-US')}${unit} goal`,
-        met ? 'at or above the goal you set' : 'below the goal you set'));
+        `${met ? '✔ meets' : '✗ below'} your ${salary.formatRate({ min: goal, max: goal }, 'hour', disp()).replace(/^≈ /, '').replace(/\/hr$/, '')}${unit} minimum`,
+        met ? 'at or above the minimum pay you set' : 'below the minimum pay you set'));
     }
 
-    if (marks.warn) bar.appendChild(item('ojc-bar-warn', '⚠ applies off-platform',
+    if (marks.warn) bar.appendChild(item('ojc-bar-warn', self.OJCLabels.mark.offPlatform,
       'this listing asks you to apply or contact outside OnlineJobs.ph'));
     if (marks.pos || marks.neg) {
       bar.appendChild(item('ojc-bar-counts',
@@ -206,7 +210,9 @@
     // Rates only when the page needs one: a peso listing never pays for a fetch.
     const cur = (() => {
       const f = payFacts();
-      return f.parsed && f.parsed.currency !== 'PHP' ? [f.parsed.currency] : [];
+      const want = f.parsed && f.parsed.currency !== 'PHP' ? [f.parsed.currency] : [];
+      if (settings.currency && settings.currency !== 'PHP') want.push(settings.currency);   // D66: the display currency
+      return want;
     })();
     if (cur.length && self.OJCSalaryUI?.loadRates) {
       try { rates = await self.OJCSalaryUI.loadRates(cur); } catch { rates = {}; }

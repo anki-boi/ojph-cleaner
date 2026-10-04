@@ -182,7 +182,7 @@
   /** The scroll path (W6/D8): the guards ARE the feature, so it keeps them and stops only on a real end. */
   async function loadNextPage() {
     if (pag.busy || pag.done || !api.getSettings().autoLoad) return;
-    api.setNote('loading more…');
+    api.setNote(self.OJCLabels.note.loadingMore);
     const r = await loadOne(false);
     api.setNote('');
     if (!r.ok) {

@@ -10,7 +10,7 @@
   if (typeof chrome === 'undefined' || !chrome.storage) return; // node: nothing to do
   const api = self.OJC;
   if (!api) return;
-  const { parseSalary, toPhp, ratePhp, formatNote, formatRate, meetsGoal, goalBand, hoursPerWeekFrom, pickFresh } = self.OJCSalary;
+  const { parseSalary, toPhp, ratePhp, formatNote, formatRate, goalInPhp, meetsGoal, goalBand, hoursPerWeekFrom, pickFresh } = self.OJCSalary;
 
   const FX_URL = 'https://api.frankfurter.dev/v2/rates'; // ECB reference rates (v1 is deprecated)
   const FX_TTL_MS = 24 * 3600 * 1000;   // the server refreshes daily; older than this is not used
@@ -124,9 +124,8 @@
       const part = PART_TIME_RE.test(info.type || '');
       const over = info.hours > 40;
       el.classList.toggle('ojc-hours-over', over);
-      el.textContent = over ? `⚠ ${info.hours} h/week — over the 40 h full-time week`
-        : part ? `⏱ part-time month at ${info.hours} h/week`
-        : `⏱ ${info.hours} h/week`;
+      const M = self.OJCLabels.mark;
+      el.textContent = over ? M.overHours(info.hours) : part ? M.partHours(info.hours) : M.hours(info.hours);
       el.title = over
         ? `the listing's own HOURS PER WEEK says ${info.hours} — more than a full-time week`
         : 'stated by the listing itself (HOURS PER WEEK), not an assumption';
@@ -156,21 +155,24 @@
       const parsed = cards
         .map(c => [c, parseSalary(rawSalary(c), basisOf(c).hours), basisOf(c)])
         .filter(([, p]) => p);
-      const liveRates = await loadRates(parsed.map(([, p]) => p.currency));
       const settings = api.getSettings();
+      const cur = settings.currency || 'PHP';
+      const liveRates = await loadRates([...parsed.map(([, p]) => p.currency), cur]);
+      // D66: shown in the chosen currency, judged in pesos. No rate for it → pesos, and the goals are off.
+      const disp = cur !== 'PHP' && liveRates[cur] ? { code: cur, rate: liveRates[cur] } : null;
       // Two goals, because they judge different cards: a monthly goal can only be applied where a month
       // exists (a stated period, or hourly + stated hours), and an hourly goal only to a posted rate.
       // Neither is ever derived from the other — that would assume a work week, which is the one thing
       // this module refuses to do.
-      const goalMonthly = Number(settings.goalSalary) || 0;
-      const goalHourly = Number(settings.goalHourly) || 0;
+      const goalMonthly = goalInPhp(settings.goalSalary, cur, liveRates);
+      const goalHourly = goalInPhp(settings.goalHourly, cur, liveRates);
 
       // Where the hours came from, in the listing's own terms. 'detail' is the strongest of the three: the
       // scan read the listing's structured HOURS PER WEEK, so the month rests on a stated number.
       const HOURS_SOURCE = {
         stated: 'as stated on the card',
         detail: "the listing's own HOURS PER WEEK",
-        'full-time': 'full time — an assumption, verify with the employer',
+        'full-time': 'full time — assumed, so confirm the hours with the employer',
         'part-time': 'part time',
         unstated: 'hours not stated',
       };
@@ -213,7 +215,7 @@
             warn.className = 'ojc-salary-warn';
             note.after(warn);
           }
-          warn.textContent = `assumes ${p.hours} h/week (full time) — verify with the employer`;
+          warn.textContent = self.OJCLabels.mark.assumes(p.hours);
         } else if (warn) {
           warn.remove();
         }
@@ -224,13 +226,13 @@
         // HOURS PER WEEK differed from what its preview text happened to say).
         note.dataset.basis = basis.basis;
         if (php) {
-          note.textContent = formatNote(php);
+          note.textContent = formatNote(php, disp);
           note.title = (p.currency === 'PHP'
             ? (p.explicit ? 'listed in PHP' : 'no currency in the listing — read as pesos from the figure itself') +
               ` (${p.min}${p.max === p.min ? '' : ' - ' + p.max} per month as posted)`
             : currencyLine(p)) + hoursLine(p, basis);
         } else if (rate) {
-          note.textContent = formatRate(rate, p.unit);
+          note.textContent = formatRate(rate, p.unit, disp);
           note.title = `${currencyLine(p)}, posted per ${p.unit === 'day' ? 'day' : 'hour'}` +
             ' — the listing does not say how many hours a week, so no monthly figure is claimed';
         } else {

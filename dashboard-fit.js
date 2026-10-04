@@ -58,7 +58,7 @@
     const profile = result.profile ? ` · profile: ${result.profile}` : '';
     return {
       fit, max,
-      text: `resume fit ${fit}/${max}`,
+      text: `fits your resume ${fit}/${max}`,
       title: `Your resume matches this listing ${fit}/${max} on the skills and keywords it `
              + `states (total ${result.total}/100 with resume formatting)${profile}`,
     };

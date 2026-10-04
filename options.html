@@ -1,99 +1,98 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>OJ.ph Cleaner — Options</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OJ.ph Cleaner — Settings</title>
 <style>
-  body { font: 14px/1.5 system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; color: #1f2933; }
-  h1 { font-size: 18px; }
-  label.block { display: block; margin: 14px 0 4px; font-weight: 600; }
-  textarea { width: 100%; min-height: 72px; font: 13px/1.4 monospace; padding: 8px; box-sizing: border-box; border: 1px solid #cbd2d9; border-radius: 6px; }
-  .hint { color: #616e7c; font-size: 12px; }
-  .toggles { margin-top: 16px; }
-  .toggles label { display: block; margin: 6px 0; font-weight: 400; }
-  button { margin-top: 16px; background: #1f2933; color: #fff; border: 0; padding: 8px 18px; border-radius: 6px; font-size: 14px; cursor: pointer; }
-  button:hover { background: #34424f; }
-  #saved { color: #4e6b41; margin-left: 10px; display: none; font-weight: 600; }
+  :root { --ink: #1f2933; --muted: #616e7c; --line: #d9dee3; --accent: #3f6ea8; --bg: #f6f8fa; --card: #fff; }
+  @media (prefers-color-scheme: dark) { :root { --ink: #e6edf3; --muted: #9aa7b3; --line: #33414f; --accent: #6aa4e0; --bg: #16202a; --card: #1f2933; } }
+  body { font: 15px/1.5 system-ui, -apple-system, sans-serif; margin: 0; padding: 32px 16px 64px; color: var(--ink); background: var(--bg); }
+  main { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .lede { color: var(--muted); margin: 0 0 24px; }
+  section, details { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
+  h2, summary { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
+  summary { cursor: pointer; margin: 0; }
+  details[open] summary { margin-bottom: 12px; }
+  label.block { display: block; margin: 14px 0 6px; font-weight: 600; }
+  label.block:first-of-type { margin-top: 0; }
+  textarea, input[type=number], input[type=text], select {
+    width: 100%; box-sizing: border-box; font: 14px/1.4 system-ui, sans-serif; padding: 8px 10px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink);
+  }
+  textarea { min-height: 84px; font-family: ui-monospace, Consolas, monospace; }
+  .hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .check { display: grid; grid-template-columns: 18px 1fr; gap: 10px; margin: 10px 0; }
+  .check input { margin-top: 4px; }
+  .sub { margin-left: 28px; }
+  .bar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 14px 0; background: var(--bg); }
+  button { background: var(--accent); color: #fff; border: 0; padding: 10px 22px; border-radius: 8px; font: 600 15px system-ui, sans-serif; cursor: pointer; }
+  #saved { color: #4e8a3a; display: none; font-weight: 600; }
+  @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
+<main>
 <h1>OJ.ph Cleaner</h1>
-<p class="hint">Applies only on onlinejobs.ph. No data leaves your machine.</p>
+<p class="lede">Works only on onlinejobs.ph. Nothing you set here leaves your computer.</p>
 
-<label class="block" for="neg">Hide jobs mentioning… (negative keywords, one per line)</label>
-<textarea id="neg" placeholder="crypto&#10;insurance&#10;pay day loan"></textarea>
+<section>
+  <h2>Words</h2>
+  <label class="block" for="neg">Never show me jobs that mention</label>
+  <textarea id="neg" placeholder="crypto&#10;cold calling"></textarea>
+  <label class="block" for="pos">I'm into</label>
+  <textarea id="pos" placeholder="remote&#10;quickbooks"></textarea>
+  <p class="hint">One per line. Whole words and phrases only: <code>ai</code> matches <em>AI tools</em> but never
+  <em>email</em>, and <code>video editor</code> does not match <em>video editors</em> — add both forms if you
+  want both. Words you're into get a green badge; they never hide anything.</p>
+</section>
 
-<label class="block" for="pos">Highlight jobs mentioning… (positive keywords, one per line)</label>
-<textarea id="pos" placeholder="remote&#10;US client&#10;full stack"></textarea>
+<section>
+  <h2>My minimum pay</h2>
+  <label class="block" for="currency">Show pay in</label>
+  <select id="currency">
+    <option value="PHP">₱ PHP — Philippine peso</option>
+    <option value="USD">$ USD — US dollar</option>
+  </select>
+  <div class="grid">
+    <div><label class="block" for="goalSalary">Per month</label><input type="number" id="goalSalary" min="0" step="any" placeholder="40000"></div>
+    <div><label class="block" for="goalHourly">Per hour</label><input type="number" id="goalHourly" min="0" step="any" placeholder="300"></div>
+  </div>
+  <p class="hint" id="curHint">Typed in the currency above. Full-time jobs are judged per month, everything else per
+  hour. Converted with the ECB's reference rates, refreshed daily. Leave one empty to turn it off.</p>
+</section>
 
-<p class="hint">A keyword is matched as an <strong>exact word or phrase</strong>, case-insensitively:
-<code>ai</code> matches <em>AI tools</em> and <em>AI-powered</em>, but never <em>email</em> or
-<em>daily</em>; <code>video editor</code> matches that phrase and not <em>video editors</em>. Add the
-forms you want — the list is read literally, so <code>editor</code> and <code>editors</code> are two
-different keywords.</p>
+<section>
+  <h2>How old is too old</h2>
+  <label class="block" for="maxAgeDays">Too old after (days)</label>
+  <input type="number" id="maxAgeDays" min="0" step="1" placeholder="60">
+  <p class="hint">0 = never too old · 7 = last week · 30 = last month. A job whose date can't be read is never hidden for it.</p>
+</section>
 
-<div class="toggles">
-  <label for="maxAgeDays">Hide jobs posted more than this many days ago (<code>0</code> = off, <code>7</code> = last week, <code>30</code> = last month). Applied before every other rule; a listing whose date cannot be read is never hidden by it.</label>
-  <input type="number" id="maxAgeDays" min="0" step="1" placeholder="7">
-  <label><input type="checkbox" id="noSalary"> Hide jobs with no salary listed (default: on)</label>
-  <label><input type="checkbox" id="rescueNoSalary"> …but keep a no-salary job that matches a keyword I like, or pays at or above one of my goals. <em>Off by default: a listing with no figure at all is usually one you did not want to read.</em></label>
-  <label><input type="checkbox" id="rescueNegotiable"> …and show “Negotiable”/DOE listings that match a keyword I like. <em>Off by default — the plain no-salary rule is unchanged until you ask for this.</em></label>
-  <label><input type="checkbox" id="showHidden"> Show hidden jobs (red dashed marker)</label>
-  <label><input type="checkbox" id="autoLoad"> Load the next page of jobs when I scroll to the bottom of the list (one page per scroll, stops at the end)</label>
-  <label><input type="checkbox" id="autoScan"> Deep-scan this search page as soon as it loads — loads every result inside your recency window, then opens each listing to re-decide it. <em>Off by default: the promise of this extension is that the site sees no traffic you did not ask for. The Scan button in the panel does the same thing on demand.</em></label>
-  <label><input type="checkbox" id="scanWorth"> …and then scan the <strong>Worth considering</strong> listings too (the yellow ones). Off means the scan stops after High yield.</label>
-  <label><input type="checkbox" id="scanAll"> …and then the unclassified listings as well. <em>This is the only pass that can promote a listing matching no keyword and no goal, and it is the most expensive one.</em></label>
-  <label><input type="checkbox" id="sortByPay">f-8">
-<title>OJ.ph Cleaner — Options</title>
-<style>
-  body { font: 14px/1.5 system-ui, sans-serif; max-width: 640px; margin: 24px auto; padding: 0 16px; color: #1f2933; }
-  h1 { font-size: 18px; }
-  label.block { display: block; margin: 14px 0 4px; font-weight: 600; }
-  textarea { width: 100%; min-height: 72px; font: 13px/1.4 monospace; padding: 8px; box-sizing: border-box; border: 1px solid #cbd2d9; border-radius: 6px; }
-  .hint { color: #616e7c; font-size: 12px; }
-  .toggles { margin-top: 16px; }
-  .toggles label { display: block; margin: 6px 0; font-weight: 400; }
-  button { margin-top: 16px; background: #1f2933; color: #fff; border: 0; padding: 8px 18px; border-radius: 6px; font-size: 14px; cursor: pointer; }
-  button:hover { background: #34424f; }
-  #saved { color: #4e6b41; margin-left: 10px; display: none; font-weight: 600; }
-</style>
-</head>
-<body>
-<h1>OJ.ph Cleaner</h1>
-<p class="hint">Applies only on onlinejobs.ph. No data leaves your machine.</p>
+<details>
+  <summary>Advanced</summary>
+  <label class="check"><input type="checkbox" id="noSalary"><span>Hide jobs with no pay listed</span></label>
+  <label class="check sub"><input type="checkbox" id="rescueNoSalary"><span>…unless I'd like it (a word I'm into, or it meets my minimum)</span></label>
+  <label class="check sub"><input type="checkbox" id="rescueNegotiable"><span>…and keep “Negotiable” jobs that mention a word I'm into</span></label>
+  <label class="check"><input type="checkbox" id="showHidden"><span>Peek at hidden jobs (marked with a dashed outline)</span></label>
+  <label class="check"><input type="checkbox" id="autoLoad"><span>Load more jobs when I scroll to the bottom (one page per scroll)</span></label>
+  <label class="check"><input type="checkbox" id="autoScan"><span>Read full posts automatically when a search loads — every job inside your window, 2 at a time, with hard limits. The <strong>Read posts</strong> button does the same on demand.</span></label>
+  <label class="check sub"><input type="checkbox" id="scanWorth"><span>…then the Maybes</span></label>
+  <label class="check sub"><input type="checkbox" id="scanAll"><span>…then everything else (slowest — the only pass that can find a job no word or minimum flagged)</span></label>
+  <label class="check sub"><input type="checkbox" id="sortByPay"><span>…then sort by pay, best first (monthly figures, then hourly rates, then the rest in the site's order)</span></label>
+  <label class="block" for="weeklyApplyGoal">Applications I aim for each week</label>
+  <input type="number" id="weeklyApplyGoal" min="0" step="1" placeholder="0 = off">
+  <p class="hint">Shows your streak in the bar and on My jobs. 0 turns it off.</p>
+  <label class="block" for="dashboardUrl">Resume-fit dashboard</label>
+  <input type="text" id="dashboardUrl" placeholder="http://127.0.0.1:8371">
+  <p class="hint">The onlinejobs.ph-suite dashboard on this computer. Its score for your resume goes on every card. Empty turns it off.</p>
+</details>
 
-<label class="block" for="neg">Hide jobs mentioning… (negative keywords, one per line)</label>
-<textarea id="neg" placeholder="crypto&#10;insurance&#10;pay day loan"></textarea>
-
-<label class="block" for="pos">Highlight jobs mentioning… (positive keywords, one per line)</label>
-<textarea id="pos" placeholder="remote&#10;US client&#10;full stack"></textarea>
-
-<p class="hint">A keyword is matched as an <strong>exact word or phrase</strong>, case-insensitively:
-<code>ai</code> matches <em>AI tools</em> and <em>AI-powered</em>, but never <em>email</em> or
-<em>daily</em>; <code>video editor</code> matches that phrase and not <em>video editors</em>. Add the
-forms you want — the list is read literally, so <code>editor</code> and <code>editors</code> are two
-different keywords.</p>
-
-<div class="toggles">
-  <label for="maxAgeDays">Hide jobs posted more than this many days ago (<code>0</code> = off, <code>7</code> = last week, <code>30</code> = last month). Applied before every other rule; a listing whose date cannot be read is never hidden by it.</label>
-  <input type="number" id="maxAgeDays" min="0" step="1" placeholder="7">
-  <label><input type="checkbox" id="noSalary"> Hide jobs with no salary listed (default: on)</label>
-  <label><input type="checkbox" id="rescueNoSalary"> …but keep a no-salary job that matches a keyword I like, or pays at or above one of my goals. <em>Off by default: a listing with no figure at all is usually one you did not want to read.</em></label>
-  <label><input type="checkbox" id="rescueNegotiable"> …and show “Negotiable”/DOE listings that match a keyword I like. <em>Off by default — the plain no-salary rule is unchanged until you ask for this.</em></label>
-  <label><input type="checkbox" id="showHidden"> Show hidden jobs (red dashed marker)</label>
-  <label><input type="checkbox" id="autoLoad"> Load the next page of jobs when I scroll to the bottom of the list (one page per scroll, stops at the end)</label>
-  <label><input type="checkbox" id="autoScan"> Deep-scan this search page as soon as it loads — loads every result inside your recency window, then opens each listing to re-decide it. <em>Off by default: the promise of this extension is that the site sees no traffic you did not ask for. The Scan button in the panel does the same thing on demand.</em></label>
-  <label><input type="checkbox" id="scanWorth"> …and then scan the <strong>Worth considering</strong> listings too (the yellow ones). Off means the scan stops after High yield.</label>
-  <label><input type="checkbox" id="scanAll"> …and then the unclassified listings as well. <em>This is the only pass that can promote a listing matching no keyword and no goal, and it is the most expensive one.</em></label>
-  <label><input type="checkbox" id="sortByPay"> …and then rank the board by pay: the highest monthly figure first, then listings that post only a rate (per hour or per day), then the ones with no figure at all, which keep the site's own order. <em>Off by default: the board's order is the site's until you ask for this. Sorting happens when a scan ends, and stays as you scroll more pages in.</em></label>
-  <label>Local dashboard for resume fit (the onlinejobs.ph-suite on this machine): <input type="text" id="dashboardUrl" size="30" placeholder="http://127.0.0.1:8371"> <em>Its resume-fit score goes on every card and links back to that job in the dashboard. Empty turns the bridge off.</em></label>
-  <label for="goalSalary">Brighten jobs paying at least this much per month (₱, 0 = off). Judged on the low end of a range, converted with live ECB rates.</label>
-  <input type="number" id="goalSalary" min="0" step="1000" placeholder="e.g. 40000">
-  <label for="goalHourly">…or at least this much per hour (₱, 0 = off). Applies to listings that post an hourly rate, which a monthly goal cannot judge.</label>
-  <input type="number" id="goalHourly" min="0" step="10" placeholder="e.g. 300">
-</div>
-
-<button id="save">Save</button><span id="saved">Saved ✓</span>
+<div class="bar"><button id="save">Save</button><span id="saved">Saved ✓</span></div>
+</main>
+<script src="labels.js"></script>
 <script src="options.js"></script>
 </body>
 </html>

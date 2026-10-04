@@ -48,220 +48,7 @@ extension card to pick the changes up.
 Four rules, applied in this order to every listing on the page:
 
 1. **Posted too long ago → hidden.** Every card carries its posted instant, and a listing older than
-   your window (7 days by default) is gone before any other rule looks at it. On the live board the
-   first page of a search is always fresh — this filter earns its keep on the pages behind it, where a
-   297-job search was measured at **40-46 days old**.
-2. **No salary → hidden.** The salary field must contain a digit. `TBD`, `N/A`, `Negotiable`, `DOE`
-   and an empty field all fail.
-3. **Negative keyword → hidden.** Matched as an **exact word or phrase**, case-insensitively — unless
-   the listing also looks good, in which case see below.
-4. **Positive keyword → highlighted only.** Never hidden. The green outline and `✓ keyword` badge
-   tell you why.
-
-The first rule that matches wins, which matters when you read a count: with *no salary* turned off,
-a no-salary card that also matches a negative keyword moves into the keyword bucket.
-
-A keyword you like is a **highlight, not a promotion**: it never hides a listing, and it never makes one
-high-yield either — only pay does that (see *High yield* below).
-
-**A keyword you hate, on a job you'd want, gets a yellow outline instead of disappearing.** If a
-listing matches a negative keyword *and* either matches a positive keyword or pays at or above one of
-your goals, it stays on the page in yellow — the one state where a listing is shown *because* it is
-suspicious, so you can reconsider it without turning the whole filter off. The exception is the
-**super green**: if the listing matches *more positive keywords than negative ones* and the pay
-clears your goal by more than half again (50 % or more above it), it is High yield, not yellow —
-yellow is for the keepers you are not sure about, not the ones you are. (That name is deliberate:
-it is our tier decision, and has nothing to do with the site's own promoted or featured listings,
-which are judged exactly like every other card.) Nothing else changes about a yellow card: the
-salary figure, the posted date and the listing itself are the site's.
-
-**Both badges name the keyword.** A green `✓ keyword` badge sits top-right on a highlighted card, and a
-red `✗ keyword` badge sits in the same place on every card a negative keyword matched — the yellow ones,
-and the hidden ones when you turn *Show all* on. **When a listing matches keywords on both sides, it
-carries both badges** — green and red side by side — so you see the whole trade-off and re-evaluate it
-yourself instead of trusting the colour alone. So nothing on the page is marked without saying why.
-
-The panel in the bottom-right corner says what it did, in two groups: the **Hidden** total with a line per
-reason, then **Stats** — how many listings matched a keyword you asked to hide, how many you highlighted,
-and how many are worth a second look (the yellow ones). Each line's dot and number share the colour of the
-mark it refers to on the cards, and the header explains the total on hover. Click the header to fold the
-lists away and leave the two buttons.
-
-`Show All` reveals everything it hid, `Settings` opens the rules **in the page** — saving applies to the
-listings immediately, with no reload.
-
-**Keep scrolling.** When you reach the bottom of the list the next result page is appended, so a
-297-job search is one continuous scroll instead of eight clicks on *Next*. One page per scroll, one
-request per page, and it stops at the end of the results — or the moment a page adds nothing new.
-
-**Scan the whole window, then let every listing speak for itself.** The `Scan` run does two things in
-one pass — automatically when a search page loads (`autoScan`), or on demand when you press `Scan`:
-
-1. **Loads every result inside your recency window.** The board is sorted newest-first, so it pages until a
-   page's newest listing is already older than your window and stops there — no scrolling needed, and it
-   stops early rather than walking the whole result set.
-2. **Opens each listing and re-decides it with its full description.** A card carries only a title and a
-   salary line; the description is where the rest of the truth is — the keyword the card never mentioned,
-   the link that takes you off OnlineJobs.ph, the `HOURS PER WEEK` that turns an assumed month into a real
-   one. **Two at a time, 400 ms apart**, with a `Stop` button throughout and a hard stop at 10 pages /
-   300 listings. Everything it reads is cached for 7 days, so a second run costs nothing — and changing a
-   keyword re-tiers the page **without a single request**.
-
-**With `sortByPay` on (it is, by default), that run ends by ranking the board, best-paying first.** Sorting
-waits for the scan for the same reason the scan exists: a card's figure is an *assumption* until the
-listing's own `HOURS PER WEEK` is known, and a pay order built on assumptions would rank guesses. The order
-persists as the loader appends later pages, so the board stays in one piece as you read down it.
-
-**Two tiers, and a button for each.** Once listings have been read, the panel shows `High yield N` and
-`Worth N`:
-
-- **High yield** — **it pays at or above one of your goals**, and no keyword you asked to hide matched —
-  or it is **super green**: a hide keyword matched, but it matches more positive keywords than negative
-  ones and the pay is at least 50 % above your goal. Matching a keyword you like is a bonus badge, never
-  the reason: a listing you like the sound of that pays below your goal is *not* high yield. A high-yield
-  card posted within the last 24 h also carries a `● fresh` mark (counted in the panel) — the competition
-  window is still open.
-- **Worth considering** — a hide keyword matched and **the listing pays at or above one of your goals**,
-  but it is not clearly a keeper — that is the line between it and the super green. These are the yellow
-  cards, shown rather than hidden, and they badge both sides when both matched. Pay is the only thing that
-  earns this tier: a listing that matched a hide keyword and a keyword you like while paying below your goal
-  is **hidden**, not yellow — the goal is a hard filter, so a keyword you like can highlight a listing and
-  never rescue one.
-- **Highlighted** — a keyword you like on a listing that pays below your goal: the green outline and `✓`
-  badge, exactly as before. Visible, never hidden, and deliberately not counted as high yield.
-
-Two marks annotate a card without changing its tier: `● fresh` on a high-yield card posted in the last
-24 hours, and `⚠ duplicate` on the OLDER copy when the board re-posts the same title and company — each
-counted in the panel when present.
-
-Pressing one filters the board to that tier; `All` puts it back. **Nothing is reordered** — the site's own
-list order and its next-page behaviour are untouched — and the board **scrolls to the first card of the tier
-you picked**, because hiding most of a long list otherwise leaves you looking at empty space (measured: the
-first high-yield card sat 18 000 px above the viewport after the document shrank from 92 000 px to 19 000).
-When a listing moves between tiers the card carries `↑ promoted` or `↓ demoted` until you open it.
-The saved-jobs table carries the same verdicts inline: a row whose listing a scan has judged shows
-`★ high yield`, `worth considering`, or `✓ highlighted` beside it, and the marks follow a re-scan in
-another tab.
-
-**Off-platform asks are a tag, not a filter.** A listing that asks you to apply by email, Telegram or a Google
-Form gets a `⚠ off-platform` tag beside its keyword badge. It is never hidden for it and never demoted for it
-— the tag is there so you can decide. (An earlier version demoted them, which moved 176 of 227 scanned
-listings out of High yield: a filter that had stopped filtering.) The scan also prints the listing's own
-`HOURS PER WEEK` on the card, and flags a week longer than 40 hours.
-
-**It remembers each listing.** Every scanned or opened listing keeps its verdict, its figures and its
-flags, keyed by the listing's own URL — so opening a listing re-checks it against the live page, records
-what changed, and clears the mark.
-
-**Take the memory out.** The `Export` button downloads it as a CSV — one row per remembered listing:
-tier, the keywords that matched, hours, pay, flags, and when it was last checked, with the listing's URL
-filled in from the cache (a blank URL when the cache has already let one go). The button is disabled
-while the memory is empty: there is nothing to export.
-
-**See what it actually pays.** `5.5$/hr`, `Php 1000/day`, `15-20 AUD per hour` and `PHP 49,000 - 55,000`
-are not comparable at a glance, so each card gets the converted figure above the site's own posted text —
-`≈ ₱34,500/mo`, `≈ ₱150,600 - ₱200,800/mo`. The posted wording is never replaced, and a string the parser
-cannot read gets no number rather than a guess.
-
-**A month is only claimed when the listing supports one.** A per-month, per-week or per-year figure
-converts directly. An hourly rate converts only when the listing states its hours, or says *full time*
-(40 h/week) — a part-time listing that does not state its hours keeps its rate (`≈ ₱314/hr`), because
-assuming a work week is how a ₱27,000 job becomes a ₱50,000 one. Measured on the live board: 12 of 60
-cards quoted an hourly rate and 7 of those were part-time. Per-day rates never become months (days per
-week is never stated), and a piece rate like `$5 per entry` gets no figure at all — there is no honest
-monthly equivalent.
-
-**A month built on the 40 h/week assumption says so.** Full time is what makes an hourly rate
-convertible, so those cards carry `assumes 40 h/week (full time) — verify with the employer` under the
-figure. Do not trust the monthly number blindly.
-
-**A bare number is read by its size**, because on this board the size is the tell: 1-2 digits are an
-hourly rate, 3-4 digits a monthly rate in dollars, 5+ digits a monthly peso figure. That is how `1000`
-becomes `≈ ₱62,732/mo` (a U.S. listing quoting `$1,000 per month`) instead of ₱1,000. It only applies
-when the listing states no currency and no unit — `Php 1000/day` stays pesos, `140-175/per hour` stays
-pesos.
-
-Foreign currencies use the ECB's live reference rate, and if that rate cannot be fetched the card is
-left unconverted rather than showing a stale ₱ figure.
-
-Set a monthly goal and/or an hourly one and every job **at or above it brightens up** — a green wash,
-the figure in stronger green, and a `★ at or above your monthly/hourly goal` line. The more the pay
-beats the goal, the stronger the mark: `★★` at 25 %+ above it, `★★★` at 50 %+ above it (the super-green
-threshold). One goal judges each
-card: **Full Time is judged monthly, Part Time and everything else by the hour**, and a listing that
-quotes only a month is judged monthly because there is no rate to compare. Both are judged on the low
-end of a range, so a "maybe" is not a yes. The hourly goal exists because a listing that only posts
-`$5/hour` has no month to compare against — and converting one would mean assuming a work week.
-
-## Settings
-
-Click `Settings` on the panel, or use the standalone options page if you prefer a full tab. Both write the
-same storage, and both take effect on every open tab immediately.
-
-| Setting | Default | Meaning |
-|---|---|---|
-| `negative` | empty | One keyword per line. A listing whose text contains any of them **as an exact word or phrase** is **hidden**. |
-| `positive` | empty | One keyword per line. A listing whose text contains any of them **as an exact word or phrase** is **highlighted**, never hidden. |
-| `noSalary` | on | Hide listings whose salary field contains no digit (`TBD`, `N/A`, `Negotiable`, `DOE`, empty). |
-| `rescueNoSalary` | on | With `noSalary` on: a listing with no figure that matches a keyword you like, or pays at or above one of your goals, is **shown** instead of hidden. On by default (D42). |
-| `rescueNegotiable` | on | With `noSalary` on: a listing that says **Negotiable** or **DOE** and matches a keyword you like is shown with a `⚠ negotiable` tag, instead of hidden. On by default (D42). |
-| `maxAgeDays` | 60 | Hide listings posted longer ago than this many days. `0` turns it off, `7` the last week, `30` the last month (default: the last two months). Applied **before** every other rule, and a listing whose date cannot be read is never hidden by it. |
-| `showHidden` | off | Reveal what was hidden, with a red dashed marker. The panel's `Show All` writes this. |
-| `autoLoad` | on | Append the next page of results when you scroll to the bottom of the list. One page per real scroll, one request per page, and it stops at the end of the results. |
-| `goalSalary` | 60000 | A monthly PHP figure. Cards whose converted salary is **at least** this much get a green wash and a `★ at or above your monthly goal` line. Judged on the low end of a range — a "maybe" is not a yes. |
-| `goalHourly` | 1000 | The same, per hour: for listings that post an hourly rate, which a monthly goal cannot judge. A card is brightened if **either** goal is met. |
-| `autoScan` | on | Deep-scan a search page automatically as soon as it loads. On by default (D42): every run is bounded to the recency window, two listings at a time, with hard caps — the `Scan` button does the same thing on demand. |
-| `scanWorth` | on | After the High yield listings, continue a scan into the Worth considering (yellow) ones. Off means a scan stops after the green ones. |
-| `scanAll` | off | …and then the unclassified listings as well. This is the only pass that can promote a listing that matches no keyword and no goal, and it is the most expensive one. |
-| `sortByPay` | on |hrome extension that cleans up [OnlineJobs.ph](https://www.onlinejobs.ph) job-search pages.
-It hides listings that are a waste of your time — no salary listed, or a keyword you never want to
-read again — and highlights the ones you do, without ever taking a listing away for a positive
-match. Everything runs on your machine: no account, no server, no analytics.
-
-**What it addresses.** The board gives you a list and no way to narrow it. The facts that
-decide whether a listing is worth your time — *does it pay, is it fresh, is it the kind of
-work you want* — are free text inside the card, or inside a description you have to open.
-Salaries aren't comparable (`5.5$/hr` next to `Php 1000/day` next to `TBD`), staleness is
-invisible until you're pages deep (a 297-job search measured **40–46 days old**), and the
-board remembers nothing — so the same judgement gets paid for again tomorrow.
-
-This is the filter the board doesn't ship: hide what's stale, salary-less or unwanted;
-highlight what you want, never for hiding; convert salaries into comparable figures;
-and let `Scan` re-decide each listing against its full description.
-
-**→ [Why this exists: the six problems it attacks, and the place it refuses to guess](PROBLEMS.md)**
-
-![The chip counts what it hid, and the panel edits the rules in place](docs/img/list-chip.png)
-
-No-salary jobs and negative keywords are gone; the chip in the bottom-right says exactly what it did
-and offers one click to see everything it removed — a keyword-hidden card comes back with a red
-dashed marker, so the decision stays yours:
-
-![The in-page options panel: Filters, Salary goals and Loading, with Save always in reach](docs/img/options-panel.png)
-
-Positive keywords never hide anything. They mark the card with a green outline and a `✓ keyword`
-badge, so a job you want floats to the top of your attention instead of disappearing by mistake:
-
-![A positive-keyword card](docs/img/highlight.png)
-
-## Install
-
-There is no store listing yet (`spec.md` D2). Load it unpacked:
-
-1. Download or clone this repository.
-2. Open `chrome://extensions` and turn on **Developer mode** (top right).
-3. Click **Load unpacked** and pick this folder.
-4. Open a search on OnlineJobs.ph — a chip appears in the bottom-right corner.
-
-Chrome remembers an unpacked extension after a restart. After editing files, press **Reload** on the
-extension card to pick the changes up.
-
-## What it does
-
-Four rules, applied in this order to every listing on the page:
-
-1. **Posted too long ago → hidden.** Every card carries its posted instant, and a listing older than
-   your window (7 days by default) is gone before any other rule looks at it. On the live board the
+   your window (60 days by default) is gone before any other rule looks at it. On the live board the
    first page of a search is always fresh — this filter earns its keep on the pages behind it, where a
    297-job search was measured at **40-46 days old**.
 2. **No salary → hidden.** The salary field must contain a digit. `TBD`, `N/A`, `Negotiable`, `DOE`
@@ -428,6 +215,8 @@ same storage, and both take effect on every open tab immediately.
 | `scanAll` | off | …and then the unclassified listings as well. This is the only pass that can promote a listing that matches no keyword and no goal, and it is the most expensive one. |
 | `sortByPay` | on | When a scan run ends, rank the board by the figure on each card: the highest **monthly** figure first, then listings that post only a rate (per hour or per day), then the ones with no figure at all, which keep the site's own order. A month and an hourly rate are never converted into each other — that would assume a work week — so a ₱5,000/mo listing outranks a ₱500/hr one. The order stays as you scroll more pages in, and only after a scan: until then the board is in the site's own newest-first order. |
 | `dashboardUrl` | `http://127.0.0.1:8371` | The local dashboard from the sibling repo (`onlinejobs.ph-suite`). Each card gets **resume fit N** — that dashboard's score for your resume against this listing, out of 60 — and the badge is a link that opens the job in the dashboard. Empty turns the bridge off; if nothing is listening there the extension stays silent. The score is the dashboard's, never this extension's: it has no resume and no scorer. |
+| `currency` | `PHP` | Which currency every figure and your minimum pay are shown in: `PHP` or `USD` (D66). Only the display changes — every comparison is still made in pesos. The minimums are typed in this currency, and switching it in Settings converts them on the spot at the ECB reference rate (refreshed daily), so the floor means the same in either; a toast says so. If the dollar rate cannot be fetched, figures stay in pesos and the minimums are not judged rather than judged at a guessed rate. |
+| `weeklyApplyGoal` | `0` | How many applications a week you aim for (D64). Above 0, the bar shows your streak (days in a row with an application) and this week's count against the goal; My jobs shows it too. Counted from your own ✓ Applied marks — nothing is sent anywhere. `0` turns it off. |
 
 Every keyword is an **exact word or phrase**, case-insensitively: `ai` matches `AI tools` and
 `AI-powered` but never `email` or `daily`, and `video editor` does not match `video editors`. Add the
@@ -509,12 +298,14 @@ reload.
 | `observer.js` | The one MutationObserver, and the `isOurs()` check that stops it eating itself |
 | `closed.js` / `closed-cards.js` | The closed-listing memory (pure maths + the storage applier) |
 | `detail-text.js` / `detail.js` | What to highlight on a listing's page, and the bar that applies it (W4) |
-| `chip.js` | The status panel: counts, tiers, views, and the Scan / Show All / Export / Settings buttons |
+| `chip.js` | The status bar at the top of the results: the filter pills, the hidden breakdown with *Peek at hidden*, *Read posts*, CSV and ⚙ (D45/D46) |
+| `labels.js` | Every word the extension shows, in one table (D43). `test-labels.js` fails if a retired word is shown anywhere |
+| `toast.js` | The one-at-a-time notice at the bottom of the page, with Undo (D48) and the currency note (D66) |
 | `export.js` | The Export door's applier: asks the memory for its rows, asks the cache for the URLs, downloads the CSV |
 | `page.js` | Every coupling to the site's list markup: the card selectors, the card's own text, its salary and its posted date |
 | `content.js` | The hub: settings, the rule pass, the counts, the tier delegation, the views. Makes no request |
 | `pagination.js` | Perpetual pagination: the scroll trigger, the fetch and the stop conditions (W6), plus the scan's `loadOne` |
-| `panel.js` | The in-page options form (the ⚙ in the chip). Owns no rule logic, so it cannot change what is hidden |
+| `panel.js` | The settings drawer (the bar's ⚙): Basics, then Advanced; Save applies at once and offers Undo. Owns no rule logic |
 | `salary.js` | Free-text salary → monthly figure, currency and units (W7). Pure and unit-tested |
 | `salary-cards.js` | Applies it: the live ECB rate, the figure on each card, the goal brighten |
 | `dashboard-fit.js` | The pure half of the bridge to `onlinejobs.ph-suite`: request shape, 50-per-request batching, the badge, the deep link |
@@ -528,6 +319,9 @@ reload.
 | `tools/gate.sh` | One command: syntax + tests + hygiene + README truth + personal-path scan |
 | `tools/check-readme.js` | Keeps this file true: every setting documented, no stale counts |
 | `tools/verify-live.mjs`, `tools/cdp.mjs` | Live end-to-end check against the real site over CDP |
+| `tools/sandbox.mjs` | A throwaway Chrome with this folder's extension loaded (over the debugging pipe), for testing without touching your own browser |
+| `tools/reload.mjs` | Presses the extension's Reload button in a running browser (Edge on :9222 by default) |
+| `tools/shot.mjs` | Screenshots a page in a CDP browser after an optional script — for checking UI changes by eye |
 | `docs/architecture.md` | How the pieces fit; the invariants that must not regress |
 | `docs/scraping.md` | What it fetches, when, and the politeness budget |
 | `docs/HANDOFF.md` | Runbook: environment, traps, resume commands |

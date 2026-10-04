@@ -67,45 +67,48 @@ OJ.ph Cleaner is the filter the board doesn't ship.
 
 WHAT IT DOES
 
-• Hides stale listings. A recency window (7 days by default) is applied before anything
-  else. Shortcut: 0 = off, 7 = last week, 30 = last month.
+• Sorts the board for you. ⭐ Top picks meet your minimum pay; 🤔 Maybe meet it but mention a
+  word you block; 💚 Liked mention a word you're into. One bar at the top of the results shows
+  the counts, filters to any of them, and never covers a listing.
 
-• Hides listings with no salary. The salary field must contain a digit. "TBD", "N/A",
-  "Negotiable", "DOE" and an empty field all fail — a label is not a number.
+• Hides what you never want to read. Too old (60 days by default), no pay listed ("TBD",
+  "Negotiable", "DOE" — a label is not a number), and the words you block — matched as whole
+  words, so "ai" never matches "email". "Peek at hidden" shows everything it took away.
 
-• Hides the keywords you never want to read again. Matched as exact words or phrases, so
-  "ai" matches "AI tools" but never "email".
+• Shows what a listing actually pays — in pesos or US dollars, your choice. "5.5$/hr",
+  "Php 1000/day" and "15-20 AUD per hour" become one comparable figure at the ECB's daily
+  reference rate, next to the site's own wording, which is never replaced.
 
-• Highlights the ones you want, and never hides them for it. A green outline and a badge
-  telling you which keyword matched.
+• Does not guess. A part-time rate that doesn't state its hours stays an hourly rate, and a
+  month assumed from "full time" says so on the card.
 
-• Shows what a listing actually pays. "5.5$/hr", "Php 1000/day" and "15-20 AUD per hour"
-  are not comparable, so each card gets a converted monthly figure at live ECB rates, next
-  to the site's own wording — which is never replaced.
+• Reads the full posts for you, on your terms. Two at a time, inside your recency window, with
+  hard caps and a Stop button — then re-sorts every listing by its full description and ranks
+  the board by pay. Changing a word afterwards costs no requests at all.
 
-• Does not guess. A part-time hourly rate that doesn't state its hours keeps its hourly
-  figure instead of inventing a month, and when a month is assumed from "full time" the
-  card says so.
+• Lets you triage fast. 💾 Save or ✕ Not for me on every card (with Undo), or 🃏 Swipe through
+  the board with the arrow keys. After enough passes it suggests a word to block — you decide.
 
-• Sets salary goals. A monthly goal and an hourly one; listings at or above either get a
-  green wash. Ranges are judged on the low end, so a "maybe" is not a yes.
+• Keeps track. 📋 My jobs: Saved → Applied → Interview → Offer, notes, a nudge to follow up after
+  five quiet days, an optional weekly goal and streak, and what the jobs you've read pay.
 
-• Scans the whole window when you ask. One button pages to the end of your recency window
-  and opens each listing to re-decide it against its full description — two at a time, with
-  a Stop button and hard caps. Results are cached for 7 days, so changing a keyword costs
-  no requests at all.
+• Flags what deserves a second look — never hides it. ⚠ a fee asked of you, an unpaid trial, an
+  off-site apply; 🔁 the same job re-posted again and again; and a post's working hours
+  converted into your own time zone.
 
-• Keeps scrolling. The next page of results is appended when you reach the bottom, so a
-  297-job search is one continuous scroll instead of eight clicks on Next.
+• Says what a job is at a glance — in the post's own words, from its own sections — and lets you
+  📌 pin three to compare side by side.
 
-• Tells you what it did, and shows you. A panel reports the counts per reason, and one
-  click reveals everything it hid. Nothing disappears silently.
+• Checks all your saved searches at once, when you press the button: their new listings join
+  the board you are on, de-duplicated, one request at a time.
+
+• First run takes 30 seconds: what you're hunting, the least you'd take, and your instant no's.
 
 PRIVACY
 
 • No account, no server, no analytics. Everything runs on your machine.
-• No request you didn't ask for: with auto-load off, no keywords and no scan, the
-  extension talks to nothing at all.
+• No request you didn't ask for: with auto-load and automatic reading off, the extension
+  talks to nothing at all. Saved searches are only ever checked when you press 🔎.
 • The only third-party call is a public exchange rate (ECB, via frankfurter.dev), asked
   once per currency per 24 hours and only when a listing on screen pays in that currency.
   No amount, keyword, or anything about you is sent.
@@ -118,7 +121,7 @@ DISCLAIMER
 Not affiliated with, endorsed by, or produced by OnlineJobs.ph. This is an independent
 browser extension that reads the job-search pages you are already viewing.
 
-MIT licensed. Source: https://github.com/anki-boi/ojph-cleaner
+Source: https://github.com/anki-boi/ojph-cleaner (all rights reserved — see the README, spec.md D1)
 ```
 
 ## 3. Permission justifications
@@ -129,6 +132,8 @@ The review asks for a justification per permission. Keep these short and literal
 |---|---|
 | `storage` | Stores the user's keyword lists, toggles, salary goals, cached exchange rates and per-listing verdicts locally, so settings survive a reload. Nothing is transmitted. |
 | Host permission `https://www.onlinejobs.ph/*`, `https://onlinejobs.ph/*` | The extension's entire function is to read and annotate the job-search result pages on this site. It runs a content script there and nowhere else. |
+| Host permission `http://127.0.0.1:8371/*`, `http://127.0.0.1:8372/*` | Optional and local only: the user's own resume-fit dashboard running on their own computer (the onlinejobs.ph-suite). The extension asks it for a fit score per listing; nothing leaves the machine. Empty setting = never contacted. |
+| `web_accessible_resources`: `jobs.html`, `options.html` | So the buttons on the job board can open the extension's own My jobs and settings pages in a new tab. No script or data is exposed to the site. |
 
 `permissions` is exactly `["storage"]` — one permission. `activeTab`, `tabs`, `scripting`,
 `webRequest` and `<all_urls>` are all deliberately absent; if a future change adds one, it

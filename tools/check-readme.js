@@ -35,7 +35,8 @@ const referenced = [
   // (`negative`, `noSalary`, …) is not mistaken for files.
   ...[...readme.matchAll(/^\|\s*`([^`|]+)`\s*\|/gm)].map(m => m[1]).filter(p => /[./]/.test(p)),
   ...[...readme.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)].map(m => m[1]),   // screenshots
-].map(p => p.trim().replace(/\/$/, ''));
+  ...[...readme.matchAll(/<img\s[^>]*src="([^"]+)"/g)].map(m => m[1]), // GIFs and sized images
+].map(p => p.trim().replace(/\/$/, '')).filter(p => !/^https?:\/\//.test(p)); // badges are remote
 const missing = [...new Set(referenced)].filter(p => p && !fs.existsSync(path.join(ROOT, p)));
 
 // ── 3. no unfinished-work markers in the public face ─────────────────────

@@ -132,8 +132,11 @@ The review asks for a justification per permission. Keep these short and literal
 |---|---|
 | `storage` | Stores the user's keyword lists, toggles, salary goals, cached exchange rates and per-listing verdicts locally, so settings survive a reload. Nothing is transmitted. |
 | Host permission `https://www.onlinejobs.ph/*`, `https://onlinejobs.ph/*` | The extension's entire function is to read and annotate the job-search result pages on this site. It runs a content script there and nowhere else. |
-| Host permission `http://127.0.0.1:8371/*`, `http://127.0.0.1:8372/*` | Optional and local only: the user's own resume-fit dashboard running on their own computer (the onlinejobs.ph-suite). The extension asks it for a fit score per listing; nothing leaves the machine. Empty setting = never contacted. |
 | `web_accessible_resources`: `jobs.html`, `options.html` | So the buttons on the job board can open the extension's own My jobs and settings pages in a new tab. No script or data is exposed to the site. |
+
+The store build (`sh tools/make-store-zip.sh` → `dist/`) drops the `127.0.0.1` host permissions and
+ships the resume-fit bridge off, so the localhost hosts in the unpacked `manifest.json` need no
+justification here.
 
 `permissions` is exactly `["storage"]` — one permission. `activeTab`, `tabs`, `scripting`,
 `webRequest` and `<all_urls>` are all deliberately absent; if a future change adds one, it
@@ -193,4 +196,5 @@ So, for this listing:
 - [ ] Permission justifications from §3 pasted
 - [ ] Data disclosures from §4 completed
 - [ ] The disclaimer sentence is in the detailed description
+- [ ] `sh tools/make-store-zip.sh` and upload `dist/ojph-cleaner-<version>.zip`
 - [ ] Test the packaged ZIP by loading it unpacked from a clean profile once

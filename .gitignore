@@ -3,3 +3,6 @@ Thumbs.db
 
 # local dev scratch
 _gate.mjs
+
+# store build output
+dist/

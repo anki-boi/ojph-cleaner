@@ -20,7 +20,10 @@ turns every salary into one comparable number, and remembers your calls so tomor
 [Privacy](#privacy) ·
 [Full guide](docs/guide.md)
 
-<img src="docs/img/bar.gif" alt="The bar filters the board to Top picks, then Liked, then opens the hidden breakdown and peeks at a card hidden for a blocked word" width="760">
+<img src="docs/img/bar.gif" alt="The bar filters the board to Top picks, then Liked, then opens the hidden breakdown, peeks at the hidden cards and hides them again" width="760">
+
+▶ **[Watch the 50-second demo](docs/video/ojph-cleaner-demo.mp4)**<br>
+<sub>Every listing in these recordings and screenshots is made up. No real employer appears.</sub>
 
 </div>
 
@@ -61,7 +64,7 @@ window, then opens each listing, two at a time, and re-decides it against the fu
 the card never mentioned, the stated hours, the ask to move off the platform. Cards that moved get
 `↑ better than it looked` or `↓ worse than it looked`, and the board ends ranked by pay.
 
-<img src="docs/img/read-posts.gif" alt="Read posts running on a bookkeeper search: a progress strip, cards gaining hours, pay marks and At a glance" width="760">
+<img src="docs/img/read-posts.gif" alt="Read posts running on a virtual assistant search: a progress strip, cards gaining hours, pay marks and trust tags" width="760">
 
 ### Pay you can compare
 
@@ -70,7 +73,7 @@ pesos or dollars, at the ECB's reference rate. A month is only claimed when the 
 one, and a string the parser can't read gets no number rather than a guess. Jobs at or above your
 minimum light up; trust tags flag what deserves a second look.
 
-![A read listing: converted monthly pay, meets your minimum, 40 h/week, and the quickbooks, wants you off OLJ and posted today tags](docs/img/card-detail.png)
+![A read listing: converted monthly pay, meets your minimum, 40 h/week, and the virtual assistant, wants you off OLJ and posted today tags](docs/img/card-detail.png)
 
 Words you're into never hide anything. They mark the card with a green outline and a `✓ word`
 badge, so a job you want stands out instead of disappearing by mistake:

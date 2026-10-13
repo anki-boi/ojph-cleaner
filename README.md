@@ -40,10 +40,18 @@ again tomorrow.
 
 ## The tour
 
-### Set up in three screens
+### Set up in five screens
 
-A fresh install asks three skippable questions: what you're hunting, the least you'd take, and
-your instant no's. Finish replaces only what you answered, and offers Undo.
+A fresh install asks five skippable questions. First, **what kind of work you do**: pick up to three of
+15 archetypes (General VA, Customer Support, Social Media, Graphic Designer, Video Editor, Developer,
+Bookkeeper, Writer/SEO, Sales/Lead Gen, E-commerce, Medical VA, Real Estate VA, Automation/AI, Project
+Manager, Data Entry) and both keyword lists fill themselves in. Second, **how much experience you
+have**: 🌱 *New to online work* adds "no experience needed", "will train" and hides "senior", "5+ years";
+🌿 *Some experience* hides only the very senior; 🌳 *Seasoned* adds "senior", "expert", "lead" and hides
+"entry level", "trainee". Its words are added to the archetypes'. Then what you're hunting (already
+filled, edit freely), the least you'd take, and your instant no's. A word one pick wants is never
+hidden by another pick. Finish replaces only what you answered, and offers Undo. ⚙ Settings has the
+same presets under *＋ Add words for…*.
 
 <img src="docs/img/setup.gif" alt="First-run setup: typing wanted words, a monthly minimum with the hourly suggested, and toggling blocked-word chips" width="760">
 
@@ -123,7 +131,7 @@ Five rules, applied in this order to every listing on the page. The first one th
 2. **No pay: hidden (*No pay listed*).** `TBD`, `N/A`, `Negotiable`, `DOE` and an empty field all fail.
 3. **Pays at or below your lowball line: marked black (*Lowball*).** $2.99/hr by default. Judged on the
    best rate the listing could mean, per hour: a monthly figure is converted at the post's own hours, or 40 a week.
-4. **A word you block: hidden (*Blocked words*),** matched as an exact word or phrase, unless the
+4. **A word you block: hidden (*Blocked words*),** matched as a whole word or phrase (plurals and hyphens included; see *How words match*), unless the
    listing meets your minimum pay, in which case it stays as a 🤔 Maybe.
 5. **A word you're into: marked only (*Liked*).** Never hidden, never promoted. Only pay makes a
    listing a ⭐ Top pick.
@@ -149,8 +157,8 @@ one step of Undo (D48).
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `negative` | a starter list | *Never show me jobs that mention*: one word or phrase per line. A listing whose text contains any of them **as an exact word or phrase** is **hidden** (*Blocked words*), unless it meets your minimum pay (then it is a Maybe). |
-| `positive` | a starter list | *I'm into*: one word or phrase per line. A listing whose text contains any of them **as an exact word or phrase** is **marked** (*Liked*), never hidden. |
+| `negative` | a starter list | *Never show me jobs that mention*: one word or phrase per line. A listing whose text contains any of them **as a whole word or phrase** (see *How words match*) is **hidden** (*Blocked words*), unless it meets your minimum pay (then it is a Maybe). |
+| `positive` | a starter list | *I'm into*: one word or phrase per line. A listing whose text contains any of them **as a whole word or phrase** is **marked** (*Liked*), never hidden. |
 | `noSalary` | on | *Hide jobs with no pay listed*: the salary field contains no digit (`TBD`, `N/A`, `Negotiable`, `DOE`, empty). |
 | `rescueNoSalary` | on | With `noSalary` on: *…unless I'd like it*: a listing with no figure that mentions a word you're into, or meets your minimum, is **shown** instead of hidden. On by default (D42). |
 | `rescueNegotiable` | on | With `noSalary` on: a listing that says **Negotiable** or **DOE** and mentions a word you're into is shown with a `⚠ negotiable` tag, instead of hidden. On by default (D42). |
@@ -171,12 +179,19 @@ one step of Undo (D48).
 | `reportDailyCap` | `20` | The most *Salary too low* reports sent in any 24 hours (D67). A card's tag asks before it reports; a batch asks once, sends one every 3 seconds, and stops at the first refusal. `0` turns reporting off; the black outline stays. |
 | `searches` | empty | Your saved searches (D63), as keywords or search links. ☆ on the bar saves the search you are on; 🔎 adds the new listings from your OTHER saved searches to the board you are on, de-duplicated and each tagged with the search it came from, so several searches read as one list. Only on a button press, one request at a time, ≥ 600 ms apart, at most 10 pages and 300 listings across all of them, stopping at your recency window and at the first HTTP 429. |
 
-Every word is an **exact word or phrase**, case-insensitively: `ai` matches `AI tools` and
-`AI-powered` but never `email` or `daily`, and `video editor` does not match `video editors`. Add the
-forms you want: the list is read literally, so `editor` and `editors` are two entries. That precision
-is deliberate: `AI` as a substring matched **every** listing on a live search, and because a listing
-that also looks good is shown as a Maybe rather than hidden, a loose match quietly turns blocking off
-altogether.
+**How words match** (D69), case-insensitively, in three forms:
+
+| You write | Matches | Example |
+|---|---|---|
+| `video editor` | Whole words, plus a plural and any hyphen or space between words | *video editors*, *video-editor*; `entry level` = *entry-level*; `5+ years` = *5 + years* |
+| `design*` | Any word **starting with** it (opt-in broad) | *designer*, *designing*, *designs* |
+| `=lead` | **Exactly** this word, no plural | *team lead*, never *generate leads* |
+
+In every form a word never matches **inside** another word: `ai` never matches `email` or `daily`. That
+precision is deliberate: `AI` as a substring matched **every** listing on a live search, and because a
+listing that also looks good is shown as a Maybe rather than hidden, a loose match quietly turns blocking
+off altogether. For the same reason, think twice before putting a `*` word in the hide list: `intern*`
+also hides *internal* and *international*. The presets use all three forms, so they double as examples.
 
 The two lists can be moved out and back: `Copy lists` puts both on the clipboard in a plain, readable
 format (a `# hide` section and a `# highlight` section), and `Paste lists` reads that format back: the
@@ -286,7 +301,8 @@ without a reload. Its label checks read `labels.js`, so a rename cannot drift fr
 | `content.js` | The hub: settings, the rule pass, the counts, the tier delegation, the views. Makes no request |
 | `pagination.js` | Perpetual pagination: the scroll trigger, the fetch and the stop conditions (W6), plus `Read posts`' `loadOne` |
 | `panel.js` | The settings drawer (the bar's ⚙): Basics, then Advanced; Save applies at once and offers Undo. Owns no rule logic |
-| `setup.js` | The first-run setup (D49/D50): three skippable screens, fresh installs only, `Run setup again` |
+| `setup.js` | The first-run setup (D49/D50/D68): five skippable screens starting with the archetype and experience pickers, fresh installs only, `Run setup again` |
+| `presets.js` | Starter keyword lists for 15 kinds of online worker and 3 experience levels (D68), and the merge rule: a word any pick wants is never blocked. Pure and unit-tested (`test-presets.js`) |
 | `myjobs.js` | Your own calls (D51/D56): the pure `myJobs` reducer (saved, applied, interview, offer, passed), kept apart from settings and the job memory |
 | `triage.js` / `triage.css` | The card buttons (`💾 Save`, `✕ Not for me`), *You passed*, new since last visit, the suggested block word, and the bar's 🃏 / 📋 buttons |
 | `swipe.js` | Swipe mode (D52): one card at a time, keyboard first |

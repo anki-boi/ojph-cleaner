@@ -107,6 +107,17 @@
       failed: (why) => `Report not sent: ${why}`,
       signedOut: 'sign in to OnlineJobs.ph first',
     },
+    /** How a keyword matches (D69) — taught in setup, repeated in ⚙ and on the options page. */
+    match: {
+      title: 'How words match',
+      rows: [
+        ['video editor', 'whole words, plus plurals and hyphens: video editors, video-editor'],
+        ['design*', 'ends in * → any word starting with it: designer, designing, designs'],
+        ['=lead', 'starts with = → exactly this word: lead, never leads'],
+      ],
+      never: 'A word never matches inside another: ai never matches email.',
+      noBroad: 'Careful with * here: intern* would also hide internal and international jobs.',
+    },
     /** The display currencies (D66). PHP first: it is the default and the board's own currency. */
     currency: { PHP: { symbol: '₱', name: 'Philippine peso' }, USD: { symbol: '$', name: 'US dollar' } },
     toast: {

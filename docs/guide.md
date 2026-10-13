@@ -13,8 +13,8 @@ Four rules, applied in this order to every listing on the page:
    297-job search was measured at **40-46 days old**.
 2. **No pay → hidden (*No pay listed*).** The salary field must contain a digit. `TBD`, `N/A`, `Negotiable`,
    `DOE` and an empty field all fail.
-3. **A word you block → hidden (*Blocked words*).** Matched as an **exact word or phrase**,
-   case-insensitively — unless the listing also looks good, in which case see below.
+3. **A word you block → hidden (*Blocked words*).** Matched as a **whole word or phrase**,
+   case-insensitively, plurals and hyphens included (`design*` widens a word, `=lead` narrows it to exactly that) — unless the listing also looks good, in which case see below.
 4. **A word you're into → marked only (*Liked*).** Never hidden. The green outline and `✓ word` badge
    tell you why.
 

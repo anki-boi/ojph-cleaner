@@ -44,9 +44,12 @@
   <textarea id="neg" placeholder="crypto&#10;cold calling"></textarea>
   <label class="block" for="pos">I'm into</label>
   <textarea id="pos" placeholder="remote&#10;quickbooks"></textarea>
-  <p class="hint">One per line. Whole words and phrases only: <code>ai</code> matches <em>AI tools</em> but never
-  <em>email</em>, and <code>video editor</code> does not match <em>video editors</em> — add both forms if you
-  want both. Words you're into get a green badge; they never hide anything.</p>
+  <p class="hint">One per line. <strong>How words match:</strong> <code>video editor</code> matches whole words,
+  plurals and hyphens included (<em>video editors</em>, <em>video-editor</em>); <code>design*</code> matches any word
+  starting with it (<em>designer</em>, <em>designing</em>); <code>=lead</code> matches exactly <em>lead</em>, never
+  <em>leads</em>. A word never matches inside another: <code>ai</code> never matches <em>email</em>. Be careful with
+  <code>*</code> in the hide list: <code>intern*</code> also hides <em>internal</em>. Words you're into get a green
+  badge; they never hide anything.</p>
 </section>
 
 <section>

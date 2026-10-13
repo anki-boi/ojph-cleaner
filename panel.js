@@ -45,7 +45,7 @@
           <div class="ojc-field">
             <label for="ojc-neg">Never show me jobs that mention</label>
             <textarea id="ojc-neg" rows="3" spellcheck="false" placeholder="crypto&#10;cold calling"></textarea>
-            <span class="ojc-hint">One per line. Whole words only, so <b>ai</b> never matches <em>email</em>.</span>
+            <span class="ojc-hint">One per line. Plurals and hyphens count (<b>editor</b> → editors). <b>design*</b> = any word starting with it; <b>=lead</b> = exactly lead, never leads.</span>
           </div>
           <div class="ojc-field">
             <label for="ojc-pos">I'm into</label>
@@ -56,6 +56,7 @@
             <div class="ojc-keyword-io">
               <button id="ojc-kw-copy" type="button">⧉ Copy both lists</button>
               <button id="ojc-kw-paste" type="button">⎘ Paste both lists</button>
+              <select id="ojc-preset" aria-label="Add words for a kind of work"><option value="">＋ Add words for…</option></select>
             </div>
           </div>
         </div>
@@ -145,6 +146,22 @@
           fromLines($p('#ojc-neg').value), fromLines($p('#ojc-pos').value)));
         self.OJCToast?.show('Both lists copied');
       } catch { /* the clipboard write was refused: the lists stay where they are */ }
+    };
+    // D68: a kind of work's preset words, merged into both boxes (nothing saved until Save; a block on a word the
+    // preset wants is dropped — presets.js's merge rule).
+    const preset = panel.querySelector('#ojc-preset');
+    for (const [label, list] of [['Kind of work', self.OJCPresets?.ARCHETYPES], ['Experience', self.OJCPresets?.LEVELS]]) {
+      const g = Object.assign(document.createElement('optgroup'), { label });
+      for (const a of list || []) g.append(new Option(`${a.icon} ${a.label}`, a.id));
+      preset.append(g);
+    }
+    preset.onchange = () => {
+      if (!preset.value) return;
+      const next = self.OJCPresets.addTo({ positive: fromLines($p('#ojc-pos').value), negative: fromLines($p('#ojc-neg').value) }, preset.value);
+      $p('#ojc-pos').value = next.positive.join('\n');
+      $p('#ojc-neg').value = next.negative.join('\n');
+      self.OJCToast?.show(`Added the ${preset.selectedOptions[0].text.replace(/^\S+\s/, '')} words — check them, then Save`);
+      preset.value = '';
     };
     panel.querySelector('#ojc-kw-paste').onclick = async () => {
       try {

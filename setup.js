@@ -1,9 +1,11 @@
 /**
- * setup.js — the first-run setup (spec.md D49/D50, W19): three screens, each skippable.
+ * setup.js — the first-run setup (spec.md D49/D50/D68, W19): five screens, each skippable.
  *
- *   1. What are you hunting?   → the "I'm into" list (and a link to search OLJ for it)
- *   2. What's the least you'd take?  → the minimums, in PHP or USD; the hourly one suggested from the monthly
- *   3. Instant no?             → toggleable chips plus free text → the "Never show me" list
+ *   0. What kind of work do you do?  → up to three archetypes (presets.js) fill BOTH keyword lists below
+ *   1. How much experience?    → one level (presets.js LEVELS), its words ADDED to the archetypes' (D68.1)
+ *   2. What are you hunting?   → the "I'm into" list, already filled from the picks (and a link to search OLJ)
+ *   3. What's the least you'd take?  → the minimums, in PHP or USD; the hourly one suggested from the monthly
+ *   4. Instant no?             → toggleable chips plus free text → the "Never show me" list, filled from the picks
  *
  * Shown only to a fresh install: no `ui.onboarded` AND no settings ever saved. An install that already has
  * settings (the owner's) is marked onboarded silently the first time it boots, so nobody who has configured
@@ -50,7 +52,10 @@
   if (typeof document === 'undefined' || typeof chrome === 'undefined' || !chrome.storage) return;
   const api = self.OJC;
   if (!api) return;
-  const P = self.OJCSetupPure, L = self.OJCLabels;
+  const P = self.OJCSetupPure, L = self.OJCLabels, PR = self.OJCPresets;
+  const LAST = 4;
+  /** Every preset id in play — archetypes and the level — so one repick swaps either layer's words. */
+  const presetIds = (a) => [...a.picks, ...(a.level ? [a.level] : [])];
 
   let node = null, step = 0, answers = null, hourlyTouched = false;
 
@@ -63,10 +68,64 @@
     return n;
   };
 
+  /** The matching guide (D69), shown where the user first edits a list. `open` on the first of the two screens;
+   *  on the hide screen it carries the one warning that matters there (a broad hide word hides real jobs). */
+  function matchGuide(open, warn) {
+    const M = L.match;
+    const d = h('details', { class: 'ojc-setup-guide' }, h('summary', {}, M.title),
+      h('ul', {}, M.rows.map(([k, t]) => h('li', {}, h('code', {}, k), ' ', t))),
+      h('p', {}, warn ? M.noBroad : M.never));
+    d.open = open;
+    return d;
+  }
+
   function screen() {
     const s = api.getSettings();
     const sym = L.currency[answers.currency]?.symbol || '₱';
     if (step === 0) {
+      // D68: an archetype fills both lists. Changing the picks swaps only the presets' own words (PR.repick), so
+      // anything typed on the later screens survives a trip Back here.
+      const grid = h('div', { class: 'ojc-setup-arche' }, PR.ARCHETYPES.map(a => {
+        const on = answers.picks.includes(a.id);
+        const full = !on && answers.picks.length >= PR.MAX_PICKS;
+        const b = h('button', { type: 'button', class: 'ojc-archebtn' + (on ? ' is-on' : ''), 'aria-pressed': String(on),
+          title: full ? `Pick up to ${PR.MAX_PICKS} — unpick one first` : `Into: ${a.positive.slice(0, 6).join(', ')}…` },
+          h('span', { class: 'ojc-arche-icon' }, a.icon), a.label);
+        if (full) b.disabled = true;
+        b.onclick = () => {
+          const next = on ? answers.picks.filter(x => x !== a.id) : [...answers.picks, a.id];
+          Object.assign(answers, PR.repick(answers, presetIds(answers), presetIds({ ...answers, picks: next })), { picks: next });
+          render();
+        };
+        return b;
+      }));
+      const n = answers.picks.length;
+      return [h('h2', {}, 'What kind of work do you do?'),
+        h('p', {}, `Pick up to ${PR.MAX_PICKS}. Each one fills in words you're into and job types to hide — you'll see and edit them next.`),
+        grid, h('p', { class: 'ojc-setup-hint' }, n
+          ? `${answers.positive.length} words you're into, ${answers.negative.length} to hide — from ${n} pick${n === 1 ? '' : 's'}.`
+          : 'None fit? Skip this and type your own on the next screen.')];
+    }
+    if (step === 1) {
+      const opts = h('div', { class: 'ojc-setup-levels' }, PR.LEVELS.map(lv => {
+        const on = answers.level === lv.id;
+        const b = h('button', { type: 'button', class: 'ojc-archebtn ojc-levelbtn' + (on ? ' is-on' : ''), 'aria-pressed': String(on) },
+          h('span', { class: 'ojc-arche-icon' }, lv.icon),
+          h('span', {}, h('b', {}, lv.label), h('small', {}, lv.hint)));
+        b.onclick = () => {
+          const next = on ? null : lv.id;   // one level, or none: clicking the picked one clears it
+          Object.assign(answers, PR.repick(answers, presetIds(answers), presetIds({ ...answers, level: next })), { level: next });
+          render();
+        };
+        return b;
+      }));
+      return [h('h2', {}, 'How much experience do you have?'),
+        h('p', {}, 'Its words are added to your kind of work, so jobs that ask for far more (or far less) than you have get out of the way.'),
+        opts, h('p', { class: 'ojc-setup-hint' }, answers.level
+          ? `${answers.positive.length} words you're into, ${answers.negative.length} to hide, so far.`
+          : 'Skip it to judge jobs on your kind of work alone.')];
+    }
+    if (step === 2) {
       const box = h('textarea', { id: 'ojc-setup-pos', rows: '3', placeholder: 'virtual assistant, quickbooks, remote' });
       box.value = answers.positive.join(', ');
       box.oninput = () => { answers.positive = P.parseWords(box.value); };
@@ -75,9 +134,9 @@
       link.onmouseenter = link.onfocus = () => { link.href = `/jobseekers/jobsearch?jobkeyword=${encodeURIComponent(first())}`; };
       return [h('h2', {}, 'What are you hunting?'),
         h('p', {}, 'Job titles, tools or words you want to see. Matching jobs get a green badge — these never hide anything.'),
-        box, h('p', { class: 'ojc-setup-hint' }, 'Separate with commas or new lines. ', link)];
+        box, h('p', { class: 'ojc-setup-hint' }, 'Separate with commas or new lines. ', link), matchGuide(true, false)];
     }
-    if (step === 1) {
+    if (step === 3) {
       const cur = h('select', { id: 'ojc-setup-cur' },
         h('option', { value: 'PHP' }, '₱ PHP'), h('option', { value: 'USD' }, '$ USD'));
       cur.value = answers.currency;
@@ -114,7 +173,7 @@
     };
     return [h('h2', {}, 'Instant no?'),
       h('p', {}, `Jobs that mention these are hidden — unless they meet your minimum pay, then they show up as ${L.icon.worth} Maybe.`),
-      chips, extra, h('p', { class: 'ojc-setup-hint' }, s.negative?.length ? 'Leave everything off to keep the current list.' : ' ')];
+      chips, extra, matchGuide(false, true), h('p', { class: 'ojc-setup-hint' }, s.negative?.length ? 'Leave everything off to keep the current list.' : ' ')];
   }
 
   function render() {
@@ -123,7 +182,7 @@
     body.append(...screen());
     node.querySelectorAll('.ojc-setup-dots i').forEach((d, i) => d.classList.toggle('is-on', i === step));
     node.querySelector('#ojc-setup-back').hidden = step === 0;
-    node.querySelector('#ojc-setup-next').textContent = step === 2 ? 'Finish' : 'Next';
+    node.querySelector('#ojc-setup-next').textContent = step === LAST ? 'Finish' : 'Next';
     body.querySelector('textarea, input')?.focus({ preventScroll: true });
   }
 
@@ -144,18 +203,18 @@
   function open() {
     if (node) return;
     const s = api.getSettings();
-    answers = { positive: [], negative: [], currency: s.currency || 'PHP', monthly: 0, hourly: 0 };
+    answers = { picks: [], level: null, positive: [], negative: [], currency: s.currency || 'PHP', monthly: 0, hourly: 0 };
     step = 0;
     hourlyTouched = false;
     node = h('div', { id: 'ojc-setup', role: 'dialog', 'aria-modal': 'true', 'aria-label': 'Set up OJ.ph Cleaner' },
       h('div', { class: 'ojc-setup-card' },
         h('div', { class: 'ojc-setup-top' }, h('b', {}, 'OJ.ph Cleaner'),
-          h('span', { class: 'ojc-setup-dots' }, h('i'), h('i'), h('i')),
+          h('span', { class: 'ojc-setup-dots' }, h('i'), h('i'), h('i'), h('i'), h('i')),
           h('button', { type: 'button', id: 'ojc-setup-skip', onclick: () => done(false) }, 'Skip setup')),
         h('div', { class: 'ojc-setup-body' }),
         h('div', { class: 'ojc-setup-foot' },
           h('button', { type: 'button', id: 'ojc-setup-back', onclick: () => { step--; render(); } }, 'Back'),
-          h('button', { type: 'button', id: 'ojc-setup-next', class: 'is-primary', onclick: () => { if (step < 2) { step++; render(); } else done(true); } }, 'Next'))));
+          h('button', { type: 'button', id: 'ojc-setup-next', class: 'is-primary', onclick: () => { if (step < LAST) { step++; render(); } else done(true); } }, 'Next'))));
     node.addEventListener('keydown', (e) => { if (e.key === 'Escape') done(false); });
     document.body.appendChild(node);
     render();

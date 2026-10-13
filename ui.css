@@ -262,4 +262,20 @@
 .ojc-setup-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 #ojc-setup .is-primary { background: #3f6ea8; color: #fff; padding: 9px 22px; }
 #ojc-setup .is-primary:hover { background: #4d82c1; }
-@media (max-width: 480px) { .ojc-setup-row { grid-template-columns: 1fr; } }
+/* D68: the archetype grid on setup's first screen. Picked = blue (a choice), unlike the red "Instant no" chips. */
+.ojc-setup-arche { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; max-height: 52vh; overflow-y: auto; }
+#ojc-setup .ojc-archebtn { display: flex; align-items: center; gap: 8px; border-radius: 10px; padding: 10px 12px; text-align: left; line-height: 1.25; }
+#ojc-setup .ojc-archebtn.is-on { background: #3f6ea8; color: #fff; }
+#ojc-setup .ojc-archebtn:disabled { opacity: .45; cursor: default; }
+.ojc-setup-levels { display: grid; gap: 8px; }
+.ojc-setup-guide { margin-top: 12px; padding: 8px 12px; border-radius: 8px; background: #26323e; color: #cbd5e0; font-size: 13px; }
+.ojc-setup-guide summary { cursor: pointer; font-weight: 600; color: #e6edf3; }
+.ojc-setup-guide ul { margin: 8px 0 4px; padding-left: 18px; }
+.ojc-setup-guide li { margin: 3px 0; }
+.ojc-setup-guide code { background: #1a232c; color: #8ab4f8; padding: 1px 6px; border-radius: 4px; }
+.ojc-setup-body .ojc-setup-guide p { margin: 4px 0 0; color: #9fb3c8; }
+#ojc-setup .ojc-levelbtn small { display: block; margin-top: 2px; font-weight: 400; color: #9fb3c8; }
+#ojc-setup .ojc-levelbtn.is-on small { color: #dbe7f5; }
+.ojc-arche-icon { font-size: 18px; }
+.ojc-keyword-io select { border: 0; border-radius: 999px; padding: 6px 10px; background: #33414f; color: #e6edf3; font: 600 12px system-ui, sans-serif; }
+@media (max-width: 480px) { .ojc-setup-row { grid-template-columns: 1fr; } .ojc-setup-arche { grid-template-columns: 1fr; } }

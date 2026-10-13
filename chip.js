@@ -5,7 +5,7 @@
  * (docs/img/list-chip.png). It is now one slim bar, sticky inside the site's own results column, so it scrolls
  * with the board and never covers a card:
  *
- *   [Everything] [⭐ Top picks 14] [🤔 Maybe 2] [💚 Liked 3]   🙈 3 hidden ▾      Read posts  ⚙
+ *   [Everything] [⭐ Top picks 14] [🤔 Maybe 2] [💚 Liked 3] [⚫ Lowball 4]   🙈 3 hidden ▾      Read posts  ⚙
  *   ▓▓▓▓▓▓░░░░ Reading posts 12 of 40 · 1 better · 0 worse
  *
  * Two controls that never share a word (D46): the pills choose what you LOOK at; `N hidden ▾` opens the
@@ -27,7 +27,7 @@
   const L = self.OJCLabels;
 
   const ID = 'ojc-chip';
-  const VIEWS = ['all', 'high', 'worth', 'pos'];
+  const VIEWS = ['all', 'high', 'worth', 'pos', 'low'];
   let ui = null;
   let popOpen = false;
   const actions = [];   // { id, text, title, onClick, order, hidden() } registered by other modules

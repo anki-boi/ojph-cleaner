@@ -124,7 +124,16 @@ assert.strictEqual(d({ card: card({ goal: true, neg: ['crypto'] }), detail: det(
 // ── HIDDEN / VISIBLE, AND THE COUNT BUCKETS THE CHIP USES ────────────────
 for (const t of ['closed', 'stale', 'nosal', 'kw']) assert.strictEqual(isHidden(t), true, t);
 for (const t of ['high', 'pos', 'worth', 'none']) assert.strictEqual(isHidden(t), false, t);
-assert.deepStrictEqual(TIERS, ['closed', 'stale', 'nosal', 'high', 'pos', 'worth', 'kw', 'none']);
+assert.deepStrictEqual(TIERS, ['closed', 'stale', 'nosal', 'low', 'high', 'pos', 'worth', 'kw', 'none']);
+
+// ── LOWBALL (D67): after the three facts, before every keyword ───────────
+assert.strictEqual(d({ card: card({ low: true }) }), 'low');
+assert.strictEqual(d({ card: card({ low: true, neg: ['crypto'] }) }), 'low',
+  'a blocked word must not hide a listing you may want to report');
+assert.strictEqual(d({ card: card({ low: true, pos: ['ai'] }) }), 'low', 'a word you like does not lift a lowball');
+assert.strictEqual(d({ stale: true, card: card({ low: true }) }), 'stale', 'an old post is not worth a report');
+assert.strictEqual(d({ closed: true, card: card({ low: true }) }), 'closed');
+assert.strictEqual(isHidden('low'), false, 'a lowball is shown, never hidden');
 // An unknown verdict must not be treated as hidden: the safe direction for this extension is
 // "show it", because a false hide costs a real job listing.
 assert.strictEqual(isHidden('nonsense'), false);

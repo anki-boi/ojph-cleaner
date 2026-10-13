@@ -242,7 +242,8 @@ const waitCards = async (tab) => {
 let version;
 try { version = await (await fetch(`http://127.0.0.1:${PORT}/json/version`)).json(); }
 catch { await fail(`nothing listening on ${PORT} — start the automation Chrome (see docs/HANDOFF.md)`); }
-if (!/Chrome\//.test(version.Browser)) await fail(`:${PORT} is ${version.Browser}, not Chrome`);
+// Edge is Chromium with the same developerPrivate API, and it is the owner's debug browser (OJC_CDP_PORT=9222).
+if (!/(Chrome|Edg)\//.test(version.Browser)) await fail(`:${PORT} is ${version.Browser}, not Chrome or Edge`);
 
 const extInfo = await withTab(PORT, 'chrome://extensions', async (tab) => JSON.parse(
   await tab.evaluate(`chrome.developerPrivate.getExtensionsInfo({includeDisabled:true})
@@ -437,7 +438,7 @@ ${CLOSED_SRC}
     return title + '|' + company;
   };
   const dupSet = OJRules.findDuplicates(cards.map(c => ({ key: dupKeyOf(c), at: postedAt(c) })));
-  const tiers = { closed: 0, stale: 0, nosal: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0 };
+  const tiers = { closed: 0, stale: 0, nosal: 0, low: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0 };
   let noDate = 0, noUtc = 0, negBadges = 0, posBadges = 0, flagBadges = 0, scanned = 0, overHours = 0, fresh = 0, dups = 0, negRescuedCount = 0, bothSides = 0;
   for (let i = 0; i < cards.length; i++) { const c = cards[i];
     const text = ownText(c);
@@ -459,7 +460,7 @@ ${CLOSED_SRC}
     if (rec) scanned++;
     if (rec && rec.fields && Number(rec.fields.hoursPerWeek) > 40) overHours++;
     const card = { ...OJCTiers.cardFacts(text, settings, OJRules.matchKeywords), goal: c.classList.contains('ojc-goal'),
-      goalBy: c.dataset.goalBy !== undefined ? Number(c.dataset.goalBy) : null };
+      goalBy: c.dataset.goalBy !== undefined ? Number(c.dataset.goalBy) : null, low: c.classList.contains('ojc-low') };
     const tier = OJCTiers.decide({
       closed: !!(id && closedIds.has(String(id))),
       stale: OJRules.isStale(at, now, maxAgeDays),
@@ -471,8 +472,8 @@ ${CLOSED_SRC}
     if (tier === 'high' && at != null && now - at < 24 * 3600 * 1000) fresh++;
     // Duplicates mirror content.js: the older copy is tagged whenever the card is VISIBLE (the view is all).
     const visibleTiers = showHidden
-      ? ['high', 'pos', 'worth', 'none', 'closed', 'stale', 'nosal', 'kw']
-      : ['high', 'pos', 'worth', 'none'];
+      ? ['high', 'pos', 'worth', 'none', 'low', 'closed', 'stale', 'nosal', 'kw']
+      : ['high', 'pos', 'worth', 'none', 'low'];
     if (dupSet.has(i) && visibleTiers.includes(tier)) dups++;
     // The negotiable rescue mirror: NO figure (a card that says DOE but also states $4-$6 is a salaried
     // card, not a rescued one), the word says negotiable, the toggle is on, and the card landed where a
@@ -490,7 +491,7 @@ ${CLOSED_SRC}
     if ((tier === 'high' || tier === 'pos' || tier === 'worth') && pm) posBadges++;   // worth badges both sides now
     if ((tier === 'high' || tier === 'worth' || tier === 'kw') && nm) negBadges++;
     // The off-platform tag goes on EVERY card that carries one, whatever its tier — it is a tag, not a verdict.
-    if (['high', 'worth', 'kw', 'none'].includes(tier) && flagged) flagBadges++;
+    if (['high', 'worth', 'kw', 'none', 'low'].includes(tier) && flagged) flagBadges++;
   }
   return JSON.stringify({ cards: cards.length, tiers,
     closedExpected: tiers.closed, staleExpected: tiers.stale, noSalExpected: tiers.nosal,
@@ -543,7 +544,7 @@ const res = JSON.parse(await withTab(PORT, URL_, async (tab) => {
       // The verdict the pass wrote on each card (data-ojc-tier) — the board's own claim, which the
       // recomputation above has to agree with bucket by bucket.
       domTiers: (() => {
-        const t = { closed: 0, stale: 0, nosal: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0, unset: 0 };
+        const t = { closed: 0, stale: 0, nosal: 0, low: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0, unset: 0 };
         for (const c of cards) t[c.dataset.ojcTier || 'unset']++;
         return t;
       })()
@@ -609,7 +610,7 @@ if (res.negBadges !== res.negBadgeExpected) {
 // The verdict table itself, bucket by bucket: what the pass wrote on the cards against what the same
 // table says it should be. This is the assertion that would have caught the whole of W12 being wired
 // backwards — a wrong bucket is invisible in the total, because the total counts hidden cards only.
-for (const t of ['closed', 'stale', 'nosal', 'high', 'pos', 'worth', 'kw', 'none']) {
+for (const t of ['closed', 'stale', 'nosal', 'low', 'high', 'pos', 'worth', 'kw', 'none']) {
   if (res.domTiers[t] !== res.tiers[t]) {
     await fail(`${res.domTiers[t]} card(s) are "${t}", the rule says ${res.tiers[t]} — ` +
       `on the page ${JSON.stringify(res.domTiers)}, by the rule ${JSON.stringify(res.tiers)}`);
@@ -1919,7 +1920,7 @@ if (res.noSalExpected > 0) {
     await primeCache(tab);   // the scan's own cache, re-read after it wrote
     const closedIds = await readClosedIds();
     const records = await readRecords();
-    const dom = `(() => { const t = { closed: 0, stale: 0, nosal: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0, unset: 0 };
+    const dom = `(() => { const t = { closed: 0, stale: 0, nosal: 0, low: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0, unset: 0 };
       for (const c of document.querySelectorAll('.jobpost-cat-box.latest-job-post')) t[c.dataset.ojcTier || 'unset']++;
       return JSON.stringify(t); })()`;
     let counts, tiers, domTiers;
@@ -1928,12 +1929,12 @@ if (res.noSalExpected > 0) {
         closedIds, records }));
       domTiers = JSON.parse(await tab.evaluate(dom));
       tiers = counts.tiers;
-      if (['closed', 'stale', 'nosal', 'high', 'pos', 'worth', 'kw', 'none'].every(t => domTiers[t] === tiers[t])) break;
+      if (['closed', 'stale', 'nosal', 'low', 'high', 'pos', 'worth', 'kw', 'none'].every(t => domTiers[t] === tiers[t])) break;
       await settle(250);
     }
     return JSON.stringify({ tiers, domTiers, counts, scanned: counts.scannedCards, overHours: counts.overHours });
   }, 500));
-  for (const t of ['closed', 'stale', 'nosal', 'high', 'pos', 'worth', 'kw', 'none']) {
+  for (const t of ['closed', 'stale', 'nosal', 'low', 'high', 'pos', 'worth', 'kw', 'none']) {
     if (parity.domTiers[t] !== parity.tiers[t]) {
       await fail(`after the scan, ${parity.domTiers[t]} card(s) are "${t}" but the rule says ${parity.tiers[t]} ` +
         `(page ${JSON.stringify(parity.domTiers)} vs rule ${JSON.stringify(parity.tiers)}) — the remembered ` +

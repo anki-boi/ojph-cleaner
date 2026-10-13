@@ -104,8 +104,10 @@
     const items = [];
     for (const c of api.cards()) {
       const tier = api.tierOf(c);
-      const rank = RANK[tier];
-      if (rank === undefined) continue;                                  // closed / stale / nosal
+      // D67: a month that could be a lowball once its real hours are known is read FIRST, whatever its tier —
+      // its own HOURS PER WEEK is the only thing that can turn it black (lowball.js never guesses a week).
+      const rank = c.classList.contains('ojc-low-check') && !['closed', 'stale', 'nosal'].includes(tier) ? -1 : RANK[tier];
+      if (rank === undefined) continue;                                  // closed / stale / nosal / low
       if (rank === 1 && !settings.scanWorth) continue;                    // pass 2
       if (rank === 2 && !settings.scanAll) continue;                      // pass 3, off by default
       const a = c.querySelector('a[href*="/jobseekers/job/"]');

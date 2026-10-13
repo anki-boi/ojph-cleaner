@@ -26,9 +26,10 @@
     weeklyApplyGoal: 0, // D64: applications a week you aim for; >0 puts the streak in the bar (0 = off)
     myHours: '', // D59: your working hours, "08:00-18:00", checked against a post's schedule ('' = off)
     searches: [], // D63: saved searches (path+query) that "Check my searches" runs, on a button press only
+    lowballHourly: 2.99, // D67: USD/hour at or below which a listing is a Lowball you can report (0 = off)
+    reportDailyCap: 20, // D67: the most "Salary too low" reports sent in any 24 hours (0 = reporting off)
   };
   let settings = { ...DEFAULTS };
-
   // Which tier the board is showing (W14, D32/D38). Session-only, per tab, deliberately: a way of
   // reading the board, not a preference — a persisted view would reopen every search page filtered.
   let view = 'all';
@@ -105,6 +106,7 @@
     ...tiers.cardFacts(ownText(c), settings, rules.matchKeywords),
     goal: c.classList.contains('ojc-goal'),
     goalBy: c.dataset.goalBy !== undefined ? Number(c.dataset.goalBy) : null,
+    low: c.classList.contains('ojc-low'),   // lowball-cards.js's mark, written beside the goal mark (D67)
   });
 
   function refreshRules() {
@@ -274,7 +276,6 @@
     getSettings: () => settings,
     getView: () => view,
     setView,
-
     /** The verdict the last pass reached for a card, and the facts behind it — the scan's ordering input
      *  (W13.3) and what the live harness recomputes against. */
     tierOf: (c) => tierMap.get(c) || null,

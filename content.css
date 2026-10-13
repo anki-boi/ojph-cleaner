@@ -40,6 +40,17 @@
    place). A card is never both green and red, because the negative branch is decided first. */
 .ojc-neg-badge { background: rgba(192, 57, 43, .16); color: #8e2b20; }
 
+/* Lowball (D67): black, the fourth colour after star, green, yellow and red. Pays at or below your line. */
+.jobpost-cat-box[data-ojc-tier="low"] {
+  outline: 3px solid #111 !important;
+  outline-offset: 2px;
+}
+.ojc-low-badge { background: #111; color: #fff; border: 1px solid #111; cursor: pointer; }
+.ojc-low-badge:hover:not(:disabled) { background: #fff; color: #111; }
+.ojc-low-badge:disabled { cursor: default; opacity: .8; }
+.ojc-low-badge.is-done { background: #555; border-color: #555; opacity: 1; }
+.ojc-low-check-badge { background: #fff; color: #111; border: 1px dashed #111; }
+
 /* Salary annotation (W7): sits ABOVE the site's posted figures on its own line (width: fit-content keeps
    it shrink-wrapped) and is deliberately louder than them. No background: a price should read like a
    price, not like a highlighter. The left rule ties it to the posted figure underneath. The posted

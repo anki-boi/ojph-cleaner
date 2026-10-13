@@ -112,6 +112,8 @@ PRIVACY
 • The only third-party call is a public exchange rate (ECB, via frankfurter.dev), asked
   once per currency per 24 hours and only when a listing on screen pays in that currency.
   No amount, keyword, or anything about you is sent.
+• The only thing ever sent to OnlineJobs.ph is a "Salary too low" report you send yourself with a click,
+  through the site's own report feature, capped per day.
 • Keywords, toggles, cached rates and per-listing verdicts stay in local storage. Listing
   pages a scan read are cached in IndexedDB, on the site's own origin.
 • The content script runs only on onlinejobs.ph and contacts no other host.

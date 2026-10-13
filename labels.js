@@ -16,12 +16,12 @@
 
   const L = {
     /** The tiers as filter pills and bar counts (plural), and as a single card's verdict (singular). */
-    tier: { all: 'Everything', high: 'Top picks', worth: 'Maybe', pos: 'Liked' },
+    tier: { all: 'Everything', high: 'Top picks', worth: 'Maybe', pos: 'Liked', low: 'Lowball' },
     tierOne: {
       high: 'Top pick', worth: 'Maybe', pos: 'Liked', kw: 'blocked word', nosal: 'no pay listed',
-      stale: 'too old', closed: 'closed', none: 'not sorted yet', passed: 'you passed',
+      stale: 'too old', closed: 'closed', none: 'not sorted yet', passed: 'you passed', low: 'lowball',
     },
-    icon: { high: '⭐', worth: '🤔', pos: '💚', hidden: '🙈' },
+    icon: { high: '⭐', worth: '🤔', pos: '💚', low: '⚫', hidden: '🙈' },
     /** Why a listing is hidden — the bar's breakdown. */
     hidden: {
       closed: 'Closed', stale: 'Too old', noSal: 'No pay listed', kw: 'Blocked words', passed: 'You passed',
@@ -38,6 +38,7 @@
       high: 'meets your minimum pay — including the few that mention a blocked word but pay 50 %+ over your minimum',
       worth: 'mentions a word you block, but meets your minimum pay — your call',
       pos: 'mentions a word you are into, but pays below your minimum',
+      low: 'pays at or below your lowball line (Settings → Advanced) — report them to OnlineJobs.ph as "Salary too low"',
     },
     btn: {
       peek: 'Peek at hidden', unpeek: 'Hide them again', scan: 'Read posts', stop: 'Stop',
@@ -77,6 +78,34 @@
       nothingToScan: 'Nothing to sort by: add a word or a minimum pay first',
       notAList: 'Reading posts works on a job list page',
       loadingMore: 'Loading more…',
+    },
+    /** Lowball listings and reporting them (D67). */
+    low: {
+      badge: (rate) => `⚫ lowball · ${rate}/hr · Report`,
+      badgeTip: (rate, floor, hours) => `about ${rate}/hour at best — at or below your ${floor}/hour line` +
+        (hours ? ` (the monthly pay over the post's own ${hours} h/week)` : '') +
+        '. Click to report it to OnlineJobs.ph as "Salary too low" — you confirm first',
+      sending: '⚫ reporting…',
+      confirmOne: (rate, hours, floor) => `Report this job to OnlineJobs.ph for low salary ("Salary too low")?\n\n` +
+        `It pays about ${rate}/hour` + (hours ? ` (the monthly pay over the post's own ${hours} hours a week)` : '') +
+        `, at or below your ${floor}/hour line. The report is filed under your own account.`,
+      reported: '⚫ reported', reportedTip: 'you reported this listing to OnlineJobs.ph as "Salary too low"',
+      check: '⚫? checking hours',
+      checkTip: (floor) => `a monthly figure that could be under ${floor}/hour — the extension reads the post's own ` +
+        'HOURS PER WEEK before calling it a lowball (Read posts opens these first)',
+      nudge: (n) => `⚫ ${n} lowball offer${n === 1 ? '' : 's'} on this board. Let's report ${n === 1 ? 'it' : 'these'}!`,
+      nudgeBtn: 'Report them',
+      bulk: (n) => `⚫ Report ${n} lowball`,
+      bulkTip: 'report every unreported lowball listing on this board as "Salary too low" — you confirm first',
+      confirm: (n, floor, left) => `Report ${n} listing${n === 1 ? '' : 's'} to OnlineJobs.ph as "Salary too low"?\n\n` +
+        `Each one pays ${floor}/hour or less. Reports are filed under your own account, one every few seconds` +
+        (left < n ? `, and your daily limit allows ${left} more today.` : '.'),
+      progress: (done, total) => `Reporting ${done} of ${total}…`,
+      done: (n) => `Reported ${n} lowball listing${n === 1 ? '' : 's'} — thank you`,
+      capped: (cap) => `Daily limit reached (${cap} reports in 24 hours) — change it in Settings → Advanced`,
+      off: 'Reporting is off — set a daily limit above 0 in Settings → Advanced',
+      failed: (why) => `Report not sent: ${why}`,
+      signedOut: 'sign in to OnlineJobs.ph first',
     },
     /** The display currencies (D66). PHP first: it is the default and the board's own currency. */
     currency: { PHP: { symbol: '₱', name: 'Philippine peso' }, USD: { symbol: '$', name: 'US dollar' } },

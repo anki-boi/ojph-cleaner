@@ -91,6 +91,11 @@
   <label class="block" for="weeklyApplyGoal">Applications I aim for each week</label>
   <input type="number" id="weeklyApplyGoal" min="0" step="1" placeholder="0 = off">
   <p class="hint">Shows your streak in the bar and on My jobs. 0 turns it off.</p>
+  <label class="block" for="lowballHourly">Lowball at or below (US$ per hour)</label>
+  <input type="number" id="lowballHourly" min="0" step="0.01" placeholder="2.99">
+  <label class="block" for="reportDailyCap">Lowball reports a day, at most</label>
+  <input type="number" id="reportDailyCap" min="0" step="1" placeholder="20">
+  <p class="hint">A listing whose best possible hourly rate is at or below this line gets a black ⚫ Lowball outline. Judged per hour: a monthly figure only with the post's own hours (its HOURS PER WEEK, read by Read posts, or a number in its text) — never the Full Time label or an assumed week. Until then it shows ⚫? checking hours. Clicking a card's black tag asks, then sends OnlineJobs.ph's own "Salary too low" report under your account; <strong>⚫ Report N lowball</strong> asks once, then sends them 3 seconds apart. Never more than the daily limit. 0 turns either off.</p>
   <label class="block" for="dashboardUrl">Resume-fit dashboard</label>
   <input type="text" id="dashboardUrl" placeholder="http://127.0.0.1:8371">
   <p class="hint">The onlinejobs.ph-suite dashboard on this computer. Its score for your resume goes on every card. Empty turns it off.</p>

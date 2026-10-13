@@ -117,13 +117,15 @@ extension card to pick the changes up.
 
 ## How it decides
 
-Four rules, applied in this order to every listing on the page. The first one that matches wins.
+Five rules, applied in this order to every listing on the page. The first one that matches wins.
 
 1. **Posted too long ago: hidden (*Too old*).** Older than your window (60 days by default).
 2. **No pay: hidden (*No pay listed*).** `TBD`, `N/A`, `Negotiable`, `DOE` and an empty field all fail.
-3. **A word you block: hidden (*Blocked words*),** matched as an exact word or phrase, unless the
+3. **Pays at or below your lowball line: marked black (*Lowball*).** $2.99/hr by default. Judged on the
+   best rate the listing could mean, per hour: a monthly figure is converted at the post's own hours, or 40 a week.
+4. **A word you block: hidden (*Blocked words*),** matched as an exact word or phrase, unless the
    listing meets your minimum pay, in which case it stays as a 🤔 Maybe.
-4. **A word you're into: marked only (*Liked*).** Never hidden, never promoted. Only pay makes a
+5. **A word you're into: marked only (*Liked*).** Never hidden, never promoted. Only pay makes a
    listing a ⭐ Top pick.
 
 | You see | What it means |
@@ -131,6 +133,7 @@ Four rules, applied in this order to every listing on the page. The first one th
 | **⭐ Top picks** | Meets your minimum pay, and mentions no word you block (or it does, but pays 50 %+ over your minimum) |
 | **🤔 Maybe** | Mentions a word you block, but meets your minimum pay: your call |
 | **💚 Liked** | Mentions a word you're into, but pays below your minimum |
+| **⚫ Lowball** | Pays at or below your lowball line. Its black tag is a button: click it, confirm *report this for low salary?*, and it files OnlineJobs.ph's own *Salary too low* report under your account. `⚫ Report N lowball` on the bar (and a *Let's report these* prompt, once per page) reports the rest after one confirm. The pill glows while any are left. A monthly offer whose hours are not read yet shows `⚫? checking hours` Reported cards say `⚫ reported` |
 | **🙈 N hidden** | Why the rest are gone: *Too old*, *No pay listed*, *Blocked words*, *Closed*, *You passed* |
 
 Every word on screen lives in one table, `labels.js`. The tiers, the badges, the salary parser,
@@ -164,6 +167,8 @@ one step of Undo (D48).
 | `currency` | `PHP` | Which currency every figure and your minimum pay are shown in: `PHP` or `USD` (D66). Only the display changes; every comparison is still made in pesos. The minimums are typed in this currency, and switching it in Settings converts them on the spot at the ECB reference rate (refreshed daily; under $100 keeps cents, larger rounds to whole dollars), so the floor means the same in either; a toast says so. If the dollar rate cannot be fetched, figures stay in pesos and the minimums are not judged rather than judged at a guessed rate. |
 | `weeklyApplyGoal` | `0` | How many applications a week you aim for (D64). Above 0, the bar shows your streak (days in a row with an application) and this week's count against the goal; My jobs shows it too. Counted from your own ✓ Applied marks; nothing is sent anywhere. `0` turns it off. |
 | `myHours` | empty | Your working hours in your own time zone, like `08:00-18:00` (D59). A post that states its schedule with a time zone (`6:00 AM to 9:00 AM Philippine Time`, `9-5 EST`) gets a tag with those hours converted to your zone (daylight saving included) and ✅ all inside / ⚠ partly / ✗ outside your hours. Without it, the tag still appears whenever the post's zone differs from yours. A range with no zone is never converted. |
+| `lowballHourly` | `2.99` | The lowball line, in **US dollars per hour** whatever `currency` shows (D67). A listing whose best possible rate is at or below it gets the black ⚫ *Lowball* outline. The top of a range is judged, never the bottom; the line is strictly per hour, and a monthly figure is converted **only with the post's own hours**: its `HOURS PER WEEK` (read by `Read posts`, which opens these first) or a number of hours in its text — never the *Full Time* label and never an assumed week ($400/mo is $2.50/hr at 40 h and $4/hr at 25 h). Until then it is `⚫? checking hours`, not a lowball. A month is 4 weeks; day and per-unit rates are never judged. `0` turns it off. |
+| `reportDailyCap` | `20` | The most *Salary too low* reports sent in any 24 hours (D67). A card's tag asks before it reports; a batch asks once, sends one every 3 seconds, and stops at the first refusal. `0` turns reporting off; the black outline stays. |
 | `searches` | empty | Your saved searches (D63), as keywords or search links. ☆ on the bar saves the search you are on; 🔎 adds the new listings from your OTHER saved searches to the board you are on, de-duplicated and each tagged with the search it came from, so several searches read as one list. Only on a button press, one request at a time, ≥ 600 ms apart, at most 10 pages and 300 listings across all of them, stopping at your recency window and at the first HTTP 429. |
 
 Every word is an **exact word or phrase**, case-insensitively: `ai` matches `AI tools` and
@@ -199,6 +204,10 @@ door for keeping the same lists on two machines, or for a backup in a notes app.
   the tab's `sessionStorage`; the listing pages a run read are cached in IndexedDB, in the site's own
   origin. Pay insights, suggestions, risk scores and *At a glance* are computed from that, on this device.
   There is no server, no account, and no analytics. See `SECURITY.md`.
+- **One kind of write, on your click.** Everything above only reads. A lowball's tag and `⚫ Report N lowball`
+  send OnlineJobs.ph's own *Salary too low* report (the same request as the site's REPORT button) from
+  your signed-in tab, under your account: only on your click (a batch also asks once), 3 seconds apart, at most
+  `reportDailyCap` in 24 hours. The ids you reported stay in `chrome.storage.local` (`reportedJobs`, 180 days).
 - **No unbounded crawling.** The loader fetches *result pages* the site would have served you anyway, one
   per scroll. `Read posts` (automatic on search-page load by default with `autoScan`, or on demand) is
   bounded to the listings inside your recency window, two at a time, with hard caps; saved searches share
@@ -292,6 +301,8 @@ without a reload. Its label checks read `labels.js`, so a rename cannot drift fr
 | `compare.js` | Pin up to 3 cards per tab and compare them side by side (D62) |
 | `searches.js` | Saved searches (D63): ☆ Save, and 🔎 checking the others into this board inside the shared caps |
 | `salary.js` | Free-text salary → monthly figure, currency and units (W7). Pure and unit-tested |
+| `lowball.js` | The lowball line (D67): a salary's best hourly rate in USD, the cent-exact comparison, the report note and the daily cap. Pure and unit-tested |
+| `lowball-cards.js` | Applies it: the `.ojc-low` mark, the black card and its one-click report tag, `⚫? checking hours`, the *Let's report these* prompt and the glow, `⚫ Report N lowball`, and the one request this extension sends to OnlineJobs.ph |
 | `salary-cards.js` | Applies it: the live ECB rate, the figure on each card, the minimum-pay brighten, the display currency |
 | `dashboard-fit.js` | The pure half of the bridge to `onlinejobs.ph-suite`: request shape, 50-per-request batching, the badge, the deep link |
 | `dashboard-cards.js` | Applies it: one localhost call per page of cards, the **fits your resume** badge, the link back to the dashboard |

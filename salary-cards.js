@@ -157,7 +157,7 @@
         .filter(([, p]) => p);
       const settings = api.getSettings();
       const cur = settings.currency || 'PHP';
-      const liveRates = await loadRates([...parsed.map(([, p]) => p.currency), cur]);
+      const liveRates = await loadRates([...parsed.map(([, p]) => p.currency), cur, ...(Number(settings.lowballHourly) > 0 ? ['USD'] : [])]);
       // D66: shown in the chosen currency, judged in pesos. No rate for it → pesos, and the goals are off.
       const disp = cur !== 'PHP' && liveRates[cur] ? { code: cur, rate: liveRates[cur] } : null;
       // Two goals, because they judge different cards: a monthly goal can only be applied where a month
@@ -262,6 +262,7 @@
         const wasGoal = card.classList.contains('ojc-goal');
         card.classList.toggle('ojc-goal', aboveMonthly || aboveHourly);
         if (wasGoal !== card.classList.contains('ojc-goal')) goalMarksChanged = true;
+        if (self.OJCLowballUI?.mark(card, p, basis, liveRates)) goalMarksChanged = true;   // the lowball line (D67)
         if (aboveMonthly) note.dataset.goal = 'monthly';
         else if (aboveHourly) note.dataset.goal = 'hourly';
         else delete note.dataset.goal;

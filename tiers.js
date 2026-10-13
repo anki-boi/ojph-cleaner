@@ -5,7 +5,7 @@
  *
  * One function decides what every card is, and the order of its branches is the product:
  *
- *   closed → stale → no salary (unless rescued) → HIGH YIELD → worth considering → keyword-hide → highlighted → nothing
+ *   closed → stale → no salary (unless rescued) → LOWBALL → HIGH YIELD → worth considering → keyword-hide → highlighted → nothing
  *
  * The first three are unchanged from 0.8.0 and outrank everything: a listing you have seen close, one
  * outside your recency window and one that states no pay are facts about the listing, not opinions about
@@ -39,7 +39,7 @@
   else root.OJCTiers = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   /** Every verdict, in the order the rule pass evaluates them. */
-  const TIERS = ['closed', 'stale', 'nosal', 'high', 'pos', 'worth', 'kw', 'none'];
+  const TIERS = ['closed', 'stale', 'nosal', 'low', 'high', 'pos', 'worth', 'kw', 'none'];
   /** The verdicts that mean "off the board" (unless Show all is on). */
   const HIDDEN = new Set(['closed', 'stale', 'nosal', 'kw']);
 
@@ -98,6 +98,10 @@
     // the board with a ⚠ negotiable tag, instead of hiding. `good` is the RESCUE's predicate only: for a
     // no-figure listing `money` can never be true, so these two doors are keyword doors by construction.
     if (noSalary && !(good && (rescue || (negotiable && rescueNeg)))) return 'nosal';
+    // Lowball: pays at or below the floor you set (lowball.js judges it, salary-cards marks it). Before the
+    // keyword rules on purpose — a blocked word must not hide a listing you may want to report — and after
+    // the three facts, because a closed or stale post is not worth a report. Shown, never hidden.
+    if (c.low) return 'low';
     if (money && !neg) return 'high';
     if (money && neg) {
       // Super green: it would be yellow, but it is unambiguously a keeper — more keywords you like than

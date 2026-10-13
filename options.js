@@ -12,6 +12,7 @@
     noSalary: true, rescueNoSalary: true, rescueNegotiable: true, showHidden: false, autoScan: true,
     scanWorth: true, scanAll: false, autoLoad: true, goalSalary: 60000, goalHourly: 1000,
     maxAgeDays: 60, sortByPay: true, dashboardUrl: 'http://127.0.0.1:8371', currency: 'PHP', weeklyApplyGoal: 0, myHours: '', searches: [],
+    lowballHourly: 2.99, reportDailyCap: 20,
   };
   const toLines = (arr) => (arr || []).join('\n');
   const fromLines = (s) => [...new Set(s.split('\n').map(x => x.trim()).filter(Boolean))];
@@ -40,6 +41,8 @@
     $('weeklyApplyGoal').value = s.weeklyApplyGoal || '';
     $('myHours').value = s.myHours || '';
     $('searches').value = toLines(s.searches);
+    $('lowballHourly').value = s.lowballHourly || '';
+    $('reportDailyCap').value = s.reportDailyCap ?? '';
   });
 
   // Switching the currency converts the two minimums in the form at the cached ECB rate (the content script
@@ -82,6 +85,8 @@
       weeklyApplyGoal: Math.max(0, Math.round(Number($('weeklyApplyGoal').value) || 0)),
       myHours: $('myHours').value.trim(),
       searches: fromLines($('searches').value),
+      lowballHourly: num($('lowballHourly').value, 'USD'),
+      reportDailyCap: Math.max(0, Math.round(Number($('reportDailyCap').value) || 0)),
     };
     chrome.storage.local.set({ settings }, () => {
       const el = $('saved');

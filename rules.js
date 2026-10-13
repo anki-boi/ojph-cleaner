@@ -16,39 +16,55 @@
   }
 
   /**
-   * The one place the "exact word or phrase" pattern is built (D24), so anything that needs the same
-   * matching semantics — `matchKeywords` below, the detail page's highlighter — shares one definition
-   * instead of a second copy that drifts. A leading `=` is accepted and dropped (legacy).
+   * The one place a keyword's pattern is built (D24, D69), so everything that needs the same matching — 
+   * `matchKeywords` below and the detail page's highlighter — shares one definition. Three modes, chosen by
+   * how the keyword is written:
    *
-   * Returns null for an empty keyword. Pass `'g'` to walk every occurrence with `exec`.
+   *   video editor   FORGIVING (the default): whole words, never inside another word — and tolerant of the
+   *                  spellings of the SAME words: a plural on the last word (editor → editors), a space,
+   *                  hyphen or nothing between words (entry level = entry-level = entrylevel), and spaces
+   *                  around a "+" after a number (5+ years = 5 + years).
+   *   design*        BROAD: the last word may continue (designer, designing, designs). Opt-in, because a broad
+   *                  hide word hides real jobs ("intern*" would take "internal" and "international").
+   *   =lead          STRICT: exactly this, no plural ("=lead" never matches "leads") — the pre-D69 behaviour.
+   *
+   * Never inside a word in any mode: `ai` still never matches `email` or `daily` (the defect D24 fixed — `AI`
+   * as a substring matched 30 of 30 live cards). Returns null for an empty keyword. Pass `'g'` to walk every
+   * occurrence with `exec`.
    */
+  const esc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   function keywordRegex(keyword, flags = '') {
-    const raw = String(keyword ?? '').trim();
-    const needle = (raw.startsWith('=') ? raw.slice(1) : raw).trim().toLowerCase();
+    const raw = String(keyword ?? '').trim().toLowerCase();
+    const strict = raw.startsWith('=');
+    let needle = (strict ? raw.slice(1) : raw).trim();
+    const broad = !strict && needle.length > 1 && needle.endsWith('*');
+    if (broad) needle = needle.slice(0, -1).trim();
     if (!needle) return null;
-    // Lookarounds rather than \b: a boundary is "no word character either side", which is also right
-    // for a needle that starts or ends with punctuation (`$5`, `c++`), where \b refuses to match.
-    // The needle is escaped — a keyword is data, so a `.` in one is a literal dot.
-    return new RegExp('(?<!\\w)' + needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?!\\w)', flags);
+    let body;
+    if (strict) body = esc(needle);
+    else {
+      // Words split on spaces and hyphens, rejoined so any of those (or nothing) may sit between them.
+      const words = needle.split(/[\s-]+/).filter(Boolean)
+        .map(w => esc(w).replace(/(\d)\\\+/g, '$1\\s*\\+'));
+      body = words.join('[\\s-]*');
+      if (broad) body += '\\w*';
+      else if (/[a-z]$/.test(needle)) body += '(?:e?s)?';   // one plural on the last word, nothing more
+    }
+    // Lookarounds rather than \b: a boundary is "no word character either side", which is also right for a
+    // needle that starts or ends with punctuation (`$5`, `c++`), where \b refuses to match.
+    return new RegExp('(?<!\\w)' + body + '(?!\\w)', flags);
   }
 
-  /** The keyword as shown to the user: a leading `=` stripped, whitespace trimmed. */
+  /** The keyword as shown to the user: whitespace trimmed, a leading `=` dropped (the `*` stays — it says how
+   *  the word matched). */
   function cleanKeyword(keyword) {
     const raw = String(keyword ?? '').trim();
     return (raw.startsWith('=') ? raw.slice(1) : raw).trim();
   }
 
   /**
-   * Case-insensitive keyword match, **exact by default**: every keyword is a whole word or a whole
-   * phrase. `ai` matches "AI tools" and "AI-powered" but never `email` or `daily`; `video editor`
-   * matches that phrase and not `video editors` — add the forms you want to the list instead of
-   * relying on a substring to catch them. Returns the keywords that matched, as written (empty array
-   * = no match).
-   *
-   * Exact-not-substring is not a preference, it is the fix for a real defect: `AI` as a substring
-   * matched 30 of 30 cards on the live board, through `daily`, `email`, `main`, `paid`, `thumbnail`
-   * and `management` — and because the yellow reconsider rule rescues every negative match, that
-   * silently turned the user's entire negative-keyword list into a no-op.
+   * Case-insensitive keyword match in the three modes above. Returns the keywords that matched, as written
+   * (minus a leading `=`); an empty array is no match.
    */
   function matchKeywords(text, keywords) {
     const t = (text || '').toLowerCase();

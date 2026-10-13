@@ -86,16 +86,36 @@ assert.deepStrictEqual(matchKeywords('RemoteWorker', ['remote']), [], 'no bounda
 assert.deepStrictEqual(matchKeywords('  REMOTE  work ', ['remote']), ['remote']);
 assert.deepStrictEqual(matchKeywords('paid ads run', ['ads']), ['ads']);
 assert.deepStrictEqual(matchKeywords('advertisements', ['ads']), []);
-assert.deepStrictEqual(matchKeywords('editors wanted', ['editor']), [], 'plural is a different word — add it to the list');
-// Phrases are exact too, and still match inside a sentence.
+// D69, the FORGIVING default: still whole words, but the spellings of the same words match — the user, on lists
+// that had to carry "entry level" AND "entry-level": "change the exact match only rule to be broad matching? and
+// then '=' before the word would be exact match". Broad became opt-in (`*`), because a broad HIDE word hides jobs.
+assert.deepStrictEqual(matchKeywords('editors wanted', ['editor']), ['editor'], 'a plural on the last word matches');
+assert.deepStrictEqual(matchKeywords('two inboxes', ['inbox']), ['inbox'], '…including -es');
+assert.deepStrictEqual(matchKeywords('editorial', ['editor']), [], 'but a longer word does not');
 assert.deepStrictEqual(matchKeywords('we need a video editor now', ['video editor']), ['video editor']);
-assert.deepStrictEqual(matchKeywords('we need video editors now', ['video editor']), []);
+assert.deepStrictEqual(matchKeywords('we need video editors now', ['video editor']), ['video editor']);
+assert.deepStrictEqual(matchKeywords('Entry-level VA', ['entry level']), ['entry level'], 'space = hyphen');
+assert.deepStrictEqual(matchKeywords('entry level VA', ['entry-level']), ['entry-level'], 'hyphen = space');
+assert.deepStrictEqual(matchKeywords('ecommerce store', ['e-commerce']), ['e-commerce'], '…= nothing at all');
+assert.deepStrictEqual(matchKeywords('ICD 10 coder', ['ICD-10']), ['ICD-10']);
+assert.deepStrictEqual(matchKeywords('Must have 5 + years', ['5+ years']), ['5+ years'], 'spaces around a "+" after a number');
+assert.deepStrictEqual(matchKeywords('15+ years', ['5+ years']), [], 'a different number is a different requirement');
+// BROAD, opt-in: a trailing `*` lets the last word continue.
+assert.deepStrictEqual(matchKeywords('Graphic Designer', ['design*']), ['design*']);
+assert.deepStrictEqual(matchKeywords('internal tools', ['intern']), [], 'the default never reaches into a longer word…');
+assert.deepStrictEqual(matchKeywords('internal tools', ['intern*']), ['intern*'], '…which is exactly why `*` is opt-in');
+assert.deepStrictEqual(matchKeywords('graphic design work', ['graphic design*']), ['graphic design*'], 'on a phrase, the last word');
+assert.deepStrictEqual(matchKeywords('a * b', ['*']), ['*'], 'a lone * is just a character');
+// STRICT: a leading `=` is exactly the word, no plural — the pre-D69 rule, for words whose plural means something else.
+assert.deepStrictEqual(matchKeywords('generate leads', ['lead']), ['lead']);
+assert.deepStrictEqual(matchKeywords('generate leads', ['=lead']), [], '=lead never matches leads');
+assert.deepStrictEqual(matchKeywords('team lead', ['=lead']), ['lead'], 'shown without its =');
+assert.deepStrictEqual(matchKeywords('entry-level', ['=entry level']), [], 'strict means the spelling too');
 // A needle is data, never a pattern.
 assert.deepStrictEqual(matchKeywords('a c++ developer', ['c++']), ['c++']);
 assert.deepStrictEqual(matchKeywords('axb', ['a.b']), [], 'a dot in a keyword is a dot');
 assert.deepStrictEqual(matchKeywords('cost is $5 (approx)', ['$5']), ['$5']);
-// The leading `=` from the one release that made whole-word opt-in is accepted and ignored, so a saved
-// `=ai` keeps working instead of quietly matching nothing.
+// A saved `=ai` from the release that made whole-word opt-in now means strict — which is what it meant then.
 assert.deepStrictEqual(matchKeywords('AI tools', ['=ai']), ['ai']);
 assert.deepStrictEqual(matchKeywords('email', ['=ai']), []);
 // Empties and duplicates behave.

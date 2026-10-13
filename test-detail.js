@@ -17,9 +17,12 @@ assert.deepStrictEqual(hits('We use AI tools', { positive: ['AI'] }), ['pos:AI']
 assert.deepStrictEqual(hits('Check your email daily', { positive: ['ai'] }), [], 'never inside a word');
 assert.deepStrictEqual(hits('AI and ads', { negative: ['ads'] }), ['neg:ads']);
 assert.deepStrictEqual(hits('ai TOOLS', { positive: ['AI'] }), ['pos:ai'], 'case-insensitive, matched text as written');
-assert.deepStrictEqual(hits('AI tools', { positive: ['=ai'] }), ['pos:AI'], 'the legacy leading = still works');
+assert.deepStrictEqual(hits('AI tools', { positive: ['=ai'] }), ['pos:AI'], 'a leading = (strict) still matches the word itself');
 assert.deepStrictEqual(hits('AI, then AI again', { positive: ['AI'] }), ['pos:AI', 'pos:AI'], 'every occurrence');
-assert.deepStrictEqual(hits('editors wanted', { negative: ['editor'] }), [], 'plural is a different word');
+assert.deepStrictEqual(hits('editors wanted', { negative: ['editor'] }), ['neg:editors'], 'D69: the whole plural is marked');
+assert.deepStrictEqual(hits('editors wanted', { negative: ['=editor'] }), [], '…unless the word is strict');
+assert.deepStrictEqual(hits('a website redesign', { positive: ['design*'] }), [], 'broad still needs a word START');
+assert.deepStrictEqual(hits('Designer role', { positive: ['design*'] }), ['pos:Designer'], '…and marks the whole word');
 // Index correctness, not just the substring.
 assert.deepStrictEqual(plan('We use AI tools', { positive: ['AI'] })[0], { start: 7, end: 9, kind: 'pos', rule: 'keyword' });
 

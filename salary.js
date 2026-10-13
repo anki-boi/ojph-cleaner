@@ -35,7 +35,9 @@
   const CODE_RE = /(?<![a-z])(php|peso|usd|us|eur|gbp|aud|cad|sgd|nzd|jpy|yen)(?![a-z])/;
   const CODE_MAP = { php: 'PHP', peso: 'PHP', usd: 'USD', us: 'USD', eur: 'EUR', gbp: 'GBP',
                      aud: 'AUD', cad: 'CAD', sgd: 'SGD', nzd: 'NZD', jpy: 'JPY', yen: 'JPY' };
-  const SYMBOLS = [[/₱/, 'PHP'], [/€/, 'EUR'], [/£/, 'GBP'], [/¥/, 'JPY'], [/\$/, 'USD']];
+  // A lone "P" right before a number or a "$" is how many posts write pesos — "P$500 per hour", "P25,000/mo" —
+  // checked before "$", which read "P$500" as US dollars ("$500/hr" on a ₱500/hr job, live 2026-10-14).
+  const SYMBOLS = [[/₱|(?<![a-z])p\s?\$|(?<![a-z])p\s?(?=\d)/, 'PHP'], [/€/, 'EUR'], [/£/, 'GBP'], [/¥/, 'JPY'], [/\$/, 'USD']];
   const MONTHLY = /month|\/m\b|\/mo\b/;
   const TIME_UNIT = /annual|year|hour|\/hr|per hr|week|day/;
   // Reading a bare number (spec.md D12). Sampled live 2026-09-18: of 11 bare-number cards, `6.00`,
@@ -131,8 +133,11 @@
     }
 
     // "15k", "36K", "55k PHP" are thousands — read as 15, 36 and 55 they became a peso an hour (seen live, 2026-10-14).
+    // Only a number UNDER 1,000 is multiplied: "55,000K PHP" is a typo for ₱55,000, and ×1000 made it ₱55 million
+    // a month — "$5,476/hr" on a ₱55,000 job (live, 2026-10-14).
     const numbers = [...s.matchAll(/\d[\d,]*(?:\.\d+)?(\s?k\b)?/g)]
-      .map(m => num(m[0].replace(/\s?k$/, '')) * (m[1] ? 1000 : 1)).filter(n => n > 0).slice(0, 2);
+      .map(m => { const n = num(m[0].replace(/\s?k$/, '')); return m[1] && n < 1000 ? n * 1000 : n; })
+      .filter(n => n > 0).slice(0, 2);
     if (!numbers.length) return null;
 
     const [lo, hi] = [Math.min(...numbers), Math.max(...numbers)];

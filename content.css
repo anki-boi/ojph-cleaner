@@ -6,21 +6,26 @@
 /* All of a card's badges share ONE flex row at the top-right, so a keyword badge and an off-platform tag sit
    side by side instead of on top of each other — each was absolutely positioned at the same corner, which
    only worked while a card could carry a single badge. */
+/* The card's tags: a row at the top of the card that WRAPS inside it. It used to float over the corner with no
+   width limit, so a long keyword list ran off the card's left edge — and it ignored the mouse, which also swallowed
+   clicks on the lowball tag (a button) inside it. Live, 2026-10-14. */
 .ojc-badges {
-  position: absolute;
-  top: 6px;
-  right: 10px;
-  z-index: 2;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
   align-items: center;
-  pointer-events: none;
+  max-width: 100%;
+  margin: 0 0 6px;
 }
-.ojc-badges > span {
+.ojc-badges:empty { display: none; }
+.ojc-badges > span, .ojc-badges > button {
   border-radius: 10px;
   padding: 2px 10px;
   font: 600 12px system-ui, sans-serif;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 100%;
 }
 /* Positive match: green highlight (highlight-only — never hidden) */
 .ojc-pos {

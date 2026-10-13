@@ -252,5 +252,14 @@ assert.strictEqual(parseSalary('₱12,500 twice a month').min, 25000);
 assert.strictEqual(parseSalary('Php36K').min, 36000);
 assert.deepStrictEqual([parseSalary('PHP 30k-40k/month').min, parseSalary('PHP 30k-40k/month').max], [30000, 40000]);
 assert.strictEqual(parseSalary('$5k/month').min, 5000);
+// "P" before a number or a "$" is pesos (live, 2026-10-14: "P$500 per hour" was shown as $500/hr).
+assert.strictEqual(parseSalary('P$500 per hour').currency, 'PHP');
+assert.strictEqual(parseSalary('P500/hr').currency, 'PHP');
+assert.strictEqual(parseSalary('P 25,000 monthly').currency, 'PHP');
+assert.strictEqual(parseSalary('up to $500 per month').currency, 'USD', 'the p in "up" is not a peso sign');
+assert.strictEqual(parseSalary('$500 per hour').currency, 'USD');
+assert.strictEqual(parseSalary('55,000K PHP Monthly').min, 55000, 'a K after a number already in thousands is a typo, not ×1000');
+assert.strictEqual(parseSalary('40,000k').min, 40000);
+assert.strictEqual(parseSalary('PHP 2.5k per week').min, Math.round(2500 * 4.33 * 10) / 10, 'a decimal k is thousands too');
 
 console.log('salary: all assertions passed');

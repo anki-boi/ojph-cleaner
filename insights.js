@@ -61,7 +61,7 @@
       const f = r && r.fields;
       if (!f || !f.wage) continue;
       const full = FULL.test(f.typeOfWork || '');
-      const hours = Number.isFinite(f.hoursPerWeek) ? f.hoursPerWeek : full ? S.FULL_TIME_HOURS : null;
+      const hours = Number.isFinite(f.hoursPerWeek) ? f.hoursPerWeek : null;   // D71: stated hours only, never 40
       const p = S.parseSalary(f.wage, hours);
       if (!p) continue;
       if (full) { const m = S.toPhp(p, rates); if (m && Number.isFinite(m.min)) monthly.push(m.min); }

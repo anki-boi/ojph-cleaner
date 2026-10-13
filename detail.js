@@ -109,8 +109,8 @@
     const hours = /^\d+$/.test(clean(hoursRaw)) ? Number(clean(hoursRaw)) : null;
     const partTime = /part[\s-]?time|gig/i.test(typeRaw || '');
     const fullTime = /full[\s-]?time/i.test(typeRaw || '');
-    const assumed = hours === null && !partTime;              // D28: only full-time/unstated may assume
-    const basis = hours !== null ? hours : assumed ? salary.FULL_TIME_HOURS : null;
+    const assumed = false;                                    // D71: no 40 h week is ever assumed (was D28)
+    const basis = hours;
     const parsed = salary.parseSalary(posted, basis);
     const php = finite(parsed ? salary.toPhp(parsed, rates) : null);
     const rate = finite(parsed && !php ? salary.ratePhp(parsed, rates) : null);
@@ -138,9 +138,12 @@
       f.partTime ? 'part-time and no stated hours — a month cannot be computed honestly'
                  : 'the listing does not state hours per week'));
 
+    // D70/D71: per hour first — the month over the listing's own HOURS PER WEEK, or nothing per hour at all.
+    const ph = self.OJCPerHour?.perHour(f.parsed, rates, { hours: f.hours, basis: f.hours !== null ? 'detail' : 'unstated' });
     if (f.php) {
-      const note = salary.formatNote(f.php, disp());
-      bar.appendChild(item('ojc-bar-pay', note, notes(f)));
+      // This IS the post, so "read": no hours here means the post states none.
+      const line = self.OJCPerHour?.payLine({ php: f.php, ph, read: true }, disp()) || { main: salary.formatNote(f.php, disp()), sub: '' };
+      bar.appendChild(item('ojc-bar-pay', line.main + (line.sub ? `  (${line.sub})` : ''), notes(f)));
       if (f.assumed) bar.appendChild(item('ojc-bar-assumed', self.OJCLabels.mark.assumes(salary.FULL_TIME_HOURS), notes(f)));
     } else if (f.rate) {
       bar.appendChild(item('ojc-bar-pay', salary.formatRate(f.rate, f.parsed.unit, disp()) + ' (rate only)',

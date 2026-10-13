@@ -19,17 +19,18 @@
     tier: { all: 'Everything', high: 'Top picks', worth: 'Maybe', pos: 'Liked', low: 'Lowball' },
     tierOne: {
       high: 'Top pick', worth: 'Maybe', pos: 'Liked', kw: 'blocked word', nosal: 'no pay listed',
-      stale: 'too old', closed: 'closed', none: 'not sorted yet', passed: 'you passed', low: 'lowball',
+      stale: 'too old', closed: 'closed', none: 'not sorted yet', passed: 'you passed', low: 'lowball', gig: 'gig, no hours',
     },
     icon: { high: '⭐', worth: '🤔', pos: '💚', low: '⚫', hidden: '🙈' },
     /** Why a listing is hidden — the bar's breakdown. */
     hidden: {
-      closed: 'Closed', stale: 'Too old', noSal: 'No pay listed', kw: 'Blocked words', passed: 'You passed',
+      closed: 'Closed', stale: 'Too old', noSal: 'No pay listed', gig: 'Gigs with no hours', kw: 'Blocked words', passed: 'You passed',
     },
     hiddenTip: {
       closed: 'you saw these listings close — hidden from now on',
       stale: 'posted longer ago than your "too old after" setting',
       noSal: 'the listing states no figure',
+      gig: 'a gig that states no hours per week — its pay cannot be turned into an hourly rate. Read posts opens these first, and one whose page states hours comes back',
       kw: 'mentions a word you never want to see, and does not meet your minimum pay',
       passed: 'you marked these "not for me"',
     },

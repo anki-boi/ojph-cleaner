@@ -124,7 +124,14 @@ assert.strictEqual(d({ card: card({ goal: true, neg: ['crypto'] }), detail: det(
 // ── HIDDEN / VISIBLE, AND THE COUNT BUCKETS THE CHIP USES ────────────────
 for (const t of ['closed', 'stale', 'nosal', 'kw']) assert.strictEqual(isHidden(t), true, t);
 for (const t of ['high', 'pos', 'worth', 'none']) assert.strictEqual(isHidden(t), false, t);
-assert.deepStrictEqual(TIERS, ['closed', 'stale', 'nosal', 'low', 'high', 'pos', 'worth', 'kw', 'none']);
+assert.deepStrictEqual(TIERS, ['closed', 'stale', 'nosal', 'gig', 'low', 'high', 'pos', 'worth', 'kw', 'none']);
+
+// ── A GIG WITH NO HOURS (D71): hidden, after the facts, before every judgement ──
+assert.strictEqual(d({ gigNoHours: true, card: card({ goal: true, pos: ['ai'] }) }), 'gig', 'no hours, no hourly rate — hidden');
+assert.strictEqual(d({ gigNoHours: true, card: card({ low: true }) }), 'gig', 'never a lowball either');
+assert.strictEqual(d({ stale: true, gigNoHours: true, card: card({}) }), 'stale');
+assert.strictEqual(d({ noSalary: true, gigNoHours: true, card: card({}) }), 'nosal', 'no pay at all is the stronger fact');
+assert.strictEqual(isHidden('gig'), true);
 
 // ── LOWBALL (D67): after the three facts, before every keyword ───────────
 assert.strictEqual(d({ card: card({ low: true }) }), 'low');

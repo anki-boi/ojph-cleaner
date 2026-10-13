@@ -11,20 +11,16 @@ const { rankOrder, keyOf } = require('./pay-sort.js');
 const board = (pairs) => pairs.map(([pay, unit], index) => ({ card: 'c' + index, pay, unit, index }));
 const order = (pairs) => rankOrder(board(pairs)).map(it => it.card);
 
-// ── THE BLOCKS: a month, then a rate, then a card with no figure ───────────
+// ── THE BLOCKS (D71.2): per hour, then a month with no hours yet, then a day rate, then no figure ───────
+// The user: "hourly rate [is] the whole bible of the whole operation". An hour is a posted rate or a month over
+// the post's OWN hours (salary-cards writes unit 'hour' for both); a month without hours is not guessed into one.
 assert.deepStrictEqual(
-  order([[null, ''], ['500', 'hour'], ['40000', 'month'], ['120', 'hour'], ['18000', 'month']]),
-  ['c2', 'c4', 'c1', 'c3', 'c0'],
-  'months (desc) → rates (desc) → no figure');
-// The rule the user chose, stated as a test because it is the surprising one: a cheap month outranks a
-// rich hourly rate. Converting ₱500/hr into a month would need a 40-hour week, and this module will not
-// invent one to make a list look tidier.
-assert.deepStrictEqual(order([['500', 'hour'], ['5000', 'month']]), ['c1', 'c0'],
-  'a ₱5,000/mo listing still outranks a ₱500/hr one — no work week is assumed to compare them');
-// A day rate is a rate, ordered by the number the listing posted. ₱5,000/day is not "more" than ₱500/hr
-// without also assuming hours per day, so the two are not converted into each other either.
-assert.deepStrictEqual(order([['500', 'hour'], ['5000', 'day']]), ['c1', 'c0'],
-  'rate against rate: by the posted number, hour and day alike');
+  order([[null, ''], ['500', 'hour'], ['40000', 'month'], ['120', 'hour'], ['18000', 'month'], ['900', 'day']]),
+  ['c1', 'c3', 'c2', 'c4', 'c5', 'c0'],
+  'hours (desc) → months (desc) → day rates → no figure');
+assert.deepStrictEqual(order([['5000', 'month'], ['150', 'hour']]), ['c1', 'c0'],
+  'any hourly figure outranks a month whose hours are unknown — that month cannot be compared per hour yet');
+assert.deepStrictEqual(order([['5000', 'day'], ['150', 'hour']]), ['c1', 'c0'], 'a day rate has no hour either');
 
 // ── ORDER WITHIN A BLOCK, AND THE SITE'S OWN ORDER INSIDE A TIE ────────────
 assert.deepStrictEqual(order([['10000', 'month'], ['30000', 'month'], ['20000', 'month']]),
@@ -38,9 +34,9 @@ assert.deepStrictEqual(order([['9000', 'month'], [null, ''], ['20000', 'month']]
   'an unpriceable card is a block of its own, not a 0 ₱ month');
 
 // ── WHAT COUNTS AS A FIGURE: the mapping, including what it rejects ────────
-assert.strictEqual(keyOf('40000', 'month', 0).block, 0);
-assert.strictEqual(keyOf('400', 'hour', 0).block, 1);
-assert.strictEqual(keyOf('400', 'day', 0).block, 1);
+assert.strictEqual(keyOf('400', 'hour', 0).block, 0);
+assert.strictEqual(keyOf('40000', 'month', 0).block, 1);
+assert.strictEqual(keyOf('400', 'day', 0).block, 2);
 assert.strictEqual(keyOf('40000', 'month', 3).pay, 40000, 'the key carries the low end of the range');
 assert.strictEqual(keyOf('40000', 'month', 3).index, 3, 'and where the card was, so ties can be broken');
 // Defensive: the dataset is a string on a page we do not control. Anything that is not a positive number
@@ -49,7 +45,7 @@ assert.strictEqual(keyOf('40000', 'month', 3).index, 3, 'and where the card was,
 for (const [pay, unit] of [['', 'month'], ['0', 'month'], ['-5', 'month'], ['abc', 'month'],
   [undefined, 'month'], ['40000', ''], ['40000', null], ['40000', 'hr'], ['40000', 'week'],
   ['40000', 'unit'], ['NaN', 'hour']]) {
-  assert.strictEqual(keyOf(pay, unit, 0).block, 2, `${pay}/${unit} is not a figure`);
+  assert.strictEqual(keyOf(pay, unit, 0).block, 3, `${pay}/${unit} is not a figure`);
 }
 assert.strictEqual(keyOf('', '', 0).pay, 0, 'an unranked key carries a 0, so the comparator never sees NaN');
 assert.deepStrictEqual(rankOrder([]), [], 'an empty board sorts to an empty board');
@@ -61,4 +57,4 @@ const copy = input.map(it => it.card);
 rankOrder(input);
 assert.deepStrictEqual(input.map(it => it.card), copy, 'rankOrder returns a new array and leaves the input alone');
 
-console.log('test-paysort: ok (3 blocks + ties + what counts as a figure)');
+console.log('test-paysort: ok (4 blocks, hourly first + ties + what counts as a figure)');

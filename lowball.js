@@ -17,7 +17,8 @@
  *     listings first to fetch their hours (scan.js), and only then can one turn black.
  *   - A month is 4 weeks (160 h at full time), the same convention salary.js uses. 4.33 weeks would make
  *     every monthly rate look ~8 % worse; 4 keeps the benefit of the doubt with the employer.
- *   - Day rates, per-unit rates and figures with no live exchange rate are never judged.
+ *   - Gigs and whole-job prices ("200.00 for the Gig", "$300 per project"), day rates, per-unit rates and
+ *     figures with no live exchange rate are never judged.
  *
  * The floor is in US dollars per hour, whatever currency the board is shown in: it is the unit the
  * community argues about ("anything under $3/hr"), and it must not move when the peso does.
@@ -31,6 +32,7 @@
   /** OnlineJobs.ph's own report reason "Salary too low" (GET /report-types, observed 2026-10-13). */
   const REPORT_TYPE_SALARY = 1;
   const WEEKS_PER_MONTH = 4;
+  const MIN_PLAUSIBLE_USD = 0.2;  // below this an hourly rate is a misread figure ("PHP 20.000/m" = ₱20), not an offer
   const CANDIDATE_HOURS = 60;   // the longest week a month is checked against before its real hours are read
   const VERIFIED = new Set(['detail', 'stated']);   // salary.js bases that come from the post's own number
   const DAY_MS = 24 * 3600 * 1000;
@@ -50,6 +52,7 @@
    * The best hourly rate a parsed salary could mean, in USD — or null when it cannot honestly be said.
    * `parsed` is salary.js's parseSalary() result; `hours` is the weekly hours the card's basis knows (or null).
    */
+  const plausible = (usd) => (usd == null || usd < MIN_PLAUSIBLE_USD ? null : usd);
   function hourlyUsd(parsed, hours, rates) {
     // `hours` is what the caller knows or assumes (hoursFor below); the month needs it, a rate does not.
     if (!parsed || parsed.perUnit) return null;
@@ -61,12 +64,12 @@
     if (rateUnit && parsed.assumedCurrency && parsed.currency !== 'USD') return null;
     if (parsed.unit === 'hour?' && parsed.currency !== 'USD') return null;
     const top = parsed.raw ? parsed.raw.max : parsed.max;
-    if (parsed.unit === 'hour' || parsed.unit === 'hour?') return toUsd(top, parsed.currency, rates);
+    if (parsed.unit === 'hour' || parsed.unit === 'hour?') return plausible(toUsd(top, parsed.currency, rates));
     if (parsed.unit === 'day') return null;
     const h = Number(hours) > 0 ? Number(hours) : null;
     if (!h || !parsed.monthly) return null;   // a month with unknown hours could be any rate
     const usdMonth = toUsd(parsed.max, parsed.currency, rates);   // parsed.max is already a month
-    return usdMonth == null ? null : usdMonth / (h * WEEKS_PER_MONTH);
+    return plausible(usdMonth == null ? null : usdMonth / (h * WEEKS_PER_MONTH));
   }
 
   /** The weekly hours a month may be divided by: the post's own number, or null. `basis` is the
@@ -81,6 +84,16 @@
   function isCandidate(parsed, hours, rates, floorUsd) {
     if (!parsed || hours || parsed.unit === 'hour' || parsed.unit === 'hour?') return false;
     return isLowball(hourlyUsd(parsed, CANDIDATE_HOURS, rates), floorUsd);
+  }
+
+  /**
+   * A gig, or pay quoted for the whole job: never judged (the user, on "200.00 for the Gig" at 20 h/week flagged
+   * as $2.50/hr: "the lowball feature should simply skip gigs entirely"). A one-off price has no hourly rate —
+   * dividing it by a week's hours invents one. `type` is the card's badge or the post's TYPE OF WORK.
+   */
+  const PER_JOB = /\bgigs?\b|\bper (?:project|task|job|piece)\b|\bfor the (?:project|job|task)\b|\bfixed[- ](?:price|rate|fee)\b/i;
+  function isGig(type, salaryText) {
+    return /\bgig\b/i.test(String(type || '')) || PER_JOB.test(String(salaryText || ''));
   }
 
   /** At or below the floor, to the cent. A floor of 0 (or anything not a positive number) is off. */
@@ -112,5 +125,5 @@
     return Math.max(0, c - used);
   }
 
-  return { REPORT_TYPE_SALARY, toUsd, hourlyUsd, hoursFor, isCandidate, isLowball, reportReason, prune, remainingToday, dollars };
+  return { REPORT_TYPE_SALARY, toUsd, hourlyUsd, hoursFor, isCandidate, isGig, isLowball, reportReason, prune, remainingToday, dollars };
 });

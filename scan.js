@@ -106,7 +106,10 @@
       const tier = api.tierOf(c);
       // D67: a month that could be a lowball once its real hours are known is read FIRST, whatever its tier —
       // its own HOURS PER WEEK is the only thing that can turn it black (lowball.js never guesses a week).
-      const rank = c.classList.contains('ojc-low-check') && !['closed', 'stale', 'nosal'].includes(tier) ? -1 : RANK[tier];
+      // D71/D71.1: listings whose hourly rate waits on their own HOURS PER WEEK are read FIRST, whatever their tier — a
+      // monthly offer (so it can be compared per hour), a possible lowball, and a gig hidden only for want of hours.
+      const needsHours = c.classList.contains('ojc-needs-hours') || c.classList.contains('ojc-low-check');
+      const rank = (needsHours && !['closed', 'stale', 'nosal'].includes(tier)) || tier === 'gig' ? -1 : RANK[tier];
       if (rank === undefined) continue;                                  // closed / stale / nosal / low
       if (rank === 1 && !settings.scanWorth) continue;                    // pass 2
       if (rank === 2 && !settings.scanAll) continue;                      // pass 3, off by default

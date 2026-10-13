@@ -151,7 +151,7 @@
       hr.oninput = () => { hourlyTouched = true; answers.hourly = Number(hr.value) || 0; };
       cur.onchange = () => { answers.currency = cur.value; render(); };
       return [h('h2', {}, "What's the least you'd take?"),
-        h('p', {}, 'Jobs that pay at least this become ⭐ Top picks. Full-time jobs are judged per month, everything else per hour.'),
+        h('p', {}, 'Jobs that pay at least this become ⭐ Top picks. A job is judged per hour when its hours are known, otherwise per month.'),
         h('div', { class: 'ojc-setup-row' }, h('label', {}, 'Currency', cur)),
         h('div', { class: 'ojc-setup-row' },
           h('label', {}, 'Per month', h('span', { class: 'ojc-setup-money' }, sym, m)),
@@ -229,5 +229,25 @@
     });
   }
 
-  self.OJCSetup = { open };
+  /** ⚙'s "+ Add words for…" (D68): a preset's words merged into the two boxes — nothing saved until Save, and a
+   *  block on a word the preset wants is dropped (presets.js's merge rule). panel.js hands over its elements. */
+  function wirePresetPicker(select, posBox, negBox) {
+    if (!select || select.options.length > 1) return;
+    for (const [label, list] of [['Kind of work', PR.ARCHETYPES], ['Experience', PR.LEVELS]]) {
+      const g = Object.assign(document.createElement('optgroup'), { label });
+      for (const a of list) g.append(new Option(`${a.icon} ${a.label}`, a.id));
+      select.append(g);
+    }
+    const lines = (box) => [...new Set(box.value.split('\n').map(x => x.trim()).filter(Boolean))];   // one per line, as the panel saves
+    select.onchange = () => {
+      if (!select.value) return;
+      const next = PR.addTo({ positive: lines(posBox), negative: lines(negBox) }, select.value);
+      posBox.value = next.positive.join('\n');
+      negBox.value = next.negative.join('\n');
+      self.OJCToast?.show(`Added the ${select.selectedOptions[0].text.replace(/^\S+\s/, '')} words — check them, then Save`);
+      select.value = '';
+    };
+  }
+
+  self.OJCSetup = { open, wirePresetPicker };
 })();

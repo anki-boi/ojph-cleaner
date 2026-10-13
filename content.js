@@ -4,7 +4,7 @@
   const rules = self.OJRules, tiers = self.OJCTiers, L = self.OJCLabels;
   // Everything this file knows about the site's list markup lives in page.js (spread into the API below).
   const page = self.OJCPage;
-  const { LIST_RE, cards, ownText, cardSalary, postedAt, dupKeyOf } = page;
+  const { LIST_RE, cards, ownText, cardSalary, postedAt, dupKeyOf, gigWithoutHours } = page;
 
   const DEFAULTS = {
     negative: ['editor', 'cold calling', 'cold call', 'graphic', 'aws', 'azure', 'bookkeeper', 'book keeper', 'accounting', 'medical coding', 'medical billing', 'billing', 'onboarding', 'marketing', 'social media', 'legal', 'paralegal', 'plumbing', 'video editor', 'graphic designer', 'medical coder', 'ICD-10'],  // keyword list → hide (exact word/phrase, case-insensitive)
@@ -28,6 +28,7 @@
     searches: [], // D63: saved searches (path+query) that "Check my searches" runs, on a button press only
     lowballHourly: 2.99, // D67: USD/hour at or below which a listing is a Lowball you can report (0 = off)
     reportDailyCap: 20, // D67: the most "Salary too low" reports sent in any 24 hours (0 = reporting off)
+    hideGigsNoHours: true, // D71: hide a Gig that states no hours per week — no hourly rate can be known
   };
   let settings = { ...DEFAULTS };
   // Which tier the board is showing (W14, D32/D38). Session-only, per tab, deliberately: a way of
@@ -98,7 +99,7 @@
     return box;
   };
 
-  const HIDDEN_BY = { closed: 'closed', stale: 'stale', nosal: 'noSal', passed: 'passed' };
+  const HIDDEN_BY = { closed: 'closed', stale: 'stale', nosal: 'noSal', gig: 'gig', passed: 'passed' };
   const cardHooks = [];   // (card, { tier, box, at, now, counts }) → void; registered through self.OJC.addCardHook
   /** The verdict per card — the scan's priority order and the live harness read the same data attribute. */
   const tierMap = new WeakMap();
@@ -117,7 +118,7 @@
     // read only when something is genuinely missing.
     records?.hydrateNew?.();
     const closed = self.OJCClosed;
-    const counts = { closed: 0, stale: 0, noSal: 0, kw: 0, passed: 0, high: 0, pos: 0, worth: 0, offPlat: 0, fresh: 0, dup: 0 };
+    const counts = { closed: 0, stale: 0, noSal: 0, gig: 0, kw: 0, passed: 0, high: 0, pos: 0, worth: 0, offPlat: 0, fresh: 0, dup: 0 };
     const list = cards();
     // Duplicates are relational — no single card can know it is the older copy without the rest of the board.
     const dupSet = rules.findDuplicates(list.map(c => ({ key: dupKeyOf(c), at: postedAt(c) })));
@@ -131,7 +132,7 @@
       const tier = self.OJCTriage?.isPassed?.(c) ? 'passed' : tiers.decide({
         closed: closed?.isHeld(c),
         stale: rules.isStale(at, now, settings.maxAgeDays),
-        noSalary: settings.noSalary && !rules.hasSalary(salText),
+        noSalary: settings.noSalary && !rules.hasSalary(salText), gigNoHours: settings.hideGigsNoHours && gigWithoutHours(c),
         rescue: settings.rescueNoSalary,
         negotiable: rules.isNegotiable(salText),
         rescueNeg: settings.rescueNegotiable,
@@ -242,7 +243,6 @@
     const first = cards().find(c => !c.hidden && tierMap.get(c) === next);
     if (first) first.scrollIntoView({ block: 'center', behavior: 'instant' });
   }
-
   // ── Settings ─────────────────────────────────────────────────────────────
   // The panel's Save is a form: it writes the whole object.
   function persist() { chrome.storage.local.set({ settings }); }

@@ -17,8 +17,13 @@
     card: '.jobpost-cat-box.latest-job-post',
     cardSalary: 'dd.col',
     cardPosted: 'p[data-temp]',   // W8: "Posted on …", on every card
+    cardType: 'h4 .badge',        // D67: the type of work beside the title — Full Time / Part Time / Gig / Any (live 2026-10-14)
   };
   const cards = () => [...document.querySelectorAll(SELECTORS.card)];
+  /** D71: a Gig (the card's type badge) with no hours per week — not on the card, and not on its page if a scan
+   *  read it. Hours are only ever the post's own number. */
+  const gigWithoutHours = (c) => /\bgig\b/i.test(c.querySelector(SELECTORS.cardType)?.textContent || '') &&
+    !self.OJCRecordsUI?.hoursInfoFor?.(c) && !(self.OJCSalary?.hoursPerWeekFrom(ownText(c)).hours > 0);
 
   /**
    * The site's own text inside `el`, free of anything this extension injected.
@@ -71,5 +76,5 @@
     return title + '|' + company;
   };
 
-  self.OJCPage = { LIST_RE, SELECTORS, cards, ownText, cardSalary, postedAt, dupKeyOf };
+  self.OJCPage = { LIST_RE, SELECTORS, cards, ownText, cardSalary, postedAt, dupKeyOf, gigWithoutHours };
 })();

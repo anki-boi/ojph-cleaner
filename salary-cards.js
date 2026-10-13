@@ -10,7 +10,8 @@
   if (typeof chrome === 'undefined' || !chrome.storage) return; // node: nothing to do
   const api = self.OJC;
   if (!api) return;
-  const { parseSalary, toPhp, ratePhp, formatNote, formatRate, goalInPhp, meetsGoal, goalBand, hoursPerWeekFrom, pickFresh } = self.OJCSalary;
+  const { perHour, payLine } = self.OJCPerHour;
+  const { parseSalary, toPhp, ratePhp, goalInPhp, meetsGoal, goalBand, hoursPerWeekFrom, pickFresh } = self.OJCSalary;
 
   const FX_URL = 'https://api.frankfurter.dev/v2/rates'; // ECB reference rates (v1 is deprecated)
   const FX_TTL_MS = 24 * 3600 * 1000;   // the server refreshes daily; older than this is not used
@@ -172,7 +173,7 @@
       const HOURS_SOURCE = {
         stated: 'as stated on the card',
         detail: "the listing's own HOURS PER WEEK",
-        'full-time': 'full time — assumed, so confirm the hours with the employer',
+        'full-time': 'full time — the post states no number of hours',
         'part-time': 'part time',
         unstated: 'hours not stated',
       };
@@ -203,40 +204,36 @@
           note.className = 'ojc-salary-note';
           d.insertBefore(note, d.firstChild);   // above the posted figures, not after them
         }
-        // A month built from an hourly rate under the full-time definition rests on a 40 h/week
-        // assumption, so the card says so instead of presenting it as fact (the user's rule: do not
-        // trust the monthly blindly). A month from a stated period, or from stated hours, needs no
-        // warning — neither of those is an assumption.
-        const assumedWeek = !!php && (p.unit === 'hour' || p.unit === 'hour?') && basis.basis === 'full-time';
-        let warn = d.querySelector('.ojc-salary-warn');
-        if (assumedWeek) {
-          if (!warn) {
-            warn = document.createElement('em');
-            warn.className = 'ojc-salary-warn';
-            note.after(warn);
-          }
-          warn.textContent = self.OJCLabels.mark.assumes(p.hours);
-        } else if (warn) {
-          warn.remove();
-        }
+        // D71: no month is ever built on an assumed 40 h week any more, so the old "if full-time (40 h/wk)"
+        // warning has nothing left to warn about — one left over from an earlier pass goes.
+        d.querySelector('.ojc-salary-warn')?.remove();
         note.dataset.hours = p.hours ? String(p.hours) : '';
         // Which hours the figure rests on, and where they came from — read by tools/verify-live.mjs so it
         // checks the FIGURE against the input the extension declares, instead of guessing the input from the
         // card's prose (a guess that produced seven phantom failures the moment a scanned listing's own
         // HOURS PER WEEK differed from what its preview text happened to say).
         note.dataset.basis = basis.basis;
+        // D70: per hour first, the month small beside it. A gig's price is the job's, not an hour's.
+        const gig = (p.unit !== 'hour' && p.unit !== 'hour?') &&
+          self.OJCPerHour.isJobPrice(card.querySelector(api.SELECTORS.cardType)?.textContent || basis.type, rawSalary(card));
+        const ph = gig ? null : perHour(p, liveRates, basis);   // shown first, and what the hourly goal judges
+        // D71.1: a month with no hourly figure yet is one whose hours the post's own page may state — Read posts
+        // opens these first (scan.js), so every card can be compared per hour.
+        const read = !!self.OJCRecordsUI?.recordFor?.(card);
+        card.classList.toggle('ojc-needs-hours', !!php && !ph && !gig && !read);
+        const line = payLine({ php, rate, unit: p.unit, ph, gig, read }, disp);
+        const sub = line.sub ? Object.assign(document.createElement('small'), { className: 'ojc-salary-sub', textContent: line.sub }) : null;
+        note.replaceChildren(...(line.main ? [line.main] : []), ...(line.main && sub ? [' ', sub] : []));
+        note.classList.toggle('is-unknown', line.main === self.OJCPerHour.UNKNOWN);   // "? /hr" reads as a gap, not a figure
         if (php) {
-          note.textContent = formatNote(php, disp);
           note.title = (p.currency === 'PHP'
             ? (p.explicit ? 'listed in PHP' : 'no currency in the listing — read as pesos from the figure itself') +
               ` (${p.min}${p.max === p.min ? '' : ' - ' + p.max} per month as posted)`
             : currencyLine(p)) + hoursLine(p, basis);
         } else if (rate) {
-          note.textContent = formatRate(rate, p.unit, disp);
           note.title = `${currencyLine(p)}, posted per ${p.unit === 'day' ? 'day' : 'hour'}` +
             ' — the listing does not say how many hours a week, so no monthly figure is claimed';
         } else {
-          note.textContent = '';
           note.title = p.perUnit
             ? 'paid per unit as posted — a per-unit rate has no honest monthly equivalent'
             : p.unit === 'hour?'
@@ -247,16 +244,12 @@
         // (tools/verify-live.mjs recomputes it) can see it. PHP has no rate entry; it is the identity.
         note.dataset.rate = liveRates[p.currency] ? String(liveRates[p.currency]) : '';
 
-        // ONE goal per card (spec.md D13), chosen by employment type:
-        //   Full Time            → the monthly goal (40 h/week is what full time means, so a month exists)
-        //   Part Time / other    → the hourly goal, using the posted rate
-        //   a month-only posting → the monthly goal, because there is no rate to compare against
-        // Neither goal is ever derived from the other: deriving one would assume someone else's work week.
-        const hourlyPhp = (p.unit === 'hour' || p.unit === 'hour?') ? ratePhp(p, liveRates) : null;
-        // One goal per card (D13): a full-time listing is judged on a month, a part-time or unspecified one on
-        // the posted rate. A month a scan made honest does NOT move a part-timer to the monthly goal — lower
-        // pay for far fewer hours is what part-time means, and 15 h/week can be two jobs.
-        const judgedMonthly = basis.basis === 'full-time' || !hourlyPhp;
+        // ONE goal per card, chosen by what the post actually says (D71, replacing D13's "Full Time → monthly",
+        // which rested on a 40 h week): an hourly figure — a posted rate, or the month over the post's OWN hours —
+        // meets the hourly goal; a month with no stated hours meets the monthly goal, month against month.
+        // Neither goal is ever derived from the other: that would assume someone else's work week.
+        const hourlyPhp = ph ? { min: ph.min, max: ph.max } : null;
+        const judgedMonthly = !hourlyPhp;
         const aboveMonthly = judgedMonthly && meetsGoal(php, goalMonthly);
         const aboveHourly = !judgedMonthly && meetsGoal(hourlyPhp, goalHourly);
         const wasGoal = card.classList.contains('ojc-goal');
@@ -272,14 +265,13 @@
         // One fact, two consumers: the fraction the pay clears the goal by (null when it clears none) —
         // tiers.js reads it for the super-green rule, and the note's band shows it (the premium bands).
         const by = aboveMonthly && goalMonthly > 0 ? (php.min - goalMonthly) / goalMonthly
-                 : aboveHourly && goalHourly > 0 ? (hourlyPhp - goalHourly) / goalHourly : null;
+                 : aboveHourly && goalHourly > 0 ? (hourlyPhp.min - goalHourly) / goalHourly : null;
         if (by == null) delete card.dataset.goalBy; else card.dataset.goalBy = String(by);
         note.dataset.band = goalBand(by);
-        // The sort key (D41): the figure the board may be ranked by, and what it is per. Only a real figure
-        // earns a rank — a card with none keeps the site's own order — and it is the LOW end of a range, the
-        // same end every goal is judged on.
-        const ranked = php || rate;
-        if (ranked) { card.dataset.ojcPay = String(ranked.min); card.dataset.ojcPayUnit = php ? 'month' : p.unit; }
+        // The sort key (D41, D71.2): per hour whenever an hour exists — the board's one measure — else the month or
+        // day figure, each ranked in its own block (pay-sort.js). The LOW end of a range, like every goal.
+        const ranked = ph || php || rate;
+        if (ranked) { card.dataset.ojcPay = String(ranked.min); card.dataset.ojcPayUnit = ph ? 'hour' : php ? 'month' : p.unit; }
         else { delete card.dataset.ojcPay; delete card.dataset.ojcPayUnit; }
       }
       // One extra rule pass, and only when a mark actually moved. The `annotate()` this re-enters

@@ -95,7 +95,9 @@ assert.deepStrictEqual(monthly('140 -175/ per hour', 20), [11200, 14000, 'PHP'],
 
 // ── "Part Time" states no number, so it must not become one ─────────────
 assert.deepStrictEqual(hoursPerWeekFrom('Part Time'), { hours: null, basis: 'part-time' });
-assert.deepStrictEqual(hoursPerWeekFrom('Full Time'), { hours: 40, basis: 'full-time' });
+assert.deepStrictEqual(hoursPerWeekFrom('Full Time'), { hours: null, basis: 'full-time' },
+  'D71: "Full Time" is a label — it supplies no 40 h week to anything');
+assert.deepStrictEqual(hoursPerWeekFrom('Full Time, 45 hours per week'), { hours: 45, basis: 'stated' }, 'a stated number wins');
 assert.deepStrictEqual(hoursPerWeekFrom('Part Time — some full time availability needed'),
   { hours: null, basis: 'part-time' }, 'part-time wins; prose must not hand it a 40-hour month');
 assert.deepStrictEqual(hoursPerWeekFrom('20 hours per week'), { hours: 20, basis: 'stated' });
@@ -239,5 +241,16 @@ assert.strictEqual(goalInPhp(60000, 'PHP', {}), 60000);
 assert.strictEqual(goalInPhp(1000, 'USD', {}), 0, 'no rate → the goal is off, never judged at a guessed rate');
 assert.strictEqual(goalInPhp('', 'USD', { USD: 58 }), 0);
 assert.ok(meetsGoal({ min: 60000, max: 60000 }, goalInPhp(1000, 'USD', { USD: 58 })));
+
+// Pay periods that read as their neighbours: bi-weekly is every two weeks, semi-monthly twice a month.
+assert.strictEqual(parseSalary('$560 BI-WEEKLY').min, Math.round(560 * 4.33 / 2 * 10) / 10);
+assert.strictEqual(parseSalary('$560 biweekly').unit, 'week');
+assert.strictEqual(parseSalary('$300 weekly').min, Math.round(300 * 4.33 * 10) / 10, 'plain weekly unchanged');
+assert.strictEqual(parseSalary('PHP 15,000 semi-monthly').min, 30000);
+assert.strictEqual(parseSalary('₱12,500 twice a month').min, 25000);
+// Thousands written with a k.
+assert.strictEqual(parseSalary('Php36K').min, 36000);
+assert.deepStrictEqual([parseSalary('PHP 30k-40k/month').min, parseSalary('PHP 30k-40k/month').max], [30000, 40000]);
+assert.strictEqual(parseSalary('$5k/month').min, 5000);
 
 console.log('salary: all assertions passed');

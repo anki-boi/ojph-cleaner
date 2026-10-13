@@ -5,7 +5,7 @@
  *
  * One function decides what every card is, and the order of its branches is the product:
  *
- *   closed → stale → no salary (unless rescued) → LOWBALL → HIGH YIELD → worth considering → keyword-hide → highlighted → nothing
+ *   closed → stale → no salary (unless rescued) → GIG WITH NO HOURS → LOWBALL → HIGH YIELD → worth considering → keyword-hide → highlighted → nothing
  *
  * The first three are unchanged from 0.8.0 and outrank everything: a listing you have seen close, one
  * outside your recency window and one that states no pay are facts about the listing, not opinions about
@@ -39,9 +39,9 @@
   else root.OJCTiers = factory();
 })(typeof self !== 'undefined' ? self : this, function () {
   /** Every verdict, in the order the rule pass evaluates them. */
-  const TIERS = ['closed', 'stale', 'nosal', 'low', 'high', 'pos', 'worth', 'kw', 'none'];
+  const TIERS = ['closed', 'stale', 'nosal', 'gig', 'low', 'high', 'pos', 'worth', 'kw', 'none'];
   /** The verdicts that mean "off the board" (unless Show all is on). */
-  const HIDDEN = new Set(['closed', 'stale', 'nosal', 'kw']);
+  const HIDDEN = new Set(['closed', 'stale', 'nosal', 'gig', 'kw']);
 
   const has = (arr) => Array.isArray(arr) && arr.length > 0;
 
@@ -77,7 +77,7 @@
    *  that cannot be proven is not one. */
   const goalBy = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
-  function decide({ closed, stale, noSalary, rescue, card, detail, negotiable = false, rescueNeg = false } = {}) {
+  function decide({ closed, stale, noSalary, gigNoHours = false, rescue, card, detail, negotiable = false, rescueNeg = false } = {}) {
     const c = card || {};
     // The card's text and the description are the same keyword vocabulary, so the counts merge — the
     // same union the badges show. A keyword matched on both sides counts once.
@@ -98,6 +98,9 @@
     // the board with a ⚠ negotiable tag, instead of hiding. `good` is the RESCUE's predicate only: for a
     // no-figure listing `money` can never be true, so these two doors are keyword doors by construction.
     if (noSalary && !(good && (rescue || (negotiable && rescueNeg)))) return 'nosal';
+    // A gig that states no hours (D71): no hourly rate can be known, so it is hidden like a listing with no pay —
+    // the user: "make filters for the gigs … unless they have hours". A fact about the post, so it outranks taste.
+    if (gigNoHours) return 'gig';
     // Lowball: pays at or below the floor you set (lowball.js judges it, salary-cards marks it). Before the
     // keyword rules on purpose — a blocked word must not hide a listing you may want to report — and after
     // the three facts, because a closed or stale post is not worth a report. Shown, never hidden.

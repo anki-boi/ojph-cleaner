@@ -79,7 +79,7 @@
               <div class="ojc-input"><span class="ojc-cur-sym">₱</span><input type="number" id="ojc-goal-hourly" min="0" step="any" placeholder="300"></div>
             </div>
           </div>
-          <span class="ojc-hint" id="ojc-cur-hint">Full-time jobs are judged per month, everything else per hour. Leave empty to turn one off.</span>
+          <span class="ojc-hint" id="ojc-cur-hint">A job with an hourly figure (posted, or its month over its own stated hours) is judged per hour; a month with no stated hours, per month. Leave empty to turn one off.</span>
         </div>
         <div class="ojc-sec">
           <div class="ojc-field">
@@ -93,6 +93,7 @@
           <label class="ojc-check"><input type="checkbox" id="ojc-noSalary"><span>Hide jobs with no pay listed</span></label>
           <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-rescueNoSalary"><span>…unless I'd like it (a word I'm into, or it meets my minimum)</span></label>
           <label class="ojc-check ojc-sub"><input type="checkbox" id="ojc-rescueNegotiable"><span>…and keep “Negotiable” jobs that mention a word I'm into</span></label>
+          <label class="ojc-check"><input type="checkbox" id="ojc-hideGigsNoHours"><span>Hide gigs that don't state their hours (no hourly rate can be known)</span></label>
           <label class="ojc-check"><input type="checkbox" id="ojc-showHidden"><span>Peek at hidden jobs (marked with a dashed outline)</span></label>
           <label class="ojc-check"><input type="checkbox" id="ojc-autoLoad"><span>Load more jobs when I scroll to the bottom</span></label>
           <label class="ojc-check"><input type="checkbox" id="ojc-autoScan"><span>Read full posts automatically</span></label>
@@ -133,6 +134,7 @@
         <span id="ojc-saved">Saved ✓</span>
         <button id="ojc-export" type="button" class="ojc-quiet">⬇ CSV</button>
         <a href="${chrome.runtime.getURL('options.html')}" target="_blank">full page ↗</a>
+        <span class="ojc-ver" title="the installed version — it changes with every update">v${chrome.runtime.getManifest().version}</span>
       </div>`;
     panel.querySelector('#ojc-save').onclick = save;
     panel.querySelector('#ojc-export').onclick = () => self.OJCExport?.run?.();
@@ -147,22 +149,9 @@
         self.OJCToast?.show('Both lists copied');
       } catch { /* the clipboard write was refused: the lists stay where they are */ }
     };
-    // D68: a kind of work's preset words, merged into both boxes (nothing saved until Save; a block on a word the
-    // preset wants is dropped — presets.js's merge rule).
-    const preset = panel.querySelector('#ojc-preset');
-    for (const [label, list] of [['Kind of work', self.OJCPresets?.ARCHETYPES], ['Experience', self.OJCPresets?.LEVELS]]) {
-      const g = Object.assign(document.createElement('optgroup'), { label });
-      for (const a of list || []) g.append(new Option(`${a.icon} ${a.label}`, a.id));
-      preset.append(g);
-    }
-    preset.onchange = () => {
-      if (!preset.value) return;
-      const next = self.OJCPresets.addTo({ positive: fromLines($p('#ojc-pos').value), negative: fromLines($p('#ojc-neg').value) }, preset.value);
-      $p('#ojc-pos').value = next.positive.join('\n');
-      $p('#ojc-neg').value = next.negative.join('\n');
-      self.OJCToast?.show(`Added the ${preset.selectedOptions[0].text.replace(/^\S+\s/, '')} words — check them, then Save`);
-      preset.value = '';
-    };
+    // D68: "+ Add words for…" — setup.js owns the presets, so it wires the picker into these two boxes.
+    // The panel's own nodes, not $p(): $p() calls ensurePanel(), and this runs before the panel is attached.
+    self.OJCSetup?.wirePresetPicker?.(panel.querySelector('#ojc-preset'), panel.querySelector('#ojc-pos'), panel.querySelector('#ojc-neg'));
     panel.querySelector('#ojc-kw-paste').onclick = async () => {
       try {
         const t = self.OJRules.textToLists(await navigator.clipboard.readText());
@@ -208,6 +197,7 @@
     $p('#ojc-noSalary').checked = s.noSalary;
     $p('#ojc-rescueNoSalary').checked = s.rescueNoSalary;
     $p('#ojc-rescueNegotiable').checked = s.rescueNegotiable;
+    $p('#ojc-hideGigsNoHours').checked = s.hideGigsNoHours !== false;
     $p('#ojc-showHidden').checked = s.showHidden;
     $p('#ojc-autoLoad').checked = s.autoLoad;
     $p('#ojc-goal').value = s.goalSalary || '';
@@ -263,6 +253,7 @@
       noSalary: $p('#ojc-noSalary').checked,
       rescueNoSalary: $p('#ojc-rescueNoSalary').checked,
       rescueNegotiable: $p('#ojc-rescueNegotiable').checked,
+      hideGigsNoHours: $p('#ojc-hideGigsNoHours').checked,
       showHidden: $p('#ojc-showHidden').checked,
       autoLoad: $p('#ojc-autoLoad').checked,
       goalSalary: num($p('#ojc-goal').value, cur),

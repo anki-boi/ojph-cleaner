@@ -67,6 +67,9 @@
   letter-spacing: .2px;
 }
 .ojc-salary-note:empty { display: none; }
+/* D70: the month (and the hours it rests on) beside the hourly figure, smaller — per hour is what you compare. */
+.ojc-salary-note.is-unknown { color: #7a8794 !important; border-left-color: #b8c2cc; }
+.ojc-salary-sub { margin-left: 6px; font: 600 13px/1.35 system-ui, -apple-system, sans-serif; color: #4f6f3f; letter-spacing: 0; }
 
 /* The 40 h/week assumption behind a full-time monthly figure: on the card, not only in a tooltip. */
 .ojc-salary-warn {

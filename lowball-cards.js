@@ -41,6 +41,13 @@
    *  `.ojc-low` is a verdict (the post's own rate, or its month over its own hours); `.ojc-low-check` is a month
    *  whose hours are not known yet but could make it one — the reader opens those first (scan.js). */
   function mark(card, parsed, basis, rates) {
+    // A gig is never judged — the post's own TYPE OF WORK once read, else the card's badge.
+    if (LB.isGig(basis?.type || card.querySelector(api.SELECTORS.cardType)?.textContent, api.cardSalary(card))) {
+      const was = card.classList.contains('ojc-low');
+      card.classList.remove('ojc-low', 'ojc-low-check');
+      delete card.dataset.ojcLowRate; delete card.dataset.ojcLowHours;
+      return was;
+    }
     const hours = LB.hoursFor(basis);
     const rate = LB.hourlyUsd(parsed, hours, rates);
     const low = LB.isLowball(rate, floor());

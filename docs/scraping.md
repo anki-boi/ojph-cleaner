@@ -31,6 +31,7 @@ If the site changes its markup, that object is the single place to fix, and
 | What | Selector | Notes |
 |---|---|---|
 | List card | `.jobpost-cat-box.latest-job-post` | 30 cards per page (observed 2026-09-18) |
+| Card type of work | `h4 .badge` | `Full Time` / `Part Time` / `Gig` / `Any` beside the title (30/30 cards, 2026-10-14). D67 never judges a `Gig` as a lowball |
 | Card salary | `dd.col` | "has salary" = the text contains a digit |
 | Card posted date | `p[data-temp]` → `data-temp-2` (UTC), fallback `data-temp` (+08:00) | W8: on 30/30 cards across a keyword search, a category page and two offset pages. Both attributes are the same instant — `2026-09-19 01:33:33` / `2026-09-18 17:33:33` on one live card — so the visible string is the site's own Asia/Manila clock, never the viewer's |
 | Detail description | `p#job-description` | 37–4,220 chars observed (W4). Plain text with `<br>`s: 73 nodes on a sampled listing, all `#text` or `<br>`, and **no `<a>`** — so an application link appears as prose (`fill out the form: forms.gle/…`) and a detector reading only `href`s finds nothing |

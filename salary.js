@@ -76,7 +76,9 @@
     // Part-time is checked BEFORE full-time and wins: a part-time card whose prose mentions "full time
     // availability" must not be handed a 40-hour month. Cheap, and it failed live ($6/hour → ₱60,223/mo).
     if (/part[\s-]?time/.test(s)) return { hours: null, basis: 'part-time' };
-    if (/full[\s-]?time/.test(s)) return { hours: FULL_TIME_HOURS, basis: 'full-time' };
+    // D71: "Full Time" is a label, not a number of hours — it no longer supplies a 40 h week to anything. The user:
+    // "all assumptions of a 40hr workweek is removed for all types of filtering … base it on the hours stated."
+    if (/full[\s-]?time/.test(s)) return { hours: null, basis: 'full-time' };
     return { hours: null, basis: 'unstated' };
   }
 
@@ -128,7 +130,9 @@
       if (monthly.length) s = monthly.join(' ');
     }
 
-    const numbers = [...s.matchAll(/\d[\d,]*(?:\.\d+)?/g)].map(m => num(m[0])).filter(n => n > 0).slice(0, 2);
+    // "15k", "36K", "55k PHP" are thousands — read as 15, 36 and 55 they became a peso an hour (seen live, 2026-10-14).
+    const numbers = [...s.matchAll(/\d[\d,]*(?:\.\d+)?(\s?k\b)?/g)]
+      .map(m => num(m[0].replace(/\s?k$/, '')) * (m[1] ? 1000 : 1)).filter(n => n > 0).slice(0, 2);
     if (!numbers.length) return null;
 
     const [lo, hi] = [Math.min(...numbers), Math.max(...numbers)];
@@ -140,6 +144,10 @@
     if (marksUnit) {
       if (/annual|year/.test(s)) { unit = 'year'; factor = 1 / 12; }
       else if (/hour|\/hr|per hr/.test(s)) unit = 'hour';
+      // "$560 BI-WEEKLY" is paid every two weeks, "₱15,000 semi-monthly" twice a month — read as plain "weekly" /
+      // "monthly" they were twice (and half) the real month.
+      else if (/\bbi-?weekly\b|fortnight|every (?:two|2) weeks/.test(s)) { unit = 'week'; factor = WEEKS_PER_MONTH / 2; }
+      else if (/semi-?monthly|twice a month|twice monthly|every 15(?:th)?\b/.test(s)) { unit = 'month'; factor = 2; }
       else if (/week/.test(s)) { unit = 'week'; factor = WEEKS_PER_MONTH; }
       else if (/day/.test(s)) unit = 'day';
       else unit = 'month';
@@ -260,6 +268,6 @@
     return { fresh, needed };
   }
 
-  return { parseSalary, toPhp, ratePhp, formatNote, formatRate, goalInPhp, meetsGoal, goalBand, hoursPerWeekFrom, pickFresh,
+  return { parseSalary, toPhp, ratePhp, convert, formatNote, formatRate, goalInPhp, meetsGoal, goalBand, hoursPerWeekFrom, pickFresh,
            WEEKS_PER_MONTH, FULL_TIME_HOURS };
 });

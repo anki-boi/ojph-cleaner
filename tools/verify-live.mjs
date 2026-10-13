@@ -30,6 +30,10 @@ const MAX_AGE = +(arg('max-age', '7'));
 // salary.js's pure factory, injected into the page so the harness can recompute every figure from
 // the DOM with the SAME code the extension used — a parity check, not a second opinion.
 const salarySrc = fs.readFileSync(new URL('../salary.js', import.meta.url), 'utf8');
+// D70: the card's line leads with the hour (per-hour.js), and a gig's price is the job's (lowball.js's isGig) —
+// injected beside salary.js so the expected line comes from the same code.
+const perHourSrc = fs.readFileSync(new URL('../per-hour.js', import.meta.url), 'utf8');
+const lowballSrc = fs.readFileSync(new URL('../lowball.js', import.meta.url), 'utf8');
 // Same idea for the rules: `ruleEval` below injects this instead of re-implementing the date maths, so
 // a parity check can never disagree with `parsePosted`/`isStale` about what "stale" means. rules.js is
 // UMD, and the page has no `module`, so it lands on the page's own `self.OJRules` — a different world
@@ -383,7 +387,8 @@ const primeCache = (tab) => tab.evaluate(`new Promise((res) => {
   };
 })`);
 
-const ruleEval = (tab, { neg = [], pos = [], maxAgeDays = 0, noSalary = true, closedIds = [], records = {}, rescue = false, rescueNeg = false, showHidden = false } = {}) => tab.evaluate(`${RULES_SRC}
+const ruleEval = (tab, { neg = [], pos = [], maxAgeDays = 0, noSalary = true, closedIds = [], records = {}, rescue = false, rescueNeg = false, showHidden = false, hideGigs = true } = {}) => tab.evaluate(`${RULES_SRC}
+${salarySrc}
 ${DETAILTEXT_SRC}
 ${TIERS_SRC}
 ${RECORDS_SRC}
@@ -394,6 +399,10 @@ ${CLOSED_SRC}
   const noSalary = ${JSON.stringify(noSalary !== false)};
   const rescue = ${JSON.stringify(!!rescue)};
   const rescueNeg = ${JSON.stringify(!!rescueNeg)};
+  // D71: a Gig with no stated hours (card text, or the post's own HOURS PER WEEK in the record) is hidden — the
+  // extension's default, which the harness never changes. RegExp built from a string: no escapes to lose here.
+  const hideGigs = ${JSON.stringify(hideGigs !== false)};
+  const GIG = new RegExp('(^|[^a-z])gig([^a-z]|$)', 'i');
   const showHidden = ${JSON.stringify(!!showHidden)};
   const closedIds = new Set(${JSON.stringify(closedIds.map(String))});
   const saved = OJCRecords.prune(${JSON.stringify(records)}, Date.now(), OJCRecords.HISTORY_DAYS * 86400000);
@@ -438,7 +447,7 @@ ${CLOSED_SRC}
     return title + '|' + company;
   };
   const dupSet = OJRules.findDuplicates(cards.map(c => ({ key: dupKeyOf(c), at: postedAt(c) })));
-  const tiers = { closed: 0, stale: 0, nosal: 0, low: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0 };
+  const tiers = { closed: 0, stale: 0, nosal: 0, gig: 0, low: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0 };
   let noDate = 0, noUtc = 0, negBadges = 0, posBadges = 0, flagBadges = 0, scanned = 0, overHours = 0, fresh = 0, dups = 0, negRescuedCount = 0, bothSides = 0;
   for (let i = 0; i < cards.length; i++) { const c = cards[i];
     const text = ownText(c);
@@ -461,10 +470,12 @@ ${CLOSED_SRC}
     if (rec && rec.fields && Number(rec.fields.hoursPerWeek) > 40) overHours++;
     const card = { ...OJCTiers.cardFacts(text, settings, OJRules.matchKeywords), goal: c.classList.contains('ojc-goal'),
       goalBy: c.dataset.goalBy !== undefined ? Number(c.dataset.goalBy) : null, low: c.classList.contains('ojc-low') };
+    const gigNoHours = hideGigs && GIG.test((c.querySelector('h4 .badge') || {}).textContent || '') &&
+      !(Number(rec && rec.fields && rec.fields.hoursPerWeek) > 0) && !(OJCSalary.hoursPerWeekFrom(text).hours > 0);
     const tier = OJCTiers.decide({
       closed: !!(id && closedIds.has(String(id))),
       stale: OJRules.isStale(at, now, maxAgeDays),
-      noSalary: noSalary && !/\\d/.test(ownSal(c)),
+      noSalary: noSalary && !/\\d/.test(ownSal(c)), gigNoHours,
       rescue, rescueNeg, negotiable: OJRules.isNegotiable(ownSal(c)), card, detail,
     });
     tiers[tier]++;
@@ -498,7 +509,7 @@ ${CLOSED_SRC}
     negExpected: tiers.kw, reconExpected: tiers.worth, highExpected: tiers.high, posTierExpected: tiers.pos, freshExpected: fresh, dupExpected: dups, negRescuedExpected: negRescuedCount, bothSides,
     flagTagExpected: flagBadges,
     posExpected: posBadges, negBadgeExpected: negBadges, flagBadgeExpected: flagBadges,
-    hiddenExpected: tiers.closed + tiers.stale + tiers.nosal + tiers.kw,
+    hiddenExpected: tiers.closed + tiers.stale + tiers.nosal + tiers.gig + tiers.kw,
     scannedCards: scanned, overHours, noDate, noUtc });
 })()`);
 
@@ -544,7 +555,7 @@ const res = JSON.parse(await withTab(PORT, URL_, async (tab) => {
       // The verdict the pass wrote on each card (data-ojc-tier) — the board's own claim, which the
       // recomputation above has to agree with bucket by bucket.
       domTiers: (() => {
-        const t = { closed: 0, stale: 0, nosal: 0, low: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0, unset: 0 };
+        const t = { closed: 0, stale: 0, nosal: 0, gig: 0, low: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0, unset: 0 };
         for (const c of cards) t[c.dataset.ojcTier || 'unset']++;
         return t;
       })()
@@ -610,7 +621,7 @@ if (res.negBadges !== res.negBadgeExpected) {
 // The verdict table itself, bucket by bucket: what the pass wrote on the cards against what the same
 // table says it should be. This is the assertion that would have caught the whole of W12 being wired
 // backwards — a wrong bucket is invisible in the total, because the total counts hidden cards only.
-for (const t of ['closed', 'stale', 'nosal', 'low', 'high', 'pos', 'worth', 'kw', 'none']) {
+for (const t of ['closed', 'stale', 'nosal', 'gig', 'low', 'high', 'pos', 'worth', 'kw', 'none']) {
   if (res.domTiers[t] !== res.tiers[t]) {
     await fail(`${res.domTiers[t]} card(s) are "${t}", the rule says ${res.tiers[t]} — ` +
       `on the page ${JSON.stringify(res.domTiers)}, by the rule ${JSON.stringify(res.tiers)}`);
@@ -1158,7 +1169,7 @@ if (res.noSalExpected > 0) {
       if (/api\.frankfurter\.dev/.test(p.request.url)) fxReqs.push(p.request.url);
     });
     await settle(5000);
-    await tab.evaluate(`${salarySrc}\nwindow.__salary = window.OJCSalary; 1`);
+    await tab.evaluate(`${salarySrc}\nwindow.__salary = window.OJCSalary;\n${perHourSrc}\n${lowballSrc}\n1`);
     // The scan's own HOURS PER WEEK, straight from the page's cache — the same source the extension reads.
     // Without it this section recomputed every part-time card as a rate-only card ("hours unstated") and
     // reported five mismatches against cards that legitimately show a part-time month (W13.5).
@@ -1172,7 +1183,7 @@ if (res.noSalExpected > 0) {
       const h = Number(rec && rec.fields && rec.fields.hoursPerWeek);
       if (Number.isFinite(h) && h > 0) recordHours[id] = h;
     }
-    await tab.evaluate(`window.RECORD_HOURS = ${JSON.stringify(recordHours)}; 1`);
+    await tab.evaluate(`window.RECORD_HOURS = ${JSON.stringify(recordHours)}; window.RECORD_IDS = ${JSON.stringify(recordIds)}; 1`);
     const scanHours = JSON.parse(await tab.evaluate(`(() => {
       const allowed = new Set(${JSON.stringify(recordIds)});
       const out = {};
@@ -1227,11 +1238,13 @@ if (res.noSalExpected > 0) {
         const php = toPhp(parsed, rates);
         const per = ratePhp(parsed, rates);       // the posted rate, even when a month exists
         // ONE goal per card (D13): full-time is judged monthly, part-time/other by the hour
-        const hourlyPhp = per && (parsed.unit === 'hour' || parsed.unit === 'hour?') ? per : null;
-        // One goal per card (D13): a full-time listing is judged monthly, a part-time one by the hour — the
-        // honest month a scan bought does NOT move it to the monthly goal (lower pay for fewer hours is the
-        // point of part-time). The card shows the month; the goal judges the rate.
-        const judgedMonthly = basis.basis === 'full-time' || !hourlyPhp;
+        // D71: one goal per card by what the post says — an hourly figure (a posted rate, or the month over the
+        // post's OWN hours, per-hour.js) meets the hourly goal; a month with no stated hours, the monthly one.
+        const hourly0 = parsed && (parsed.unit === 'hour' || parsed.unit === 'hour?');
+        const gig0 = !hourly0 && window.OJCPerHour.isJobPrice((card.querySelector('h4 .badge') || {}).textContent, posted);
+        const ph0 = gig0 ? null : window.OJCPerHour.perHour(parsed, rates, basis);
+        const hourlyPhp = ph0 ? { min: ph0.min, max: ph0.max } : null;
+        const judgedMonthly = !hourlyPhp;
         const expectGoal = judgedMonthly
           ? (meetsGoal(php, ${GOAL}) ? 'monthly' : '')
           : (meetsGoal(hourlyPhp, ${GOAL_HOURLY}) ? 'hourly' : '');
@@ -1247,7 +1260,16 @@ if (res.noSalExpected > 0) {
           goal: card.classList.contains('ojc-goal') ? (shown?.dataset.goal || 'unknown') : '',
           band: shown ? (shown.dataset.band || '') : '',
           goalBy: card.dataset.goalBy !== undefined ? Number(card.dataset.goalBy) : null,
-          expect: php ? formatNote(php) : per ? formatRate(per, parsed.unit) : null,
+          expect: (() => {
+            if (!parsed) return null;
+            const hourly = parsed.unit === 'hour' || parsed.unit === 'hour?';
+            const gig = !hourly && window.OJCPerHour.isJobPrice((card.querySelector('h4 .badge') || {}).textContent, posted);
+            // D71.1: a month with no hour says whether its post has been read (a record exists) or not yet.
+            const read = !!jobId && window.RECORD_IDS.includes(String(jobId));
+            const line = window.OJCPerHour.payLine({ php, rate: php ? null : per, unit: parsed.unit,
+              ph: gig ? null : window.OJCPerHour.perHour(parsed, rates, basis), gig, read });
+            return line.main ? line.main + (line.sub ? ' ' + line.sub : '') : null;
+          })(),
           expectGoal,
           postedStillThere: shown ? d.textContent.includes(posted) : true });
       }
@@ -1325,106 +1347,16 @@ if (res.noSalExpected > 0) {
         `${JSON.stringify(x.note)}, goal=${x.goal}`);
     }
   }
-  // the disclaimer: only a month that rests on the 40 h/week full-time definition carries one
-  const wantWarn = parseable.filter(x => x.monthly && (x.unit === 'hour' || x.unit === 'hour?')
-    && x.hoursBasis === 'full-time');
+  // D71: no month rests on an assumed 40 h week any more, so the old "if full-time (40 h/wk)" disclaimer must be
+  // on no card at all — one would mean an assumption survived somewhere.
   const hasWarn = parseable.filter(x => x.warn);
-  if (hasWarn.length !== wantWarn.length) {
-    await fail(`${hasWarn.length} card(s) carry the h/week disclaimer but ${wantWarn.length} should: ` +
-      `e.g. ${JSON.stringify((wantWarn.find(x => !x.warn) || hasWarn.find(x => !wantWarn.includes(x)) || {}).posted)}`);
+  if (hasWarn.length) {
+    await fail(`${hasWarn.length} card(s) still carry the 40 h/week disclaimer, e.g. ${JSON.stringify(hasWarn[0].posted)}`);
   }
-  for (const x of hasWarn) {
-    // It must name the hours it assumed and tell you to check them — in the words the extension ships (D43).
-    if (!/\d+ h\/wk/.test(x.warn) || x.warn !== LABELS.mark.assumes(Number((x.warn.match(/(\d+) h\/wk/) || [])[1]))) {
-      await fail(`the disclaimer does not state the assumption: ${JSON.stringify(x.warn)}`);
-    }
-  }
-
-  // A re-run of the rule pass must not change a single figure. This is the bug that produced
-  // "₱50,186 - ₱401,485/mo": the h/week disclaimer stayed inside the salary cell, so the next pass read
-  // its "40 h/week" as a second salary number. A derived DOM feeding its own input is silent otherwise.
-  const before = r.rows.map(x => `${x.posted}|${x.note || ''}|${x.warn || ''}`).join('\n');
-  const again = JSON.parse(await withTab(PORT, URL_, async (tab) => {
-    await settle(4500);
-    const read = `[...document.querySelectorAll('.jobpost-cat-box.latest-job-post')].map(c => {
-      const d = c.querySelector('dd.col'); if (!d) return '';
-      const own = d.cloneNode(true);
-      for (const injected of own.querySelectorAll('[class^="ojc-"]')) injected.remove();
-      const note = d.querySelector('.ojc-salary-note'), warn = d.querySelector('.ojc-salary-warn');
-      return own.textContent.trim() + '|' + (note ? note.textContent : '') + '|' + (warn ? warn.textContent : '');
-    })`;
-    const first = await tab.evaluate(read);
-    // force two more rule passes without touching the settings
-    await tab.evaluate(`document.querySelector('#ojc-toggle').click()`);
-    await settle(500);
-    await tab.evaluate(`document.querySelector('#ojc-toggle').click()`);
-    await settle(1500);
-    const second = await tab.evaluate(read);
-    return JSON.stringify({ first, second });
-  }, 500));
-  const firstRows = again.first || [], secondRows = again.second || [];
-  const drifted = firstRows.map((row, i) => (row === secondRows[i] ? null : { row, after: secondRows[i] })).filter(Boolean);
-  if (drifted.length) {
-    await fail(`${drifted.length} card(s) changed their figure when the rule pass re-ran (a derived DOM is ` +
-      `feeding its own input): before ${JSON.stringify(drifted[0].row)}, after ${JSON.stringify(drifted[0].after)}`);
-  }
-
-  const converted = parseable.filter(x => x.note && /^≈ ₱/.test(x.note));
-  if (!converted.length) {
-    await fail(`no card was converted to ₱ (currencies on page: ${r.currencies.join(', ') || 'none'}) — ` +
-      'the ECB rate request or the maths is broken');
-  }
-  const months = parseable.filter(x => /\/mo$/.test(x.note || ''));
-  const rates = parseable.filter(x => /\/(hr|day)$/.test(x.note || ''));  // exactly one rate request per foreign currency, and none for a ₱-only page
-  if (r.fxRequests !== r.currencies.length) {
-    await fail(`${r.fxRequests} rate request(s) for ${r.currencies.length} foreign currenc(y|ies) ` +
-      `${r.currencies.join(', ')}: ${r.fxUrls.join(', ')} — expected exactly one per currency`);
-  }
-  // the goal brighten: exactly the cards that clear their own goal, and the tag says which one
-  const wrongGoal = parseable.filter(x => (x.goal || '') !== (x.expectGoal || ''));
-  if (wrongGoal.length) {
-    await fail(`${wrongGoal.length} card(s) mis-marked against the goals (₱${GOAL}/mo, ₱${GOAL_HOURLY}/hr): ` +
-      wrongGoal.slice(0, 3).map(x => `${JSON.stringify(x.posted)} → ${x.note}, marked=${x.goal || 'none'}, ` +
-        `expected=${x.expectGoal || 'none'}`).join(' | '));
-  }
-  const monthlyMarks = parseable.filter(x => x.goal === 'monthly');
-  const hourlyMarks = parseable.filter(x => x.goal === 'hourly');
-  if (!monthlyMarks.length) await fail(`no card cleared the ₱${GOAL} monthly goal — lower --goal`);
-  if (!hourlyMarks.length) {
-    await fail(`no card cleared the ₱${GOAL_HOURLY}/hr hourly goal — lower --goal-hourly, or a posting ` +
-      'that only quotes a rate is not being judged at all');
-  }
-  // the two goals must stay independent and never be derived from one another
-  if (hourlyMarks.some(x => x.monthly && x.hoursBasis === 'full-time')) {
-    await fail('a full-time card was marked against the HOURLY goal — full time has a month, so the monthly goal judges it');
-  }
-  if (monthlyMarks.some(x => !x.monthly)) {
-    await fail('a card with no monthly figure was marked against the MONTHLY goal');
-  }
-  // The premium bands: a band mark only where the margin really reaches that band, and every card
-  // that reaches a band carries the mark — checked both directions, so a wrong band is a failure either way.
-  const banded = parseable.filter(x => x.band);
-  for (const x of banded) {
-    const need = x.band === 'b50' ? 0.5 : 0.25;
-    if (!(x.goalBy >= need)) {
-      await fail(`a ${x.band} band on a card whose margin over its goal is ${x.goalBy} — the band needs ≥ ${need}: ${JSON.stringify(x.posted)}`);
-    }
-  }
-  for (const x of parseable) {
-    if (x.expectGoal && x.goalBy >= 0.25 && !x.band) {
-      await fail(`a card that clears its goal by ${x.goalBy} carries no premium band: ${JSON.stringify(x.posted)}`);
-    }
-  }
-  // the posted text keeps its place: the figure is added above it, never instead of it
-  const swallowed = parseable.filter(x => !x.postedStillThere);
-  if (swallowed.length) {
-    await fail(`the posted salary text disappeared from ${swallowed.length} card(s) — the figure must sit above it, not replace it`);
-  }
-  console.log(`salary    : ${months.length} monthly figure(s), ${rates.length} posted-rate figure(s), ` +
-    `${pieces.length} piece rate(s) left alone, ${silent.length} with no figure · ` +
-    `${r.fxRequests} live rate request(s) for ${r.currencies.join('/') || 'no'} foreign currency · ` +
-    `${monthlyMarks.length} above ₱${GOAL}/mo, ${hourlyMarks.length} above ₱${GOAL_HOURLY}/hr · ${banded.length} premium band mark(s)`);
+  const assumed = parseable.filter(x => x.note && /if \d+ h\/wk/.test(x.note));
+  if (assumed.length) await fail(`a figure rests on an assumed week: ${JSON.stringify(assumed[0].note)}`);
 }
+
 
 // ── 9. our own annotation must not feed the rules ───────────────────────
 // The salary note, the h/week disclaimer and the highlight badge live in the very cells the rules
@@ -1442,22 +1374,24 @@ if (res.noSalExpected > 0) {
       const cards = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')];
       const siteText = (c) => { const o = c.cloneNode(true);
         for (const i of o.querySelectorAll('[class^="ojc-"]')) i.remove(); return o.textContent.toLowerCase(); };
-      const warn = document.querySelector('.ojc-salary-warn');
+      // D71: our probe text is the small pay line beside the figure ("≈ ₱25,108/mo · 25 h/wk", "hours not stated —
+      // no hourly rate") — injected into the very salary cell the rules read, like the old disclaimer was.
+      const ours = [...document.querySelectorAll('.ojc-salary-sub')].map(n => n.textContent).join(' ');
       // siteText() already lower-cases. The probe is the disclaimer word the site's own text uses LEAST (ideally
       // never): the first word used to be "assumes", and after the D43 rewording it is "if", which half the
       // board says — a probe the site also says proves nothing.
       const texts = cards.map(siteText);
-      const words = warn ? [...new Set(warn.textContent.toLowerCase().match(/[a-z]{5,}/g) || [])] : [];
+      const words = [...new Set(ours.toLowerCase().match(/[a-z]{5,}/g) || [])];
       const word = words.map(w => [w, texts.filter(t => t.includes(w)).length])
         .sort((a, b) => a[1] - b[1])[0]?.[0] || '';
       return JSON.stringify({
         word,
         badges: cards.filter(c => c.querySelector('.ojc-pos-badge')).length,
-        warned: cards.filter(c => c.querySelector('.ojc-salary-warn')).length,
+        warned: cards.filter(c => c.querySelector('.ojc-salary-sub')).length,
         siteTextHasWord: cards.filter(c => siteText(c).includes(word)).length,
         // The proof does not need a word the site never says: it needs cards whose OWN text lacks the word while
         // our disclaimer on them has it. Any such card that ends up badged was matched on our text.
-        warnedClean: cards.filter(c => c.querySelector('.ojc-salary-warn') && !siteText(c).includes(word)).length,
+        warnedClean: cards.filter(c => c.querySelector('.ojc-salary-sub') && !siteText(c).includes(word)).length,
         badgedOnOurText: cards.filter(c => c.querySelector('.ojc-pos-badge') && !siteText(c).includes(word)).length,
       });
     })()`);
@@ -1485,8 +1419,8 @@ if (res.noSalExpected > 0) {
   }, 500));
 
   if (!r.before.warned) {
-    await fail('no card carries the h/week disclaimer on this page — cannot test that our own text ' +
-      'stays out of the rules (run with a page that has hourly full-time listings)');
+    await fail('no card carries our small pay line on this page — cannot test that our own text stays out of ' +
+      'the rules (run with a page that has monthly listings)');
   }
   if (!r.before.warnedClean) {
     await fail(`every disclaimed card's own text also says ${JSON.stringify(r.before.word)} — this check would not ` +
@@ -1497,7 +1431,7 @@ if (res.noSalExpected > 0) {
       `(keyword ${JSON.stringify(r.before.word)}, present in ${r.before.warned} disclaimer(s) and in 0 ` +
       'listings) — our injected DOM is feeding the rule that decides what to show');
   }
-  console.log(`own text  : keyword ${JSON.stringify(r.before.word)} (in ${r.before.warned} disclaimer(s), ` +
+  console.log(`own text  : keyword ${JSON.stringify(r.before.word)} (in ${r.before.warned} pay line(s) of ours, ` +
     `${r.before.siteTextHasWord} listing(s) of its own) — ${r.before.warnedClean} card(s) carry it only in our text, ` +
     `and none of them was highlighted — our annotation stays out of the rules`);
 }
@@ -1920,7 +1854,7 @@ if (res.noSalExpected > 0) {
     await primeCache(tab);   // the scan's own cache, re-read after it wrote
     const closedIds = await readClosedIds();
     const records = await readRecords();
-    const dom = `(() => { const t = { closed: 0, stale: 0, nosal: 0, low: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0, unset: 0 };
+    const dom = `(() => { const t = { closed: 0, stale: 0, nosal: 0, gig: 0, low: 0, high: 0, pos: 0, worth: 0, kw: 0, none: 0, unset: 0 };
       for (const c of document.querySelectorAll('.jobpost-cat-box.latest-job-post')) t[c.dataset.ojcTier || 'unset']++;
       return JSON.stringify(t); })()`;
     let counts, tiers, domTiers;
@@ -1929,12 +1863,12 @@ if (res.noSalExpected > 0) {
         closedIds, records }));
       domTiers = JSON.parse(await tab.evaluate(dom));
       tiers = counts.tiers;
-      if (['closed', 'stale', 'nosal', 'low', 'high', 'pos', 'worth', 'kw', 'none'].every(t => domTiers[t] === tiers[t])) break;
+      if (['closed', 'stale', 'nosal', 'gig', 'low', 'high', 'pos', 'worth', 'kw', 'none'].every(t => domTiers[t] === tiers[t])) break;
       await settle(250);
     }
     return JSON.stringify({ tiers, domTiers, counts, scanned: counts.scannedCards, overHours: counts.overHours });
   }, 500));
-  for (const t of ['closed', 'stale', 'nosal', 'low', 'high', 'pos', 'worth', 'kw', 'none']) {
+  for (const t of ['closed', 'stale', 'nosal', 'gig', 'low', 'high', 'pos', 'worth', 'kw', 'none']) {
     if (parity.domTiers[t] !== parity.tiers[t]) {
       await fail(`after the scan, ${parity.domTiers[t]} card(s) are "${t}" but the rule says ${parity.tiers[t]} ` +
         `(page ${JSON.stringify(parity.domTiers)} vs rule ${JSON.stringify(parity.tiers)}) — the remembered ` +

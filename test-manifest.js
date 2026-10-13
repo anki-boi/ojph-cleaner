@@ -11,6 +11,9 @@ const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'u
 
 // ── MV3 shape ────────────────────────────────────────────────────────────
 assert.strictEqual(manifest.manifest_version, 3, 'manifest_version must be 3');
+// The version is how the user tells a reload picked up a change (shown in ⚙), so the two copies never drift.
+assert.strictEqual(require('./package.json').version, manifest.version, 'package.json and manifest.json versions differ');
+assert.ok(/^\d+\.\d+\.\d+$/.test(manifest.version), 'version is MAJOR.MINOR.PATCH');
 for (const k of ['name', 'version', 'description']) {
   assert.ok(manifest[k], `manifest is missing "${k}"`);
 }

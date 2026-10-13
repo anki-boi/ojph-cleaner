@@ -1,15 +1,14 @@
 /**
  * pay-sort.js — the board, best-paying first, once a deep scan has finished (spec.md D41).
  *
- * The rule is about what the extension REFUSES to assume. A month and an hourly rate are not the same
- * quantity, and turning one into the other needs a work week — which salary.js refuses to assume anywhere
- * else (D13), so it refuses here too. Three blocks, in this order:
+ * The hourly rate is the board's one measure (D71.2 — the user: "hourly rate [is] the whole bible of the whole
+ * operation"), so it is what the board is ranked by. Four blocks, in this order:
  *
- *   a month, highest first  →  a posted rate, highest first  →  no figure at all, in the site's own order
+ *   per hour, highest first  →  a month whose hours are not known yet  →  a day rate  →  no figure at all
  *
- * The consequence is deliberate, and worth saying out loud: a ₱5,000/mo listing outranks a ₱500/hr one.
- * The order never contradicts the figure printed on the card, and the card that rests on the 40 h/week
- * assumption keeps its own ⚠ label rather than being quietly promoted by the sort.
+ * "Per hour" is a posted rate, or a month over the post's OWN stated hours (per-hour.js) — never a guessed week,
+ * so a month without its hours cannot be ranked against the hourly ones and waits in its own block (Read posts
+ * fetches its hours first, and it moves up). The order never contradicts the figure printed on the card.
  *
  * Not part of the rule pass, on purpose. A reorder is roughly one mutation per card, and the observer
  * schedules a pass for any mutation it does not recognise — so a sort inside the pass is a pass that
@@ -73,6 +72,7 @@
   root.OJCPaySort.afterScan = afterScan;
   root.OJCPaySort.resort = resort;
 })(typeof self !== 'undefined' ? self : this, function () {
+  const BLOCK = { hour: 0, month: 1, day: 2 };   // 3 = no figure
   const RATES = ['hour', 'day'];
 
   /**
@@ -82,10 +82,10 @@
    */
   function keyOf(pay, unit, index) {
     const n = Number(pay);
-    const block = !(Number.isFinite(n) && n > 0) ? 2 : unit === 'month' ? 0 : RATES.includes(unit) ? 1 : 2;
+    const block = !(Number.isFinite(n) && n > 0) || !(unit in BLOCK) ? 3 : BLOCK[unit];
     // 0 and not NaN for an unranked card: a comparator that returns NaN orders the array however the engine
     // feels like it, which is a bug that only shows up on a board that happens to be in the wrong shape.
-    return { block, pay: block === 2 ? 0 : n, index };
+    return { block, pay: block === 3 ? 0 : n, index };
   }
 
   /** The whole board in rank order. A new array — the caller's order is the tie-break and must survive. */

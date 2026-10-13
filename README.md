@@ -77,9 +77,18 @@ the card never mentioned, the stated hours, the ask to move off the platform. Ca
 ### Pay you can compare
 
 `5.5$/hr`, `Php 1000/day`, `15-20 AUD per hour` and `PHP 49,000 - 55,000` become one figure in
-pesos or dollars, at the ECB's reference rate. A month is only claimed when the listing supports
-one, and a string the parser can't read gets no number rather than a guess. Jobs at or above your
-minimum light up; trust tags flag what deserves a second look.
+pesos or dollars, at the ECB's reference rate, and **that figure is per hour** (D70): the big number is
+the hourly rate, with the month in smaller type beside it and the hours it rests on, e.g.
+`≈ $1.77/hr  ≈ $319/mo · 45 h/wk`. The hourly rate is always the salary **divided by the post's own
+stated hours** (D71): its HOURS PER WEEK, or a number of hours in its text. A *Full Time* label is not a
+number, so **no 40-hour week is ever assumed**, for the figure, the minimums or the lowball line. **The hourly rate is always the first thing on the card** (D71.2). Until a
+month's hours are known, that slot reads `? /hr`, with the month small beside it:
+`? /hr  ≈ $400/mo · hours not read yet`. `Read posts` opens those listings **first**, so each gets its own
+hours and its hourly rate; one whose page states no hours says so. A day rate and a price for the whole job
+(`200.00 for the Gig`, `$300 per project`) keep `? /hr` rather than a guessed figure. Sort by pay ranks the
+board the same way: per hour first, highest first.
+`bi-weekly`, `semi-monthly` and `36K` are read as what they mean. Jobs at or above your minimum light
+up; trust tags flag what deserves a second look.
 
 ![A read listing: converted monthly pay, meets your minimum, 40 h/week, and the virtual assistant, wants you off OLJ and posted today tags](docs/img/card-detail.png)
 
@@ -125,15 +134,17 @@ extension card to pick the changes up.
 
 ## How it decides
 
-Five rules, applied in this order to every listing on the page. The first one that matches wins.
+Six rules, applied in this order to every listing on the page. The first one that matches wins.
 
 1. **Posted too long ago: hidden (*Too old*).** Older than your window (60 days by default).
 2. **No pay: hidden (*No pay listed*).** `TBD`, `N/A`, `Negotiable`, `DOE` and an empty field all fail.
-3. **Pays at or below your lowball line: marked black (*Lowball*).** $2.99/hr by default. Judged on the
-   best rate the listing could mean, per hour: a monthly figure is converted at the post's own hours, or 40 a week.
-4. **A word you block: hidden (*Blocked words*),** matched as a whole word or phrase (plurals and hyphens included; see *How words match*), unless the
+3. **A gig with no stated hours: hidden (*Gigs with no hours*).** Its pay can't become an hourly rate.
+   `Read posts` opens these first, and one whose page states its hours comes back.
+4. **Pays at or below your lowball line: marked black (*Lowball*).** $2.99/hr by default. Judged on the
+   best rate the listing could mean, per hour: a monthly figure only over the post's own stated hours.
+5. **A word you block: hidden (*Blocked words*),** matched as a whole word or phrase (plurals and hyphens included; see *How words match*), unless the
    listing meets your minimum pay, in which case it stays as a 🤔 Maybe.
-5. **A word you're into: marked only (*Liked*).** Never hidden, never promoted. Only pay makes a
+6. **A word you're into: marked only (*Liked*).** Never hidden, never promoted. Only pay makes a
    listing a ⭐ Top pick.
 
 | You see | What it means |
@@ -165,17 +176,18 @@ one step of Undo (D48).
 | `maxAgeDays` | 60 | *Too old after* this many days: hide listings posted longer ago. `0` turns it off, `7` the last week, `30` the last month (default: the last two months). Applied **before** every other rule, and a listing whose date cannot be read is never hidden by it. |
 | `showHidden` | off | *Peek at hidden*: reveal what was hidden, with a red dashed marker. The bar's `Peek at hidden` / `Hide them again` writes this. |
 | `autoLoad` | on | Append the next page of results when you scroll to the bottom of the list. One page per real scroll, one request per page, and it stops at the end of the results. |
-| `goalSalary` | 60000 | *My minimum pay*, per month (stored in PHP, shown in your `currency`). Cards whose converted salary is **at least** this much get a green wash and a `★ meets your monthly minimum` line. Judged on the low end of a range: a "maybe" is not a yes. `0` turns it off. |
-| `goalHourly` | 1000 | The same, per hour: for listings that post an hourly rate, which a monthly minimum cannot judge. A card is brightened if **either** minimum is met. |
+| `goalSalary` | 60000 | *My minimum pay*, per month (stored in PHP, shown in your `currency`). Judges the listings whose hours are **not** stated (D71): a month against a month, never through an assumed week. Cards whose converted salary is **at least** this much get a green wash and a `★ meets your monthly minimum` line. Judged on the low end of a range: a "maybe" is not a yes. `0` turns it off. |
+| `goalHourly` | 1000 | The same, per hour: judges every listing with an hourly figure, a posted rate or its monthly pay over its **own stated hours** (D71). Each card is judged by exactly one of the two minimums. |
+| `hideGigsNoHours` | on | *Hide gigs that don't state their hours* (D71). A *Gig* with no hours per week, on its card or its page, has no hourly rate, so it is hidden as *Gigs with no hours*. `Read posts` opens these first, and a gig whose page states its hours comes back. |
 | `autoScan` | on | *Read full posts automatically* as soon as a search page loads. On by default (D42): every run is bounded to the recency window, two listings at a time, with hard caps. The `Read posts` button does the same thing on demand. |
 | `scanWorth` | on | *…then the Maybes*: after the Top picks, keep reading into the Maybe listings. Off means a run stops after the Top picks. |
 | `scanAll` | off | *…then everything else (slowest — can find hidden gems)*. This is the only pass that can lift a listing that matches no word and no minimum, and it is the most expensive one. |
-| `sortByPay` | on | *…then sort by pay, best first*: when a run ends, rank the board by the figure on each card: the highest **monthly** figure first, then listings that post only a rate (per hour or per day), then the ones with no figure at all, which keep the site's own order. A month and an hourly rate are never converted into each other (that would assume a work week), so a ₱5,000/mo listing outranks a ₱500/hr one. The order stays as you scroll more pages in, and only after a run: until then the board is in the site's own newest-first order. |
+| `sortByPay` | on | *…then sort by pay, best first*: when a run ends, rank the board **by the hourly rate** (D71.2): every listing with an hourly figure first, highest first (a posted rate, or its month over its own stated hours); then months whose hours are not known yet, then day rates, then listings with no figure, which keep the site's own order. A month is never turned into an hour through a guessed week. The order stays as you scroll more pages in, and only after a run: until then the board is in the site's own newest-first order. |
 | `dashboardUrl` | `http://127.0.0.1:8371` | The local dashboard from the sibling repo (`onlinejobs.ph-suite`). Each card gets **fits your resume N/M**, that dashboard's score for your resume against this listing, and the badge is a link that opens the job in the dashboard. Empty turns the bridge off; if nothing is listening there the extension stays silent. The score is the dashboard's, never this extension's: it has no resume and no scorer. |
 | `currency` | `PHP` | Which currency every figure and your minimum pay are shown in: `PHP` or `USD` (D66). Only the display changes; every comparison is still made in pesos. The minimums are typed in this currency, and switching it in Settings converts them on the spot at the ECB reference rate (refreshed daily; under $100 keeps cents, larger rounds to whole dollars), so the floor means the same in either; a toast says so. If the dollar rate cannot be fetched, figures stay in pesos and the minimums are not judged rather than judged at a guessed rate. |
 | `weeklyApplyGoal` | `0` | How many applications a week you aim for (D64). Above 0, the bar shows your streak (days in a row with an application) and this week's count against the goal; My jobs shows it too. Counted from your own ✓ Applied marks; nothing is sent anywhere. `0` turns it off. |
 | `myHours` | empty | Your working hours in your own time zone, like `08:00-18:00` (D59). A post that states its schedule with a time zone (`6:00 AM to 9:00 AM Philippine Time`, `9-5 EST`) gets a tag with those hours converted to your zone (daylight saving included) and ✅ all inside / ⚠ partly / ✗ outside your hours. Without it, the tag still appears whenever the post's zone differs from yours. A range with no zone is never converted. |
-| `lowballHourly` | `2.99` | The lowball line, in **US dollars per hour** whatever `currency` shows (D67). A listing whose best possible rate is at or below it gets the black ⚫ *Lowball* outline. The top of a range is judged, never the bottom; the line is strictly per hour, and a monthly figure is converted **only with the post's own hours**: its `HOURS PER WEEK` (read by `Read posts`, which opens these first) or a number of hours in its text — never the *Full Time* label and never an assumed week ($400/mo is $2.50/hr at 40 h and $4/hr at 25 h). Until then it is `⚫? checking hours`, not a lowball. A month is 4 weeks; day and per-unit rates are never judged. `0` turns it off. |
+| `lowballHourly` | `2.99` | The lowball line, in **US dollars per hour** whatever `currency` shows (D67). A listing whose best possible rate is at or below it gets the black ⚫ *Lowball* outline. The top of a range is judged, never the bottom; the line is strictly per hour, and a monthly figure is converted **only with the post's own hours**: its `HOURS PER WEEK` (read by `Read posts`, which opens these first) or a number of hours in its text — never the *Full Time* label and never an assumed week ($400/mo is $2.50/hr at 40 h and $4/hr at 25 h). Until then it is `⚫? checking hours`, not a lowball. **Gigs are never judged**: a *Gig* type of work, or pay quoted for the whole job (`200.00 for the Gig`, `$300 per project`), has no hourly rate to compare. A month is 4 weeks; day and per-unit rates are never judged. `0` turns it off. |
 | `reportDailyCap` | `20` | The most *Salary too low* reports sent in any 24 hours (D67). A card's tag asks before it reports; a batch asks once, sends one every 3 seconds, and stops at the first refusal. `0` turns reporting off; the black outline stays. |
 | `searches` | empty | Your saved searches (D63), as keywords or search links. ☆ on the bar saves the search you are on; 🔎 adds the new listings from your OTHER saved searches to the board you are on, de-duplicated and each tagged with the search it came from, so several searches read as one list. Only on a button press, one request at a time, ≥ 600 ms apart, at most 10 pages and 300 listings across all of them, stopping at your recency window and at the first HTTP 429. |
 
@@ -319,12 +331,14 @@ without a reload. Its label checks read `labels.js`, so a rename cannot drift fr
 | `salary.js` | Free-text salary → monthly figure, currency and units (W7). Pure and unit-tested |
 | `lowball.js` | The lowball line (D67): a salary's best hourly rate in USD, the cent-exact comparison, the report note and the daily cap. Pure and unit-tested |
 | `lowball-cards.js` | Applies it: the `.ojc-low` mark, the black card and its one-click report tag, `⚫? checking hours`, the *Let's report these* prompt and the glow, `⚫ Report N lowball`, and the one request this extension sends to OnlineJobs.ph |
+| `per-hour.js` | Every figure per hour (D70): a month over the post's own hours (or 40, marked assumed), the card's hourly-first pay line, and what counts as a price for the whole job. Pure, tested in `test-salary.js` |
 | `salary-cards.js` | Applies it: the live ECB rate, the figure on each card, the minimum-pay brighten, the display currency |
 | `dashboard-fit.js` | The pure half of the bridge to `onlinejobs.ph-suite`: request shape, 50-per-request batching, the badge, the deep link |
 | `dashboard-cards.js` | Applies it: one localhost call per page of cards, the **fits your resume** badge, the link back to the dashboard |
 | `ui.css` / `content.css` | The extension's own UI (bar, drawer, toast, overlays) vs what is painted on the site (marks, borders, badges) |
 | `options.html` / `options.js` | Standalone options page, mirroring the drawer's Basics / Advanced groups |
 | `test-rules.js` / `test-tiers.js` / `test-records.js` / `test-detail.js` / `test-closed.js` / `test-manifest.js` | Node tests, zero dependencies |
+| `test-per-hour.js` | Node tests for `per-hour.js`: stated hours only, the hourly-first line, prices for the whole job |
 | `test-labels.js` / `test-setup.js` / `test-myjobs.js` / `test-triage.js` | Node tests for the words, the first-run setup, the `myJobs` reducer and triage (suggestions, visits) |
 | `test-insights.js` / `test-trust.js` / `test-glance.js` | Node tests for pay insights, the trust tags (risk, re-posts, schedule) and At a glance |
 | `test-paysort.js` / `test-dashboard.js` | Node tests for the pay sort and the resume-fit bridge |

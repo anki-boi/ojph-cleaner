@@ -12,7 +12,7 @@
     noSalary: true, rescueNoSalary: true, rescueNegotiable: true, showHidden: false, autoScan: true,
     scanWorth: true, scanAll: false, autoLoad: true, goalSalary: 60000, goalHourly: 1000,
     maxAgeDays: 60, sortByPay: true, dashboardUrl: 'http://127.0.0.1:8371', currency: 'PHP', weeklyApplyGoal: 0, myHours: '', searches: [],
-    lowballHourly: 2.99, reportDailyCap: 20,
+    lowballHourly: 2.99, reportDailyCap: 20, hideGigsNoHours: true,
   };
   const toLines = (arr) => (arr || []).join('\n');
   const fromLines = (s) => [...new Set(s.split('\n').map(x => x.trim()).filter(Boolean))];
@@ -28,6 +28,7 @@
     $('noSalary').checked = s.noSalary;
     $('rescueNoSalary').checked = s.rescueNoSalary;
     $('rescueNegotiable').checked = s.rescueNegotiable;
+    $('hideGigsNoHours').checked = s.hideGigsNoHours !== false;
     $('showHidden').checked = s.showHidden;
     $('autoLoad').checked = s.autoLoad;
     $('goalSalary').value = s.goalSalary || '';
@@ -72,6 +73,7 @@
       noSalary: $('noSalary').checked,
       rescueNoSalary: $('rescueNoSalary').checked,
       rescueNegotiable: $('rescueNegotiable').checked,
+      hideGigsNoHours: $('hideGigsNoHours').checked,
       showHidden: $('showHidden').checked,
       autoLoad: $('autoLoad').checked,
       goalSalary: num($('goalSalary').value, cur),

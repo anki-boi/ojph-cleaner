@@ -69,7 +69,8 @@
     const scan = button('ojc-scan', 'ojc-act');
     const gear = button('ojc-gear', 'ojc-act ojc-icon', '⚙');
     gear.setAttribute('aria-label', L.btn.settings);
-    gear.title = L.btn.settings;
+    // The installed version, so a reload that picked up a change is visible at a glance.
+    gear.title = `${L.btn.settings} · v${chrome.runtime?.getManifest?.().version || '?'}`;
     row.append(pills, hiddenBtn, fresh, spacer, extra, scan, gear);
 
     const pop = el('div', 'ojc-pop');
@@ -102,7 +103,7 @@
     else if (u.bar.parentElement !== document.body) document.body.appendChild(u.bar);
   }
 
-  const hiddenTotal = (c) => c.closed + c.stale + c.noSal + c.kw + (c.passed || 0);
+  const hiddenTotal = (c) => c.closed + c.stale + c.noSal + (c.gig || 0) + c.kw + (c.passed || 0);
 
   function paintPop() {
     const u = ui;
@@ -137,8 +138,8 @@
     u.total.textContent = L.hiddenTotal(total, showHidden);
     u.hiddenBtn.title = 'why these are hidden';
     u.list.innerHTML = '';
-    for (const key of ['stale', 'noSal', 'kw', 'closed', 'passed']) {
-      if ((key === 'closed' || key === 'passed') && !counts[key]) continue;
+    for (const key of ['stale', 'noSal', 'gig', 'kw', 'closed', 'passed']) {
+      if ((key === 'closed' || key === 'passed' || key === 'gig') && !counts[key]) continue;
       const li = el('li', `ojc-pop-row ojc-pop-${key}`);
       li.append(el('span', 'ojc-pop-n', String(counts[key] || 0)), el('span', null, L.hidden[key]));
       li.title = L.hiddenTip[key];

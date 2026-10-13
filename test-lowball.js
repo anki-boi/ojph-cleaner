@@ -69,10 +69,29 @@ assert.strictEqual(cand('$400/month', { hours: 40, basis: 'full-time' }) && LB.i
 assert.strictEqual(rate('3/hour'), null, 'no currency on a rate: read as ₱3 for display, never judged');
 assert.strictEqual(rate('4 per hour'), null);
 assert.strictEqual(rate('10-15/hr'), null);
-assert.strictEqual(rate('Php36K', 40), null, 'a "k" the parser drops must not become ₱36 an hour');
-assert.strictEqual(rate('Starts at 55k PHP', 40), null);
+// "Php36K" used to lose its "k" and read as ₱36 an hour; the parser now reads thousands.
+near(rate('Php36K', 40), 36000 / 58 / 160);
+assert.strictEqual(low('Php36K', 40), false, '₱36,000/mo at 40 h is $3.88/hr');
+near(rate('Starts at 55k PHP', 40), 55000 / 58 / 160);
+// The sanity floor: a rate under $0.20/hr is a figure the parser misread ("PHP 20.000/m" is ₱20), never a verdict.
+assert.strictEqual(rate('PHP 20.000/m', 40), null, 'a dotted thousands figure read as ₱20 a month is not judged');
+near(rate('$100/month', 50), 0.5);   // …while a real $100/month at 50 h, $0.50/hr, still is
+assert.strictEqual(low('$100/month', 50), true);
 assert.strictEqual(low('2.50'), true, 'a bare small number read as DOLLARS is still judged');
 near(rate('25000', 40), 25000 / 58 / 160);   // a bare large number is a peso month by magnitude — judged
+
+// ── gigs and whole-job prices: never judged ───────────────────────────────
+// Live, 2026-10-14: "200.00 for the Gig", TYPE OF WORK Gig, HOURS PER WEEK 20 → read as a month → "$2.50/hr".
+assert.strictEqual(LB.isGig('Gig', '200.00 for the Gig'), true);
+assert.strictEqual(LB.isGig('Gig', '$400/month'), true, 'the type alone is enough');
+assert.strictEqual(LB.isGig(' gig ', ''), true);
+assert.strictEqual(LB.isGig('Any', '200.00 for the Gig'), true, 'so is a price quoted for the gig');
+assert.strictEqual(LB.isGig('Full Time', '$300 per project'), true);
+assert.strictEqual(LB.isGig('Any', '$150 fixed price'), true);
+assert.strictEqual(LB.isGig('Full Time', '$400/month'), false);
+assert.strictEqual(LB.isGig('Part Time', '$500/month + one-time signing bonus'), false, 'a bonus does not make a month a gig');
+assert.strictEqual(LB.isGig('Full Time', 'Digital marketing — $3/hr'), false, 'never inside a word');
+assert.strictEqual(LB.isGig(undefined, undefined), false);
 
 // ── never judged ──────────────────────────────────────────────────────────
 assert.strictEqual(rate('Php 500/day', 40), null, 'a day rate has no hourly rate without hours per day');

@@ -63,8 +63,8 @@
     <div><label class="block" for="goalSalary">Per month</label><input type="number" id="goalSalary" min="0" step="any" placeholder="40000"></div>
     <div><label class="block" for="goalHourly">Per hour</label><input type="number" id="goalHourly" min="0" step="any" placeholder="300"></div>
   </div>
-  <p class="hint" id="curHint">Typed in the currency above. Full-time jobs are judged per month, everything else per
-  hour. Converted with the ECB's reference rates, refreshed daily. Leave one empty to turn it off.</p>
+  <p class="hint" id="curHint">Typed in the currency above. A job with an hourly figure (posted, or its monthly pay over its
+  own stated hours) is judged per hour; a month with no stated hours is judged per month — never on an assumed 40 h week. Converted with the ECB's reference rates, refreshed daily. Leave one empty to turn it off.</p>
 </section>
 
 <section>
@@ -79,6 +79,7 @@
   <label class="check"><input type="checkbox" id="noSalary"><span>Hide jobs with no pay listed</span></label>
   <label class="check sub"><input type="checkbox" id="rescueNoSalary"><span>…unless I'd like it (a word I'm into, or it meets my minimum)</span></label>
   <label class="check sub"><input type="checkbox" id="rescueNegotiable"><span>…and keep “Negotiable” jobs that mention a word I'm into</span></label>
+  <label class="check"><input type="checkbox" id="hideGigsNoHours"><span>Hide gigs that don't state their hours — their pay can't be turned into an hourly rate. <strong>Read posts</strong> opens them first, and one whose page states hours comes back.</span></label>
   <label class="check"><input type="checkbox" id="showHidden"><span>Peek at hidden jobs (marked with a dashed outline)</span></label>
   <label class="check"><input type="checkbox" id="autoLoad"><span>Load more jobs when I scroll to the bottom (one page per scroll)</span></label>
   <label class="check"><input type="checkbox" id="autoScan"><span>Read full posts automatically when a search loads — every job inside your window, 2 at a time, with hard limits. The <strong>Read posts</strong> button does the same on demand.</span></label>

@@ -31,10 +31,10 @@ Read this first, every session. These are the owner's standing preferences.
   written in the post). "Full Time" is not a number. If the hours are not known, show `? /hr` and go read the post
   for them; never fill the gap with a guess.
 - **Gigs:** a gig with no stated hours is hidden. Lowball never judges gigs or whole-job prices.
-- **Lowball** (default $2.99/hr or below, configurable): a black ⚫ tier. Reporting a listing as "Salary too low"
+- **Lowball** (default $2/hr or below, configurable): a black ⚫ tier. Reporting a listing as "Salary too low"
   always asks first, card by card or once for a batch.
 - **Presets** for each kind of online worker and each experience level fill the keyword lists in setup. They are
   written in the matching syntax so they teach it: `word` (plurals and hyphens count), `word*` (broad), `=word`
   (exact).
 
-The why behind every rule, with the owner's own words, is in `spec.md` (decisions D67–D71.2).
+The why behind every rule, with the owner's own words, is in `spec.md` (decisions D67–D72).

@@ -122,7 +122,7 @@
             <span class="ojc-hint">The onlinejobs.ph-suite dashboard on this computer. Its score for your resume goes on each card. Empty turns it off.</span>
           </div>
           <div class="ojc-grid ojc-field" style="margin-top:14px">
-            <div><label for="ojc-lowballHourly">Lowball at or below ($/hr)</label><div class="ojc-input"><span>$</span><input type="number" id="ojc-lowballHourly" min="0" step="0.01" placeholder="2.99"></div></div>
+            <div><label for="ojc-lowballHourly">Lowball at or below ($/hr)</label><div class="ojc-input"><span>$</span><input type="number" id="ojc-lowballHourly" min="0" step="0.01" placeholder="2.00"></div></div>
             <div><label for="ojc-reportDailyCap">Reports a day, at most</label><input type="number" id="ojc-reportDailyCap" min="0" step="1" placeholder="20"></div>
           </div>
           <span class="ojc-hint">⚫ marks listings at or below this hourly rate, always in US dollars. A month counts only with the post's own hours. Clicking a card's black tag asks, then reports it as "Salary too low" under your account; the bar's batch asks once for all. 0 turns either off.</span>

@@ -26,7 +26,7 @@
     weeklyApplyGoal: 0, // D64: applications a week you aim for; >0 puts the streak in the bar (0 = off)
     myHours: '', // D59: your working hours, "08:00-18:00", checked against a post's schedule ('' = off)
     searches: [], // D63: saved searches (path+query) that "Check my searches" runs, on a button press only
-    lowballHourly: 2.99, // D67: USD/hour at or below which a listing is a Lowball you can report (0 = off)
+    lowballHourly: 2, // D67/D72: USD/hour at or below which a listing is a Lowball you can report (0 = off)
     reportDailyCap: 20, // D67: the most "Salary too low" reports sent in any 24 hours (0 = reporting off)
     hideGigsNoHours: true, // D71: hide a Gig that states no hours per week — no hourly rate can be known
   };

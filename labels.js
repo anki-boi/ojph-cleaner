@@ -94,7 +94,9 @@
       check: '⚫? checking hours',
       checkTip: (floor) => `a monthly figure that could be under ${floor}/hour — the extension reads the post's own ` +
         'HOURS PER WEEK before calling it a lowball (Read posts opens these first)',
-      nudge: (n) => `⚫ ${n} lowball offer${n === 1 ? '' : 's'} on this board. Let's report ${n === 1 ? 'it' : 'these'}!`,
+      // No count: the prompt fires as the first lowball is marked, before the rest of the board's pay is worked out,
+      // and a number there was wrong ("1 lowball offer" on a board with 2). The bar's ⚫ pill holds the live count.
+      nudge: () => '⚫ This board has lowball offers. Let\'s report them!',
       nudgeBtn: 'Review them',
       bulk: (n) => `⚫ Review ${n} lowball`,
       bulkTip: 'go through the lowball listings on this board one at a time — you see each one and decide: Report, Skip or Stop',

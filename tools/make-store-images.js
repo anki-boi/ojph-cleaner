@@ -107,6 +107,8 @@ const SHOT_JOBS = [
   ['list-chip.png', 'scale=1280:800:force_original_aspect_ratio=increase,crop=1280:800', '01-list-1280x800.png'],
   ['panel-in-page.png', 'scale=1280:800:force_original_aspect_ratio=increase,crop=1280:800', '02-settings-1280x800.png'],
   ['card-detail.png', FIT(), '03-card-1280x800.png'],
+  ['lowball-review.png', 'scale=1280:800:force_original_aspect_ratio=increase,crop=1280:800', '04-lowball-1280x800.png'],
+  ['setup-presets.png', 'scale=1280:800:force_original_aspect_ratio=increase,crop=1280:800', '05-setup-1280x800.png'],
 ];
 for (const [src, chain, dst] of SHOT_JOBS) {
   ffmpeg(['-i', path.join(SHOTS, src), '-vf', chain, '-frames:v', '1', path.join(OUT, dst)]);
@@ -130,7 +132,7 @@ shoot(frameHtml({
       Stop reading<br>dead listings.
     </div>
     <div style="margin-top:15px;font-size:12.5px;line-height:1.5;color:rgba(255,255,255,.76)">
-      Hides the stale, the unpaid and the keywords you hate. Highlights the ones worth your time.
+      Every job's real hourly rate, first. Hides the stale, the unpaid and the words you hate.
     </div>
   </div>`,
 }), 440, 280, path.join(OUT, 'promo-440x280.png'));
@@ -147,7 +149,7 @@ shoot(frameHtml({
       Stop reading<br>dead listings.
     </div>
     <div style="margin-top:24px;font-size:17px;line-height:1.6;color:rgba(255,255,255,.74);max-width:520px">
-      Hides the stale, the unpaid and the keywords you hate. Highlights the ones worth your time. Re-reads every listing in full when you ask it to.
+      Every job's real hourly rate, worked out from its own hours. Hides the stale, the unpaid and the words you hate, and flags lowball offers you can report.
     </div>
   </div>
   <div style="position:absolute;left:700px;top:64px;width:640px;height:432px;

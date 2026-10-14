@@ -83,8 +83,8 @@ assert.strictEqual(parseSalary('$5+/- per hour US - depends on experience & skil
 assert.deepStrictEqual(monthly('$5+/- per hour US - depends on experience & skills', FT), [800, 800, 'USD'],
   'full time → 5 × 160');
 assert.strictEqual(toPhp(parseSalary('$5/hour'), { USD: 62.7 }), null, 'no hours → toPhp refuses');
-assert.deepStrictEqual(ratePhp(parseSalary('$5/hour'), { USD: 62.7 }), { min: 314, max: 314 },
-  'the posted rate itself is still converted and shown');
+assert.deepStrictEqual(ratePhp(parseSalary('$5/hour'), { USD: 62.7 }), { min: 313.5, max: 313.5 },
+  'the posted rate itself is still converted and shown — to the centavo, so $5 comes back as $5.00');
 assert.strictEqual(formatRate({ min: 314, max: 314 }, 'hour'), '≈ ₱314/hr');
 assert.strictEqual(formatNote(null), null);
 // with the hours, the same listing gets a month
@@ -150,6 +150,9 @@ for (const timeUnit of ['Php200.00 - 210.00 Per Hour', 'Php 1000/day', '$5/hr', 
 assert.deepStrictEqual(toPhp(parseSalary('Php 30,000'), {}), { min: 30000, max: 30000 }, 'PHP needs no rate');
 assert.strictEqual(toPhp(parseSalary('$880'), {}), null, 'no rate → no converted figure, never a guess');
 assert.deepStrictEqual(toPhp(parseSalary('$880'), { USD: 62.7 }), { min: 55176, max: 55176 });
+// Round trip: a posted dollar rate shown in dollars is the posted rate, not a cent off (was "$12.01/hr" for $12).
+assert.strictEqual(formatRate(ratePhp(parseSalary('$12/hour'), { USD: 62.738 }), 'hour', { code: 'USD', rate: 62.738 }), '≈ $12/hr');
+assert.strictEqual(formatRate(ratePhp(parseSalary('$3/hour'), { USD: 62.738 }), 'hour', { code: 'USD', rate: 62.738 }), '≈ $3/hr');
 assert.deepStrictEqual(toPhp(parseSalary('$10 - $13 CAD per hour', FT), { USD: 62.7 }), null,
   'a CAD card must not be converted with a USD rate');
 

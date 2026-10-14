@@ -11,10 +11,13 @@ change; the copy below is drop-in.
 | Screenshot 1 | **1280×800** (or 640×400), square corners, full bleed | `docs/img/store/01-list-1280x800.png` | ✅ |
 | Screenshot 2 | same | `docs/img/store/02-settings-1280x800.png` | ✅ |
 | Screenshot 3 | same | `docs/img/store/03-card-1280x800.png` | ✅ |
+| Screenshot 4 | same | `docs/img/store/04-lowball-1280x800.png` | ✅ |
+| Screenshot 5 | same | `docs/img/store/05-setup-1280x800.png` | ✅ |
 | Small promo tile | **440×280** — **required** | `docs/img/store/promo-440x280.png` | ✅ |
 | Marquee promo tile | 1400×560 — optional, front page | `docs/img/store/marquee-1400x560.png` | ✅ |
 
-At least 1 screenshot is required; 5 is the maximum, so there is room for two more later.
+At least 1 screenshot is required; 5 is the maximum, and all five are used. Every image is recorded
+on a made-up board (`tools/fiction.mjs`), so no real employer appears.
 Slot 1 is the list in context, slot 2 is the settings panel open over the live list, and slot 3
 is a single card up close (letterboxed onto the 1280×800 canvas — a result card is ~1608×584,
 so no 1.6:1 crop of one shows it whole without slicing the description mid-sentence).
@@ -22,8 +25,10 @@ so no 1.6:1 crop of one shows it whole without slicing the description mid-sente
 **Retake the captures, then cut them to size:**
 
 ```bash
-node tools/capture-screens.js        # drives the live site → docs/img/*.png
-node tools/make-store-images.js      # → icons/ + docs/img/store/
+OJC_SANDBOX_PORT=9454 node tools/sandbox.mjs              # a throwaway Chrome with this checkout
+node tools/capture-screens.js --port=9454                  # the made-up board → docs/img/*.png
+node tools/record-gifs.mjs --port=9454                     # → docs/img/bar.gif, setup.gif
+CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" node tools/make-store-images.js
 ```
 
 `capture-screens.js` drives the automation Chrome on :9333 (see `docs/HANDOFF.md` §2), opens its
@@ -48,10 +53,10 @@ The name is deliberately our own compound. `OnlineJobs.ph` appears **only in the
 description**, as a statement of compatibility — never in the name, and never as a claim of
 association. See §5.
 
-**Summary** (`manifest.json` → `description`, **hard limit 132 chars** — currently 126):
+**Summary** (`manifest.json` → `description`, **hard limit 132 chars** — currently 120):
 
 ```
-Hides stale, no-salary and keyword-matching jobs on OnlineJobs.ph, highlights the ones you want, and re-reads listings in full
+See every OnlineJobs.ph job's real hourly rate, hide stale, unpaid and unwanted posts, and flag lowball offers to report
 ```
 
 **Detailed description** (paste into the listing):
@@ -72,15 +77,21 @@ WHAT IT DOES
   the counts, filters to any of them, and never covers a listing.
 
 • Hides what you never want to read. Too old (60 days by default), no pay listed ("TBD",
-  "Negotiable", "DOE" — a label is not a number), and the words you block — matched as whole
-  words, so "ai" never matches "email". "Peek at hidden" shows everything it took away.
+  "Negotiable", "DOE" — a label is not a number), gigs that state no hours, and the words you
+  block — matched as whole words, so "ai" never matches "email". "Peek at hidden" shows
+  everything it took away.
 
-• Shows what a listing actually pays — in pesos or US dollars, your choice. "5.5$/hr",
-  "Php 1000/day" and "15-20 AUD per hour" become one comparable figure at the ECB's daily
-  reference rate, next to the site's own wording, which is never replaced.
+• Shows every job's real hourly rate, first. "5.5$/hr", "PHP 20,000 per month" and "15-20 AUD
+  per hour" become one comparable figure per hour, in pesos or US dollars, at the ECB's daily
+  reference rate. A monthly salary is divided by the post's OWN stated hours — so ₱20,000 for
+  45 hours a week reads ≈ $1.77/hr, and you can compare jobs that offer different hours.
 
-• Does not guess. A part-time rate that doesn't state its hours stays an hourly rate, and a
-  month assumed from "full time" says so on the card.
+• Never guesses a 40-hour week. "Full Time" is not a number: until a post's hours are known the
+  card shows "? /hr" with the month beside it, and Read posts goes and reads those posts first.
+
+• Flags lowball offers. A job that works out at $2/hr or less (your line) gets a black ⚫
+  outline. Report it to OnlineJobs.ph as "Salary too low" with the site's own report feature —
+  one listing at a time, each shown to you before anything is sent. Gigs are never judged.
 
 • Reads the full posts for you, on your terms. Two at a time, inside your recency window, with
   hard caps and a Stop button — then re-sorts every listing by its full description and ranks
@@ -102,7 +113,10 @@ WHAT IT DOES
 • Checks all your saved searches at once, when you press the button: their new listings join
   the board you are on, de-duplicated, one request at a time.
 
-• First run takes 30 seconds: what you're hunting, the least you'd take, and your instant no's.
+• First run takes a minute: pick your kind of work (15 presets, from General VA to Medical VA)
+  and your experience level, and both keyword lists fill themselves in. Then the least you'd
+  take, and your instant no's. Words match as whole words, plurals included; design* widens a
+  word, =lead pins it.
 
 PRIVACY
 
@@ -112,8 +126,8 @@ PRIVACY
 • The only third-party call is a public exchange rate (ECB, via frankfurter.dev), asked
   once per currency per 24 hours and only when a listing on screen pays in that currency.
   No amount, keyword, or anything about you is sent.
-• The only thing ever sent to OnlineJobs.ph is a "Salary too low" report you send yourself with a click,
-  through the site's own report feature, capped per day.
+• The only thing ever sent to OnlineJobs.ph is a "Salary too low" report you send yourself, one
+  listing at a time, through the site's own report feature, capped per day.
 • Keywords, toggles, cached rates and per-listing verdicts stay in local storage. Listing
   pages a scan read are cached in IndexedDB, on the site's own origin.
 • The content script runs only on onlinejobs.ph and contacts no other host.
@@ -155,8 +169,11 @@ The honest qualifications, if a field invites detail:
 - **Website content is read but not collected.** The content script reads the listing text
   on the page in front of the user in order to decide what to hide or highlight. That text
   is processed locally and never leaves the device.
-- **The one outbound request** is a plain `GET` for a public ECB exchange rate. It contains
+- **The one third-party request** is a plain `GET` for a public ECB exchange rate. It contains
   no user data — no amount, no keyword, nothing identifying.
+- **The one write to OnlineJobs.ph** is its own "Salary too low" report (job id, reason 1, a
+  short note), sent only when the user presses Report for that one listing, from their own
+  signed-in tab. Nothing about the user is sent to us — there is no "us" to send it to.
 - **`host_permissions` is one site.** No other host is contacted, and the extension has no
   remote code.
 

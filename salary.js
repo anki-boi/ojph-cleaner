@@ -200,7 +200,10 @@
     if (currency === 'PHP') return { min: amount.min, max: amount.max };
     const rate = rates && rates[currency];
     if (!rate) return null;
-    return { min: Math.round(amount.min * rate), max: Math.round(amount.max * rate) };
+    // To the centavo, not the peso: whole pesos lost up to half a peso, and "$12/hour" came back as "$12.01/hr" and
+    // "$3/hour" as "$2.99/hr" beside a lowball tag saying $3.00 (seen 2026-10-14). Whole-peso DISPLAY is formatNote's job.
+    const c = (n) => Math.round(n * rate * 100) / 100;
+    return { min: c(amount.min), max: c(amount.max) };
   }
 
   /**

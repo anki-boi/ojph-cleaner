@@ -24,9 +24,12 @@
 //   --keep-settings       do not restore the previous settings afterwards
 //   --scan                press Scan and wait for it to finish before capturing. Slow, and it
 //                         reads listing pages for real — off by default.
+//   --live                capture the REAL board. Off by default: the media are recorded on a made-up board
+//                         (tools/fiction.mjs) so no real employer ever appears in the README or the store.
 'use strict';
 
 import { openTab, withTab } from './cdp.mjs';
+import { FICTION_SETTINGS, applyFiction } from './fiction.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -41,6 +44,7 @@ const URL_ = arg('url', 'https://www.onlinejobs.ph/jobseekers/jobsearch?jobkeywo
 const KEEP = flag('keep-settings');
 const DO_SCAN = flag('scan');
 const DO_RELOAD = flag('reload');
+const FICTION = !flag('live');
 
 const HERE = path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
 const OUT = path.resolve(HERE, '..', 'docs/img');
@@ -116,7 +120,7 @@ async function restore() {
 }
 
 try {
-  await store.evaluate(`chrome.storage.local.set({ settings: ${JSON.stringify(SETTINGS)} }).then(()=>1)`);
+  await store.evaluate(`chrome.storage.local.set({ ui: { onboarded: true }, settings: ${JSON.stringify(FICTION ? FICTION_SETTINGS : SETTINGS)} }).then(()=>1)`);
 
   console.log('\nscreenshots:');
   await withTab(PORT, 'about:blank', async (tab) => {
@@ -131,6 +135,10 @@ try {
     // The rule pass is rAF-scheduled and salary conversion waits on the FX rate; give both
     // time to settle so the capture shows final figures rather than skeletons.
     await sleep(3000);
+    if (FICTION) { console.log('  ' + await applyFiction(tab)); await sleep(5000); }
+    // The "Let's report them" prompt is a toast over the board — close it so it covers no card in the shots.
+    await tab.evaluate(`(()=>{const t=document.querySelector('#ojc-toast button[aria-label=Dismiss]'); if(t) t.click(); return 1})()`);
+    await sleep(300);
 
     if (DO_SCAN) {
       console.log('  running Scan (this reads listing pages for real)…');
@@ -162,7 +170,7 @@ try {
     // rect read in the same call as scrollIntoView() is measured mid-animation and the clip
     // lands offset from the card.
     const scrolled = await tab.evaluate(`(()=>{
-      const mark = document.querySelector('.ojc-pos, .ojc-recon, .ojc-tier-badge, .ojc-pos-badge');
+      const mark = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')].find(c => /Executive Virtual Assistant/.test(c.textContent)) || document.querySelector('.ojc-pos, .ojc-recon, .ojc-tier-badge, .ojc-pos-badge');
       if (!mark) return 0;
       const card = mark.closest('.jobpost-cat-box.latest-job-post') || mark.parentElement;
       card.scrollIntoView({ block: 'center', behavior: 'instant' });
@@ -175,13 +183,13 @@ try {
       // make-store-images letterboxes it onto the 1280x800 canvas instead.
       await tab.send('Emulation.setDeviceMetricsOverride', { ...VIEW, width: 1680, height: 1050 });
       await tab.evaluate(`(()=>{
-        const mark = document.querySelector('.ojc-pos, .ojc-recon, .ojc-tier-badge, .ojc-pos-badge');
+        const mark = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')].find(c => /Executive Virtual Assistant/.test(c.textContent)) || document.querySelector('.ojc-pos, .ojc-recon, .ojc-tier-badge, .ojc-pos-badge');
         const card = mark.closest('.jobpost-cat-box.latest-job-post') || mark.parentElement;
         card.scrollIntoView({ block: 'center', behavior: 'instant' });
         return 1})()`);
       await sleep(900);
       const cardRect = JSON.parse(await tab.evaluate(`(()=>{
-        const mark = document.querySelector('.ojc-pos, .ojc-recon, .ojc-tier-badge, .ojc-pos-badge');
+        const mark = [...document.querySelectorAll('.jobpost-cat-box.latest-job-post')].find(c => /Executive Virtual Assistant/.test(c.textContent)) || document.querySelector('.ojc-pos, .ojc-recon, .ojc-tier-badge, .ojc-pos-badge');
         const card = mark.closest('.jobpost-cat-box.latest-job-post') || mark.parentElement;
         const r = card.getBoundingClientRect();
         return JSON.stringify({ x: Math.max(0, r.x + window.scrollX), y: Math.max(0, r.y + window.scrollY),
@@ -195,6 +203,15 @@ try {
     }
 
     // The settings panel, clipped to its own box so the shot is the panel and nothing else.
+    // D73: the one-at-a-time lowball review, on the first lowball card.
+    const reviewed = await tab.evaluate(`(()=>{const b=document.getElementById('ojc-report-low'); if(!b||b.hidden) return 0; b.click(); return 1})()`);
+    if (reviewed) {
+      await sleep(1500);
+      await shot(tab, path.join(OUT, 'lowball-review.png'));
+      await tab.evaluate(`(()=>{const s=document.querySelector('.ojc-review-stop'); if(s) s.click(); const t=document.querySelector('#ojc-toast button[aria-label=Dismiss]'); if(t) t.click(); window.scrollTo(0,0); return 1})()`);
+      await sleep(800);
+    } else console.log('  (no lowball on this page — skipping lowball-review.png)');
+
     await tab.evaluate(`(()=>{const g=document.getElementById('ojc-gear'); if(g) g.click(); return 1})()`);
     await waitFor(tab, `document.getElementById('ojc-panel') && !document.getElementById('ojc-panel').hidden`,
       { timeout: 8000, label: 'the options panel (#ojc-panel)' });
@@ -234,6 +251,15 @@ try {
       if(b) { b.style.maxHeight = ''; b.style.overflowY = ''; }
       return 1})()`);
     await tab.send('Emulation.setDeviceMetricsOverride', VIEW);
+    await sleep(300);
+
+    // D68: setup's first screen, with two kinds of work picked.
+    await tab.evaluate(`(()=>{const r=document.getElementById('ojc-rerun-setup'); if(r) r.click(); return 1})()`);
+    await sleep(900);
+    await tab.evaluate(`(()=>{for (const t of ['General VA','Customer Support']) { const b=[...document.querySelectorAll('.ojc-archebtn')].find(x=>x.textContent.includes(t)); if(b) b.click(); } return 1})()`);
+    await sleep(600);
+    await shot(tab, path.join(OUT, 'setup-presets.png'));
+    await tab.evaluate(`(()=>{const s=document.getElementById('ojc-setup-skip'); if(s) s.click(); return 1})()`);
     await sleep(300);
     await tab.send('Emulation.clearDeviceMetricsOverride');
   }, 0);

@@ -20,7 +20,7 @@ turns every salary into one comparable number, and remembers your calls so tomor
 [Privacy](#privacy) ·
 [Full guide](docs/guide.md)
 
-<img src="docs/img/bar.gif" alt="The bar filters the board to Top picks, then Liked, then opens the hidden breakdown, peeks at the hidden cards and hides them again" width="760">
+<img src="docs/img/bar.gif" alt="The bar filters the board to Top picks, Maybe and Lowball, then opens the hidden breakdown and peeks at the hidden gig with no hours" width="760">
 
 ▶ **[Watch the 50-second demo](docs/video/ojph-cleaner-demo.mp4)**<br>
 <sub>Every listing in these recordings and screenshots is made up. No real employer appears.</sub>
@@ -53,12 +53,12 @@ filled, edit freely), the least you'd take, and your instant no's. A word one pi
 hidden by another pick. Finish replaces only what you answered, and offers Undo. ⚙ Settings has the
 same presets under *＋ Add words for…*.
 
-<img src="docs/img/setup.gif" alt="First-run setup: typing wanted words, a monthly minimum with the hourly suggested, and toggling blocked-word chips" width="760">
+<img src="docs/img/setup.gif" alt="First-run setup: picking General VA and Customer Support, then New to online work, the filled-in word lists with the matching guide, a minimum, and the instant no's" width="760">
 
 ### One bar that says what it did
 
-A slim bar sits on top of the site's own results. Pills filter to **⭐ Top picks**, **🤔 Maybe** or
-**💚 Liked** without reordering anything. `🙈 N hidden ▾` breaks the hidden count down by reason, and
+A slim bar sits on top of the site's own results. Pills filter to **⭐ Top picks**, **🤔 Maybe**,
+**💚 Liked** or **⚫ Lowball** without reordering anything. `🙈 N hidden ▾` breaks the hidden count down by reason, and
 *Peek at hidden* brings them back with a red dashed outline, so the decision stays yours.
 
 | The bar and its counts | Settings, in place |
@@ -90,12 +90,22 @@ board the same way: per hour first, highest first.
 `bi-weekly`, `semi-monthly` and `36K` are read as what they mean. Jobs at or above your minimum light
 up; trust tags flag what deserves a second look.
 
-![A read listing: converted monthly pay, meets your minimum, 40 h/week, and the virtual assistant, wants you off OLJ and posted today tags](docs/img/card-detail.png)
+![A card led by its hourly rate, $8.75/hr, with $1,400/mo at the post's own 40 h/week beside it, 25 % over the hourly minimum](docs/img/card-detail.png)
 
 Words you're into never hide anything. They mark the card with a green outline and a `✓ word`
 badge, so a job you want stands out instead of disappearing by mistake:
 
 ![A card that mentions a word you're into](docs/img/highlight.png)
+
+### Lowball offers: report them one at a time
+
+A listing that works out at **$2/hr or less** (your line, in Settings) gets a black ⚫ outline. Its tag is a
+button that asks before it files OnlineJobs.ph's own *Salary too low* report. `⚫ Review N lowball` walks
+the rest one by one: each card is outlined in gold, its figure shown, and nothing is sent until you press
+*Report this one*, so a false positive is never reported by accident. Gigs and whole-job prices are never
+judged.
+
+![Reviewing lowball offers one at a time: the card outlined in gold, its $1.88/hr figure, and Report, Skip and Stop](docs/img/lowball-review.png)
 
 ### Swipe through the shortlist
 

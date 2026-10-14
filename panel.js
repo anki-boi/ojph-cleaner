@@ -79,6 +79,10 @@
               <div class="ojc-input"><span class="ojc-cur-sym">₱</span><input type="number" id="ojc-goal-hourly" min="0" step="any" placeholder="300"></div>
             </div>
           </div>
+          <div class="ojc-field">
+            <label for="ojc-topPickMultiplier">⭐ Top pick despite a blocked word, at</label>
+            <div class="ojc-input"><input type="number" id="ojc-topPickMultiplier" min="1" step="0.1" placeholder="1.5"><span>× my minimum</span></div>
+          </div>
           <span class="ojc-hint" id="ojc-cur-hint">A job with an hourly figure (posted, or its month over its own stated hours) is judged per hour; a month with no stated hours, per month. Leave empty to turn one off.</span>
         </div>
         <div class="ojc-sec">
@@ -125,7 +129,7 @@
             <div><label for="ojc-lowballHourly">Lowball at or below ($/hr)</label><div class="ojc-input"><span>$</span><input type="number" id="ojc-lowballHourly" min="0" step="0.01" placeholder="2.00"></div></div>
             <div><label for="ojc-reportDailyCap">Reports a day, at most</label><input type="number" id="ojc-reportDailyCap" min="0" step="1" placeholder="20"></div>
           </div>
-          <span class="ojc-hint">⚫ marks listings at or below this hourly rate, always in US dollars. A month counts only with the post's own hours. Clicking a card's black tag asks, then reports it as "Salary too low" under your account; the bar's batch asks once for all. 0 turns either off.</span>
+          <span class="ojc-hint">⚫ marks listings at or below this hourly rate, always in US dollars. A month counts only with the post's own hours. Clicking a card's black tag asks, then reports it as "Salary too low" under your account; the bar's review shows them one at a time. 0 turns either off.</span>
           <div class="ojc-field ojc-row-btns" style="margin-top:14px"><button id="ojc-rerun-setup" type="button">Run setup again</button></div>
         </details>
       </div>
@@ -202,6 +206,7 @@
     $p('#ojc-autoLoad').checked = s.autoLoad;
     $p('#ojc-goal').value = s.goalSalary || '';
     $p('#ojc-goal-hourly').value = s.goalHourly || '';
+    $p('#ojc-topPickMultiplier').value = s.topPickMultiplier ?? 1.5;
     $p('#ojc-autoScan').checked = s.autoScan;
     $p('#ojc-scanWorth').checked = s.scanWorth !== false;
     $p('#ojc-scanAll').checked = !!s.scanAll;
@@ -258,6 +263,7 @@
       autoLoad: $p('#ojc-autoLoad').checked,
       goalSalary: num($p('#ojc-goal').value, cur),
       goalHourly: num($p('#ojc-goal-hourly').value, cur),
+      topPickMultiplier: Math.max(1, Math.round((Number($p('#ojc-topPickMultiplier').value) || 1.5) * 100) / 100),
       autoScan: $p('#ojc-autoScan').checked,
       scanWorth: $p('#ojc-scanWorth').checked,
       scanAll: $p('#ojc-scanAll').checked,

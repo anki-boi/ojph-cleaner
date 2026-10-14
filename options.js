@@ -12,7 +12,7 @@
     noSalary: true, rescueNoSalary: true, rescueNegotiable: true, showHidden: false, autoScan: true,
     scanWorth: true, scanAll: false, autoLoad: true, goalSalary: 60000, goalHourly: 1000,
     maxAgeDays: 60, sortByPay: true, dashboardUrl: 'http://127.0.0.1:8371', currency: 'PHP', weeklyApplyGoal: 0, myHours: '', searches: [],
-    lowballHourly: 2, reportDailyCap: 20, hideGigsNoHours: true,
+    lowballHourly: 2, reportDailyCap: 20, hideGigsNoHours: true, topPickMultiplier: 1.5,
   };
   const toLines = (arr) => (arr || []).join('\n');
   const fromLines = (s) => [...new Set(s.split('\n').map(x => x.trim()).filter(Boolean))];
@@ -33,6 +33,7 @@
     $('autoLoad').checked = s.autoLoad;
     $('goalSalary').value = s.goalSalary || '';
     $('goalHourly').value = s.goalHourly || '';
+    $('topPickMultiplier').value = s.topPickMultiplier ?? 1.5;
     $('autoScan').checked = s.autoScan;
     $('scanWorth').checked = s.scanWorth !== false;
     $('scanAll').checked = !!s.scanAll;
@@ -78,6 +79,7 @@
       autoLoad: $('autoLoad').checked,
       goalSalary: num($('goalSalary').value, cur),
       goalHourly: num($('goalHourly').value, cur),
+      topPickMultiplier: Math.max(1, Math.round((Number($('topPickMultiplier').value) || 1.5) * 100) / 100),
       autoScan: $('autoScan').checked,
       scanWorth: $('scanWorth').checked,
       scanAll: $('scanAll').checked,

@@ -63,6 +63,10 @@
     <div><label class="block" for="goalSalary">Per month</label><input type="number" id="goalSalary" min="0" step="any" placeholder="40000"></div>
     <div><label class="block" for="goalHourly">Per hour</label><input type="number" id="goalHourly" min="0" step="any" placeholder="300"></div>
   </div>
+  <label class="block" for="topPickMultiplier">⭐ Top pick despite a blocked word, at (× my minimum)</label>
+  <input type="number" id="topPickMultiplier" min="1" step="0.1" placeholder="1.5">
+  <p class="hint">A listing that mentions a word you block is normally a 🤔 Maybe. If it pays at least this many times your
+  minimum — and mentions more words you like than words you block — it is a ⭐ Top pick anyway. 1.5 = 50 % over.</p>
   <p class="hint" id="curHint">Typed in the currency above. A job with an hourly figure (posted, or its monthly pay over its
   own stated hours) is judged per hour; a month with no stated hours is judged per month — never on an assumed 40 h week. Converted with the ECB's reference rates, refreshed daily. Leave one empty to turn it off.</p>
 </section>
@@ -99,7 +103,7 @@
   <input type="number" id="lowballHourly" min="0" step="0.01" placeholder="2.00">
   <label class="block" for="reportDailyCap">Lowball reports a day, at most</label>
   <input type="number" id="reportDailyCap" min="0" step="1" placeholder="20">
-  <p class="hint">A listing whose best possible hourly rate is at or below this line gets a black ⚫ Lowball outline. Judged per hour: a monthly figure only with the post's own hours (its HOURS PER WEEK, read by Read posts, or a number in its text) — never the Full Time label or an assumed week. Until then it shows ⚫? checking hours. Clicking a card's black tag asks, then sends OnlineJobs.ph's own "Salary too low" report under your account; <strong>⚫ Report N lowball</strong> asks once, then sends them 3 seconds apart. Never more than the daily limit. 0 turns either off.</p>
+  <p class="hint">A listing whose best possible hourly rate is at or below this line gets a black ⚫ Lowball outline. Judged per hour: a monthly figure only with the post's own hours (its HOURS PER WEEK, read by Read posts, or a number in its text) — never the Full Time label or an assumed week. Until then it shows ⚫? checking hours. Clicking a card's black tag asks, then sends OnlineJobs.ph's own "Salary too low" report under your account; <strong>⚫ Review N lowball</strong> goes through them one at a time — you see each listing and press Report, Skip or Stop. Never more than the daily limit. 0 turns either off.</p>
   <label class="block" for="dashboardUrl">Resume-fit dashboard</label>
   <input type="text" id="dashboardUrl" placeholder="http://127.0.0.1:8371">
   <p class="hint">The onlinejobs.ph-suite dashboard on this computer. Its score for your resume goes on every card. Empty turns it off.</p>

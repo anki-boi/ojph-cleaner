@@ -77,7 +77,8 @@
    *  that cannot be proven is not one. */
   const goalBy = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 
-  function decide({ closed, stale, noSalary, gigNoHours = false, rescue, card, detail, negotiable = false, rescueNeg = false } = {}) {
+  function decide({ closed, stale, noSalary, gigNoHours = false, rescue, card, detail, negotiable = false, rescueNeg = false,
+    superBy = 0.5 } = {}) {
     const c = card || {};
     // The card's text and the description are the same keyword vocabulary, so the counts merge — the
     // same union the badges show. A keyword matched on both sides counts once.
@@ -110,7 +111,8 @@
       // Super green: it would be yellow, but it is unambiguously a keeper — more keywords you like than
       // you hate, and the pay clears your goal by more than half again. The user: "significantly more
       // positive keywords than negative (+ salary significantly higher) → high yield, not yellow".
-      if (by >= 0.5 && posN > negN) return 'high';
+      // D74: how far over is "unambiguously a keeper" is the user's own setting — `topPickMultiplier` (1.5 = +50 %).
+      if (by >= superBy && posN > negN) return 'high';
       return 'worth';
     }
     // **The goal is a hard filter, so this test comes BEFORE `pos` (D40).** Below a goal — or with no figure

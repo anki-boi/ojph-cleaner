@@ -29,6 +29,7 @@
     lowballHourly: 2, // D67/D72: USD/hour at or below which a listing is a Lowball you can report (0 = off)
     reportDailyCap: 20, // D67: the most "Salary too low" reports sent in any 24 hours (0 = reporting off)
     hideGigsNoHours: true, // D71: hide a Gig that states no hours per week — no hourly rate can be known
+    topPickMultiplier: 1.5, // D74: pay ≥ this × your minimum makes a listing with a blocked word a Top pick anyway
   };
   let settings = { ...DEFAULTS };
   // Which tier the board is showing (W14, D32/D38). Session-only, per tab, deliberately: a way of
@@ -133,7 +134,7 @@
         closed: closed?.isHeld(c),
         stale: rules.isStale(at, now, settings.maxAgeDays),
         noSalary: settings.noSalary && !rules.hasSalary(salText), gigNoHours: settings.hideGigsNoHours && gigWithoutHours(c),
-        rescue: settings.rescueNoSalary,
+        rescue: settings.rescueNoSalary, superBy: Math.max(0, (Number(settings.topPickMultiplier) || 1.5) - 1),
         negotiable: rules.isNegotiable(salText),
         rescueNeg: settings.rescueNegotiable,
         card: cardFacts,
@@ -293,7 +294,6 @@
     booted = true;
     console.log('[OJ Cleaner] active', settings);
   });
-
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.settings) applySettings(changes.settings.newValue);
   });

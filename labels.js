@@ -36,7 +36,7 @@
     },
     tierTip: {
       all: 'show the whole board with only your hiding rules applied',
-      high: 'meets your minimum pay — including the few that mention a blocked word but pay 50 %+ over your minimum',
+      high: 'meets your minimum pay — including the few that mention a blocked word but pay well over it (⚙: Top pick at × my minimum)',
       worth: 'mentions a word you block, but meets your minimum pay — your call',
       pos: 'mentions a word you are into, but pays below your minimum',
       low: 'pays at or below your lowball line (Settings → Advanced) — report them to OnlineJobs.ph as "Salary too low"',
@@ -95,13 +95,12 @@
       checkTip: (floor) => `a monthly figure that could be under ${floor}/hour — the extension reads the post's own ` +
         'HOURS PER WEEK before calling it a lowball (Read posts opens these first)',
       nudge: (n) => `⚫ ${n} lowball offer${n === 1 ? '' : 's'} on this board. Let's report ${n === 1 ? 'it' : 'these'}!`,
-      nudgeBtn: 'Report them',
-      bulk: (n) => `⚫ Report ${n} lowball`,
-      bulkTip: 'report every unreported lowball listing on this board as "Salary too low" — you confirm first',
-      confirm: (n, floor, left) => `Report ${n} listing${n === 1 ? '' : 's'} to OnlineJobs.ph as "Salary too low"?\n\n` +
-        `Each one pays ${floor}/hour or less. Reports are filed under your own account, one every few seconds` +
-        (left < n ? `, and your daily limit allows ${left} more today.` : '.'),
-      progress: (done, total) => `Reporting ${done} of ${total}…`,
+      nudgeBtn: 'Review them',
+      bulk: (n) => `⚫ Review ${n} lowball`,
+      bulkTip: 'go through the lowball listings on this board one at a time — you see each one and decide: Report, Skip or Stop',
+      reviewStep: (i, n, title, pay, floor) => `Lowball ${i} of ${n} · "${title}" · ${pay} — at or below your ${floor}/hr line. Report it as "Salary too low"?`,
+      reviewReport: 'Report this one', reviewSkip: 'Skip', reviewStop: 'Stop',
+      reviewDone: (sent, skipped) => `Reported ${sent}, skipped ${skipped}` + (sent ? ' — thank you' : ''),
       done: (n) => `Reported ${n} lowball listing${n === 1 ? '' : 's'} — thank you`,
       capped: (cap) => `Daily limit reached (${cap} reports in 24 hours) — change it in Settings → Advanced`,
       off: 'Reporting is off — set a daily limit above 0 in Settings → Advanced',

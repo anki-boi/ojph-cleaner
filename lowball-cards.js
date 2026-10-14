@@ -5,8 +5,8 @@
  * **The one place this extension writes to OnlineJobs.ph.** Everything else only reads. A report is the same
  * request the site's own REPORT button makes (POST /report-job/store, `type_id` 1, observed 2026-10-13), sent
  * from the signed-in tab, under the user's own account — so it is never sent without a click and a confirm,
- * one at a time with a gap, under a daily cap the user sets. A card's tag and the batch each ask once ("report
- * this for low salary?") before anything is sent. docs/scraping.md records the change.
+ * one at a time with a gap, under a daily cap the user sets. Every report is ONE listing the user is looking at:
+ * the card's tag asks first, and "⚫ Report N lowball" is a review that shows each listing in turn (D73). docs/scraping.md records the change.
  *
  * Three doors into the rest of the extension, none of which can change why a card got its tier:
  *   - `mark()`, called by salary-cards.js per card (it owns the parsed figure and the live rates), toggles
@@ -22,7 +22,6 @@
   if (!api) return;
   const LB = self.OJCLowball, L = self.OJCLabels;
   const JOB_LINK = 'a[href*="/jobseekers/job/"]';
-  const GAP_MS = 3000;   // between two reports in a batch: a person clicking, not a script hammering
 
   let log = {};          // reportedJobs: { jobId: reportedAt }
   let busy = false;
@@ -122,7 +121,7 @@
       try { seen = sessionStorage.getItem(NUDGE_KEY()) === '1'; } catch { /* storage blocked: prompt anyway */ }
       if (!n || busy || seen || self.OJCScan?.isRunning?.()) return;
       try { sessionStorage.setItem(NUDGE_KEY(), '1'); } catch { /* once per page load, then */ }
-      self.OJCToast?.show(L.low.nudge(n), { action: { label: L.low.nudgeBtn, run: reportAll }, ms: 20000 });
+      self.OJCToast?.show(L.low.nudge(n), { action: { label: L.low.nudgeBtn, run: reviewAll }, ms: 20000 });
     }, 1500);
   }
 
@@ -183,40 +182,96 @@
   /** Every lowball card on the board that has not been reported yet. */
   const openCards = () => api.cards().filter(c => api.tierOf(c) === 'low' && !isReported(idOf(c)));
 
-  async function reportAll() {
-    if (busy) return;
+  // ── the review: one listing at a time (D73) ─────────────────────────────────
+  // The user: "we need to be able to autoreport one listing at a time … what if we accidentally report a false
+  // positive?" So there is no batch send any more. "⚫ Report N lowball" walks the board's lowballs one by one:
+  // each card is scrolled to and outlined, its figure and hours are shown, and NOTHING is sent until Report is
+  // pressed for that listing. Skip leaves it for later; Stop ends the review.
+  let review = null;   // { list, i, sent, skipped, panel }
+  const titleOf = (card) => {
+    const h = card.querySelector('h4');
+    if (!h) return 'this listing';
+    const o = h.cloneNode(true);
+    o.querySelectorAll('[class*="badge"], [class^="ojc-"]').forEach(n => n.remove());
+    return o.textContent.replace(/\s+/g, ' ').trim();
+  };
+  function reviewPanel() {
+    const p = document.createElement('div');
+    p.id = 'ojc-low-review';
+    p.setAttribute('role', 'dialog');
+    p.setAttribute('aria-label', 'Review lowball listings one at a time');
+    const btn = (cls, text, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = cls; b.textContent = text; b.onclick = fn; return b; };
+    const text = document.createElement('div');
+    text.className = 'ojc-review-text';
+    p.append(text, btn('ojc-review-report', L.low.reviewReport, reportCurrent), btn('ojc-review-skip', L.low.reviewSkip, skipCurrent),
+      btn('ojc-review-stop', L.low.reviewStop, endReview));
+    document.body.appendChild(p);
+    return p;
+  }
+  function reviewAll() {
+    if (busy || review) return;
     const list = openCards();
-    const left = list.length ? allowance() : null;
-    if (!left) return;
-    if (!confirm(L.low.confirm(list.length, LB.dollars(floor()), left))) return;
-    busy = true;
-    let sent = 0;
-    try {
-      for (const card of list.slice(0, left)) {
-        const id = idOf(card);
-        if (!id || isReported(id) || sending.has(id)) continue;
-        if (sent) await new Promise(r => setTimeout(r, GAP_MS));
-        api.setNote(L.low.progress(sent + 1, Math.min(list.length, left)));
-        const why = await send(id, Number(card.dataset.ojcLowRate));
-        if (why) { self.OJCToast?.show(L.low.failed(why)); break; }   // stop on the first refusal, never retry
-        await remember(id);
-        sent++;
-        api.refreshRules();
-      }
-    } finally {
-      busy = false;
-      api.setNote('');
-      if (sent) self.OJCToast?.show(L.low.done(sent));
-      api.refreshRules();
+    if (!list.length || !allowance()) return;
+    review = { list, i: 0, sent: 0, skipped: 0, panel: reviewPanel() };
+    step();
+  }
+  const current = () => review && review.list[review.i];
+  function step() {
+    document.querySelectorAll('.ojc-low-reviewing').forEach(c => c.classList.remove('ojc-low-reviewing'));
+    // The next card that is still a lowball, still on the page and still unreported.
+    while (review.i < review.list.length) {
+      const c = review.list[review.i];
+      if (c.isConnected && api.tierOf(c) === 'low' && !isReported(idOf(c))) break;
+      review.i++;
     }
+    const card = current();
+    if (!card) return endReview();
+    card.classList.add('ojc-low-reviewing');
+    card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    const pay = card.querySelector('.ojc-salary-note')?.textContent.trim() || LB.dollars(Number(card.dataset.ojcLowRate)) + '/hr';
+    review.panel.querySelector('.ojc-review-text').textContent =
+      L.low.reviewStep(review.i + 1, review.list.length, titleOf(card), pay, LB.dollars(floor()));
+    for (const b of review.panel.querySelectorAll('button')) b.disabled = false;
+  }
+  async function reportCurrent() {
+    const card = current();
+    if (!card || busy) return;
+    if (!allowance()) return endReview();
+    busy = true;
+    for (const b of review.panel.querySelectorAll('button')) b.disabled = true;
+    const id = idOf(card);
+    try {
+      const why = await send(id, Number(card.dataset.ojcLowRate));
+      if (why) return endReview(L.low.failed(why));   // stop on a refusal, never retry — and say why
+      await remember(id);
+      review.sent++;
+      review.i++;
+    } finally { busy = false; api.refreshRules(); }
+    if (review) step();
+  }
+  function skipCurrent() {
+    if (!review || busy) return;
+    review.skipped++;
+    review.i++;
+    step();
+  }
+  function endReview(reason) {
+    if (!review) return;
+    const { sent, skipped, panel } = review;
+    review = null;
+    panel.remove();
+    document.querySelectorAll('.ojc-low-reviewing').forEach(c => c.classList.remove('ojc-low-reviewing'));
+    // The Stop button passes its click event; only a string is a reason to show (a refusal from the site).
+    self.OJCToast?.show((typeof reason === 'string' ? reason + ' · ' : '') + L.low.reviewDone(sent, skipped));
+    api.refreshRules();
   }
 
   self.OJCChip?.addAction({
     id: 'ojc-report-low', order: 5,
     text: () => L.low.bulk(openCards().length),
     title: L.low.bulkTip,
-    hidden: () => busy || !openCards().length,
-    onClick: reportAll,
+    hidden: () => busy || !!review || !openCards().length,
+    onClick: reviewAll,
   });
   api.addCardHook(decorate);
 

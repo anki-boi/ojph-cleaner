@@ -126,6 +126,14 @@ for (const t of ['closed', 'stale', 'nosal', 'kw']) assert.strictEqual(isHidden(
 for (const t of ['high', 'pos', 'worth', 'none']) assert.strictEqual(isHidden(t), false, t);
 assert.deepStrictEqual(TIERS, ['closed', 'stale', 'nosal', 'gig', 'low', 'high', 'pos', 'worth', 'kw', 'none']);
 
+// ── D74: the Top-pick multiplier is the user's ─────────────────────────────
+const sg = (by, superBy) => d({ card: card({ goal: true, goalBy: by, pos: ['ai', 'remote'], neg: ['crypto'] }), superBy });
+assert.strictEqual(sg(0.5), 'high', 'default: +50 % with more liked than blocked words is a Top pick');
+assert.strictEqual(sg(0.4), 'worth', '…and +40 % is a Maybe');
+assert.strictEqual(sg(0.4, 0.3), 'high', 'a 1.3× multiplier promotes it');
+assert.strictEqual(sg(0.6, 1), 'worth', 'a 2× multiplier holds it back');
+assert.strictEqual(sg(0, 0), 'high', '1× = meeting the minimum is enough');
+
 // ── A GIG WITH NO HOURS (D71): hidden, after the facts, before every judgement ──
 assert.strictEqual(d({ gigNoHours: true, card: card({ goal: true, pos: ['ai'] }) }), 'gig', 'no hours, no hourly rate — hidden');
 assert.strictEqual(d({ gigNoHours: true, card: card({ low: true }) }), 'gig', 'never a lowball either');

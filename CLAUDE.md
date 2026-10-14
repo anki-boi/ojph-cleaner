@@ -32,9 +32,10 @@ Read this first, every session. These are the owner's standing preferences.
   for them; never fill the gap with a guess.
 - **Gigs:** a gig with no stated hours is hidden. Lowball never judges gigs or whole-job prices.
 - **Lowball** (default $2/hr or below, configurable): a black ⚫ tier. Reporting a listing as "Salary too low"
-  always asks first, card by card or once for a batch.
+  is always ONE listing at a time that they can see: the card's tag asks first, and the bar's review shows each
+  listing and waits for "Report this one". Never a bulk send — a false positive must be catchable.
 - **Presets** for each kind of online worker and each experience level fill the keyword lists in setup. They are
   written in the matching syntax so they teach it: `word` (plurals and hyphens count), `word*` (broad), `=word`
   (exact).
 
-The why behind every rule, with the owner's own words, is in `spec.md` (decisions D67–D72).
+The why behind every rule, with the owner's own words, is in `spec.md` (decisions D67–D73).

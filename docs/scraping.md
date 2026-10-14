@@ -13,7 +13,7 @@ makes it safe to leave installed, and it is the property every change here must 
 | A foreign-currency salary on screen | one per currency per 24 h | European Central Bank reference rates via `api.frankfurter.dev` — a public exchange rate, no data about the user, and never a stale one (no rate → no converted figure) |
 | Recency filtering (W8) | **none** | The posted instant is already in the card markup (`p[data-temp]`), so filtering on it costs nothing. Hide-scrolling to find older listings is the *user* scrolling, and the loader's budget is unchanged |
 | Opening a job's own page (W4/W9) | **none** to OnlineJobs.ph | The description, `HOURS PER WEEK` and the closure notice are all in the page the user already loaded. The only request this can add is the same cached ECB rate call the board already makes, and only for a listing priced in a foreign currency |
-| Reporting a lowball (D67) | **one POST per report you click** to `/report-job/store` | The site's own REPORT request (`job_id`, `type_id` 1 = *Salary too low*, an optional note), sent from the signed-in tab. Never automatic: a click and a confirm on a card's tag, or one confirm for a batch, 3 s between reports in a batch, a batch stops at the first non-2xx or redirect, and at most `reportDailyCap` (20) in any 24 hours |
+| Reporting a lowball (D67) | **one POST per report you click** to `/report-job/store` | The site's own REPORT request (`job_id`, `type_id` 1 = *Salary too low*, an optional note), sent from the signed-in tab. Never automatic and never in bulk: a click and a confirm on a card's tag, or *Report this one* in the one-at-a-time review; a refusal (non-2xx or redirect) ends the review, and at most `reportDailyCap` (20) in any 24 hours |
 | Deep scan (`spec.md` W3, not built) | one per loaded card, only when keywords are configured | 3 concurrent, 400 ms between waves, current view only |
 
 Perpetual pagination (W6) is deliberately conservative: it needs a real scroll since the last page
@@ -79,12 +79,13 @@ in, or authenticate. That is also why "auto-apply" is rejected outright in `spec
 **The one exception is reporting a lowball (D67)**, and it is the only request that acts under the user's
 account. It is the site's own feature — OnlineJobs.ph lists *Salary too low* as report reason 1 — sent
 exactly as its REPORT button sends it, and it is held to the button's pace: nothing is sent without the user's click
-(a batch asks once more first), a batch waits 3 s between reports and stops on the first refusal, and `reportDailyCap`
+on that one listing — a card's tag asks first, and the review (D73) shows each listing and waits for *Report this
+one* — a refusal ends the review, and `reportDailyCap`
 bounds it per 24 hours. Two facts measured 2026-10-13 bound what a report can do: each report is recorded
 with the reporter's name against the employer, and the site's own thank-you for this reason says it does
 not enforce minimums. So a report is a signal on the record, not a takedown, and the cap exists so that no
-account sends enough of them to look like report spam. Do not remove the batch's confirm, shorten the gap, or send
-reports from a scan — that would turn a user's report into the extension's.
+account sends enough of them to look like report spam. Do not bring back a batch send (the user, D73: "what if we
+accidentally report a false positive?"), or send reports from a scan — that would turn a user's report into the extension's.
 
 If you ever raise the concurrency, shorten the delay between waves, or scan anything other than the
 current page, you are changing the extension's relationship with the site, and this document is the

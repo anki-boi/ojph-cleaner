@@ -42,6 +42,16 @@
 #ojc-chip .ojc-view-pos.is-on { background: #4e6b41; }
 #ojc-chip .ojc-view.is-empty:not(.is-on) { color: #8a9aa8; }
 #ojc-chip .ojc-view-low.is-on { background: #111; }
+/* D73: the one-at-a-time review — a bar at the bottom, the card under review outlined in gold. */
+#ojc-low-review { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 2147483001; display: flex;
+  flex-wrap: wrap; align-items: center; gap: 8px; max-width: min(760px, calc(100vw - 32px)); padding: 12px 14px; border-radius: 12px;
+  background: #111; color: #fff; font: 500 14px/1.4 system-ui, sans-serif; box-shadow: 0 8px 28px rgba(0, 0, 0, .35); }
+#ojc-low-review .ojc-review-text { flex: 1 1 100%; }
+#ojc-low-review button { border: 0; border-radius: 999px; padding: 7px 14px; font: 600 13px system-ui, sans-serif; cursor: pointer; background: #33414f; color: #fff; }
+#ojc-low-review .ojc-review-report { background: #b3261e; }
+#ojc-low-review button:disabled { opacity: .5; cursor: default; }
+/* Doubled class: beats content.css's black lowball outline, which loads after this file. */
+.jobpost-cat-box.jobpost-cat-box.ojc-low-reviewing { outline: 4px solid #ffc400 !important; outline-offset: 3px; }
 /* D67: the Lowball pill and its Report button pulse while anything on the board is left to report. */
 @keyframes ojc-glow { 0%, 70%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); } 85% { box-shadow: 0 0 0 4px rgba(255, 255, 255, .55), 0 0 14px 4px rgba(255, 196, 0, .7); } }
 #ojc-chip .ojc-glow { animation: ojc-glow 3s ease-in-out infinite; }

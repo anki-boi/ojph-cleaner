@@ -59,85 +59,37 @@ association. See §5.
 See every OnlineJobs.ph job's real hourly rate, hide stale, unpaid and unwanted posts, and flag lowball offers to report
 ```
 
-**Detailed description** (paste into the listing):
+**Detailed description** (as live in the dashboard since 0.19.0 — the listing's own voice, updated):
 
 ```
-Stop reading dead listings.
+Tired of scrolling past job posts with no salary, posts from three months ago, and "$2/hr, must know everything"?
 
-OnlineJobs.ph gives you a list and no way to narrow it. The two facts that decide whether a
-listing is worth your time — does it pay, is it fresh — are not fields you can filter on.
-So the hunt becomes: scroll, open, read, close, repeat.
-
-OJ.ph Cleaner is the filter the board doesn't ship.
+OJ.ph Cleaner tidies up your OnlineJobs.ph search results so you only spend time on jobs worth applying to.
 
 WHAT IT DOES
 
-• Sorts the board for you. ⭐ Top picks meet your minimum pay; 🤔 Maybe meet it but mention a
-  word you block; 💚 Liked mention a word you're into. One bar at the top of the results shows
-  the counts, filters to any of them, and never covers a listing.
+• Shows every job's real hourly rate, first. "$5/hr", "PHP 20,000 per month" and "15-20 AUD per hour" all become one hourly figure in pesos or dollars, worked out from the post's own stated hours. ₱20,000 a month for 45 hours a week reads ≈ $1.77/hr, so jobs with different hours finally compare.
+• Never guesses. "Full Time" is not a number of hours: until a post's hours are known, the card shows "? /hr" and the extension reads the post to find them.
+• Hides the junk: listings with no pay ("TBD", "Negotiable", "DOE"), listings that are too old, gigs that don't say their hours, and anything that mentions words you block, like "unpaid trial" or "commission only".
+• Tells you why. One click shows what was hidden and the reason, and you can peek at them anytime.
+• Highlights what you want. Jobs that meet your minimum pay become ⭐ Top picks, and jobs that mention words you like get a green badge.
+• Flags lowball offers. Jobs that work out at $2/hr or less (you choose the line) get a black ⚫ outline, and you can report them to OnlineJobs.ph as "Salary too low", one listing at a time, each shown to you before anything is sent.
+• Reads the full post for you, and flags red flags like a job that wants you to apply off the platform.
+• Swipe through your shortlist with the arrow keys: save, pass, or mark as applied.
+• My jobs keeps track of everything you saved and applied to, with notes and a reminder to follow up. Export your Top picks, Maybes or Liked jobs to a spreadsheet, sorted by hourly rate.
 
-• Hides what you never want to read. Too old (60 days by default), no pay listed ("TBD",
-  "Negotiable", "DOE" — a label is not a number), gigs that state no hours, and the words you
-  block — matched as whole words, so "ai" never matches "email". "Peek at hidden" shows
-  everything it took away.
+Setup takes a minute: pick your kind of work (15 presets, from General VA to Medical VA) and your experience level, and your keyword lists fill themselves in. Then the least you'd take, and your instant no's.
 
-• Shows every job's real hourly rate, first. "5.5$/hr", "PHP 20,000 per month" and "15-20 AUD
-  per hour" become one comparable figure per hour, in pesos or US dollars, at the ECB's daily
-  reference rate. A monthly salary is divided by the post's OWN stated hours — so ₱20,000 for
-  45 hours a week reads ≈ $1.77/hr, and you can compare jobs that offer different hours.
+PRIVATE BY DESIGN
 
-• Never guesses a 40-hour week. "Full Time" is not a number: until a post's hours are known the
-  card shows "? /hr" with the month beside it, and Read posts goes and reads those posts first.
+No account, no server, no tracking. Everything stays on your computer. The only outside request is a public exchange rate, so salaries in other currencies can be converted. The only thing ever sent to OnlineJobs.ph is a "Salary too low" report you choose to send, through the site's own report feature.
 
-• Flags lowball offers. A job that works out at $2/hr or less (your line) gets a black ⚫
-  outline. Report it to OnlineJobs.ph as "Salary too low" with the site's own report feature —
-  one listing at a time, each shown to you before anything is sent. Gigs are never judged.
+SOURCE CODE ON GITHUB
 
-• Reads the full posts for you, on your terms. Two at a time, inside your recency window, with
-  hard caps and a Stop button — then re-sorts every listing by its full description and ranks
-  the board by pay. Changing a word afterwards costs no requests at all.
+See how it works, report a bug, or suggest a feature:
+https://github.com/anki-boi/ojph-cleaner
 
-• Lets you triage fast. 💾 Save or ✕ Not for me on every card (with Undo), or 🃏 Swipe through
-  the board with the arrow keys. After enough passes it suggests a word to block — you decide.
-
-• Keeps track. 📋 My jobs: Saved → Applied → Interview → Offer, notes, a nudge to follow up after
-  five quiet days, an optional weekly goal and streak, and what the jobs you've read pay.
-
-• Flags what deserves a second look — never hides it. ⚠ a fee asked of you, an unpaid trial, an
-  off-site apply; 🔁 the same job re-posted again and again; and a post's working hours
-  converted into your own time zone.
-
-• Says what a job is at a glance — in the post's own words, from its own sections — and lets you
-  📌 pin three to compare side by side.
-
-• Checks all your saved searches at once, when you press the button: their new listings join
-  the board you are on, de-duplicated, one request at a time.
-
-• First run takes a minute: pick your kind of work (15 presets, from General VA to Medical VA)
-  and your experience level, and both keyword lists fill themselves in. Then the least you'd
-  take, and your instant no's. Words match as whole words, plurals included; design* widens a
-  word, =lead pins it.
-
-PRIVACY
-
-• No account, no server, no analytics. Everything runs on your machine.
-• No request you didn't ask for: with auto-load and automatic reading off, the extension
-  talks to nothing at all. Saved searches are only ever checked when you press 🔎.
-• The only third-party call is a public exchange rate (ECB, via frankfurter.dev), asked
-  once per currency per 24 hours and only when a listing on screen pays in that currency.
-  No amount, keyword, or anything about you is sent.
-• The only thing ever sent to OnlineJobs.ph is a "Salary too low" report you send yourself, one
-  listing at a time, through the site's own report feature, capped per day.
-• Keywords, toggles, cached rates and per-listing verdicts stay in local storage. Listing
-  pages a scan read are cached in IndexedDB, on the site's own origin.
-• The content script runs only on onlinejobs.ph and contacts no other host.
-
-DISCLAIMER
-
-Not affiliated with, endorsed by, or produced by OnlineJobs.ph. This is an independent
-browser extension that reads the job-search pages you are already viewing.
-
-Source: https://github.com/anki-boi/ojph-cleaner (all rights reserved — see the README, spec.md D1)
+Not affiliated with or endorsed by OnlineJobs.ph.
 ```
 
 ## 3. Permission justifications
@@ -147,7 +99,8 @@ The review asks for a justification per permission. Keep these short and literal
 | Permission | Justification |
 |---|---|
 | `storage` | Stores the user's keyword lists, toggles, salary goals, cached exchange rates and per-listing verdicts locally, so settings survive a reload. Nothing is transmitted. |
-| Host permission `https://www.onlinejobs.ph/*`, `https://onlinejobs.ph/*` | The extension's entire function is to read and annotate the job-search result pages on this site. It runs a content script there and nowhere else. |
+| Host permission `https://www.onlinejobs.ph/*`, `https://onlinejobs.ph/*` | The extension's entire function is to read and annotate the job-search pages on onlinejobs.ph. It runs a content script there and nowhere else. The one request it sends to the site is OnlineJobs.ph's own "Salary too low" report for a listing, made only when the user presses Report on that listing and confirms, from the user's own signed-in tab. |
+| Single purpose | Filters and annotates job listings on OnlineJobs.ph search pages: it hides listings that are too old, list no pay, or mention words the user blocks, highlights the ones the user wants, and converts posted salaries into one comparable hourly figure from each post's own stated hours. The user can also report a listing that pays too little to OnlineJobs.ph, one listing at a time, through the site's own "Salary too low" report. |
 | `web_accessible_resources`: `jobs.html`, `options.html` | So the buttons on the job board can open the extension's own My jobs and settings pages in a new tab. No script or data is exposed to the site. |
 
 The store build (`sh tools/make-store-zip.sh` → `dist/`) drops the `127.0.0.1` host permissions and

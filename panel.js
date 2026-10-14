@@ -141,7 +141,7 @@
         <span class="ojc-ver" title="the installed version — it changes with every update">v${chrome.runtime.getManifest().version}</span>
       </div>`;
     panel.querySelector('#ojc-save').onclick = save;
-    panel.querySelector('#ojc-export').onclick = () => self.OJCExport?.run?.();
+    panel.querySelector('#ojc-export').onclick = (e) => self.OJCExport?.choose?.(e.currentTarget);   // D75: pick the categories
     panel.querySelector('#ojc-close').onclick = () => open(false);
     panel.querySelector('#ojc-currency').onchange = convertGoals;
     panel.querySelector('#ojc-rerun-setup').onclick = () => { open(false); self.OJCSetup?.open(); };

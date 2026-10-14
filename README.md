@@ -126,7 +126,8 @@ every post the extension has read on your machine.
 **Also on board:** a `⚠ risky N` score with every reason on hover, `🔁 posted N× in 30 days`, a
 post's stated hours converted to your time zone, `📌` compare up to three cards side by side, saved
 searches merged into one board, suggested block words learned from what you pass, `● new since
-last visit`, and a CSV export of everything it remembers. All of it is tags, never gates: none of
+last visit`, and a CSV export (⚙ → ⬇ CSV) where you tick ⭐ Top picks, 🤔 Maybe and/or 💚 Liked and get them sorted by
+category, then by **hourly rate**, with the rate, its currency and how it was worked out in their own columns. All of it is tags, never gates: none of
 it hides a listing or changes its tier. **[Every feature in detail](docs/guide.md#your-own-calls-triage-my-jobs-and-the-rest)**
 
 ## Install

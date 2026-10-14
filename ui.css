@@ -193,6 +193,14 @@
 #ojc-panel-foot button.ojc-quiet:hover { background: #445465; }
 #ojc-panel-foot button:disabled { opacity: .45; cursor: default; }
 #ojc-panel-foot .ojc-ver { margin-left: auto; color: #8a9aa8; font: 600 11px system-ui, sans-serif; }
+/* D75: the CSV chooser, above the ⬇ CSV button. */
+#ojc-export-pick { position: fixed; z-index: 2147483003; display: grid; gap: 8px; min-width: 240px; padding: 14px 16px; border-radius: 12px;
+  background: #1f2a35; color: #e6edf3; font: 500 14px/1.4 system-ui, sans-serif; box-shadow: 0 10px 30px rgba(0, 0, 0, .35); }
+#ojc-export-pick label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+#ojc-export-pick small { color: #9fb3c8; max-width: 260px; }
+#ojc-export-pick div { display: flex; gap: 8px; }
+#ojc-export-pick button { border: 0; border-radius: 999px; padding: 7px 14px; font: 600 13px system-ui, sans-serif; cursor: pointer; background: #33414f; color: #e6edf3; }
+#ojc-export-pick .ojc-export-go { background: #3f6ea8; color: #fff; }
 .ojc-keyword-io, .ojc-row-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .ojc-keyword-io button, .ojc-row-btns button {
   background: #33414f; border: 0; color: #cdd8e2; font: 600 12px system-ui, sans-serif;

@@ -167,16 +167,35 @@
    *  own hours/type/wage, and when it was last checked. Pure, so the escaping is tested here, not in the
    *  browser: a wage like `PHP 30,000/mo` must survive a spreadsheet.
    */
-  function toCsv(records, urls) {
+  /**
+   * The export (F1, D75). `opts.tiers` picks which verdicts go out, in the order given — the user ticks ⭐ Top
+   * picks / 🤔 Maybe / 💚 Liked — and inside each, rows run by HOURLY RATE, highest first (no rate last). The user:
+   * "automatically sorted by category first, hourly salary second". `opts.hourly` is { id: { value, currency,
+   * basis } } from per-hour.js (export.js computes it with the live rate): the same figure the card leads with, or
+   * blank when the post's hours are not known — never a guessed week. No `opts`: every record, as stored.
+   */
+  function toCsv(records, urls, opts = {}) {
     const cell = (v) => { const s = String(v ?? ''); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
     const day = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : '');
     const list = (a) => (a || []).join('; ');
-    const rows = ['id,url,tier,prev,changed,checked,hours,type,wage,flags,pos,neg'];
-    for (const [id, r] of Object.entries(records || {})) {
+    const hourly = opts.hourly || {};
+    const rows = ['id,url,tier,hourly,hourly_currency,hourly_basis,prev,changed,checked,hours,type,wage,flags,pos,neg'];
+    let entries = Object.entries(records || {});
+    if (Array.isArray(opts.tiers)) {
+      const rank = new Map(opts.tiers.map((t, i) => [t, i]));
+      const rate = (id) => (Number.isFinite(hourly[id]?.value) ? hourly[id].value : -1);
+      entries = entries.filter(([, r]) => rank.has(r?.tier))
+        .sort(([a, ra], [b, rb]) => rank.get(ra.tier) - rank.get(rb.tier) || rate(b) - rate(a) || String(a).localeCompare(String(b)));
+    }
+    for (const [id, r] of entries) {
+      const h = hourly[id] || {};
       rows.push([
         cell(id),
         cell(urls ? urls[id] || '' : ''),
         cell(r?.tier),
+        cell(Number.isFinite(h.value) ? h.value.toFixed(2) : ''),
+        cell(Number.isFinite(h.value) ? h.currency : ''),
+        cell(h.basis),
         cell(r?.prev),
         cell(isChanged(r) ? 'yes' : 'no'),
         cell(day(r?.checkedAt)),

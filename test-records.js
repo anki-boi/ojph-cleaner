@@ -162,16 +162,32 @@ assert.strictEqual(canon({ tier: 'high', detail: { pos: ['a', 'b'], flags: [] } 
   };
   const urls = { '111': 'https://www.onlinejobs.ph/jobseekers/job/111' };
   const lines = toCsv(recs, urls).split('\n');
-  assert.strictEqual(lines[0], 'id,url,tier,prev,changed,checked,hours,type,wage,flags,pos,neg');
+  assert.strictEqual(lines[0], 'id,url,tier,hourly,hourly_currency,hourly_basis,prev,changed,checked,hours,type,wage,flags,pos,neg');
   assert.strictEqual(lines[1],
-    '111,https://www.onlinejobs.ph/jobseekers/job/111,high,worth,yes,2026-09-18,40,Full Time,"PHP 30,000/mo",ask,quickbooks,');
-  assert.strictEqual(lines[2], '222,,kw,,no,2026-09-18,,,,,,crypto');
+    '111,https://www.onlinejobs.ph/jobseekers/job/111,high,,,,worth,yes,2026-09-18,40,Full Time,"PHP 30,000/mo",ask,quickbooks,');
+  assert.strictEqual(lines[2], '222,,kw,,,,,no,2026-09-18,,,,,,crypto');
   assert.strictEqual(lines[3], '', 'trailing newline');
   // A keyword containing a quote or a comma must survive a spreadsheet round trip.
   const csv2 = toCsv({ '9': rec({ card: { pos: ['a,"b'], neg: [] } }) }, {});
   assert.ok(csv2.includes('"a,""b"'), 'the quote is doubled and the field quoted');
   // An empty memory is still a valid CSV: the header row alone.
-  assert.strictEqual(toCsv({}, {}), 'id,url,tier,prev,changed,checked,hours,type,wage,flags,pos,neg\n');
+  assert.strictEqual(toCsv({}, {}), 'id,url,tier,hourly,hourly_currency,hourly_basis,prev,changed,checked,hours,type,wage,flags,pos,neg\n');
+}
+// ── D75: pick the categories; sorted by category, then hourly rate ────────
+{
+  const r = (tier) => rec({ tier, card: { pos: [], neg: [] } });
+  const recs = { a: r('pos'), b: r('high'), c: r('worth'), d: r('high'), e: r('kw'), f: r('high') };
+  const hourly = { a: { value: 9, currency: 'USD', basis: 'posted per hour' }, b: { value: 4.5, currency: 'USD', basis: '$720/mo ÷ 40 h/wk' },
+    d: { value: 8.75, currency: 'USD', basis: '$1,400/mo ÷ 40 h/wk' }, c: { value: 7, currency: 'USD', basis: 'posted per hour' } };
+  const ids = (csv) => csv.trim().split('\n').slice(1).map(l => l.split(',')[0]);
+  assert.deepStrictEqual(ids(toCsv(recs, {}, { tiers: ['high', 'worth', 'pos'], hourly })), ['d', 'b', 'f', 'c', 'a'],
+    'Top picks (8.75, 4.5, no rate) → Maybe → Liked; a blocked-word listing is never exported by these boxes');
+  assert.deepStrictEqual(ids(toCsv(recs, {}, { tiers: ['worth'], hourly })), ['c'], 'one box ticked, one category out');
+  assert.deepStrictEqual(ids(toCsv(recs, {}, { tiers: [], hourly })), [], 'no box ticked, header only');
+  const line = toCsv(recs, {}, { tiers: ['high'], hourly }).split('\n')[1];
+  assert.ok(line.startsWith('d,,high,8.75,USD,$1,400/mo ÷ 40 h/wk,') || line.startsWith('d,,high,8.75,USD,"$1,400/mo ÷ 40 h/wk",'),
+    'the hourly rate, its currency and how it was worked out sit next to the tier');
+  assert.ok(toCsv(recs, {}, { tiers: ['high'], hourly }).includes('\nf,,high,,,,'), 'no rate known → blank, never guessed');
 }
 
 console.log('test-records: ok (prune · cap · apply · idempotence · change mark · csv export)');

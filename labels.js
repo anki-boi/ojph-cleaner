@@ -49,7 +49,7 @@
       scan: 'open every listing inside your window and re-sort it by its full description (2 at a time)',
       scanOff: 'add a word or a minimum pay first — there is nothing to sort by',
       stop: 'stop reading — everything read so far is kept, and the next run skips it',
-      csv: 'download everything the extension remembers about each listing as a spreadsheet',
+      csv: 'download the listings you choose — Top picks, Maybe, Liked — as a spreadsheet, sorted by hourly rate',
       csvOff: 'nothing remembered yet — read some posts first',
     },
     /** `N hidden` / `N would be hidden` (the second while peeking — the harness asserts on it). */
@@ -119,6 +119,13 @@
       ],
       never: 'A word never matches inside another: ai never matches email.',
       noBroad: 'Careful with * here: intern* would also hide internal and international jobs.',
+    },
+    /** The CSV chooser (D75). */
+    exportPick: {
+      title: 'Export which listings?',
+      hint: 'Sorted by category, then by hourly rate — the same figure each card leads with.',
+      none: 'Tick at least one.',
+      go: '⬇ Download CSV', cancel: 'Cancel',
     },
     /** The display currencies (D66). PHP first: it is the default and the board's own currency. */
     currency: { PHP: { symbol: '₱', name: 'Philippine peso' }, USD: { symbol: '$', name: 'US dollar' } },

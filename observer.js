@@ -26,7 +26,7 @@
   // .ojc-flag sit on the *site's* cards, and a mutation inside a highlighted card is a real change worth
   // re-running for.
   const OUR_CLASSES = ['ojc-pos-badge', 'ojc-neg-badge', 'ojc-closed-badge', 'ojc-closed-row', 'ojc-row-tier', 'ojc-fresh', 'ojc-dup',
-    'ojc-salary-note', 'ojc-salary-sub', 'ojc-salary-warn', 'ojc-low-badge', 'ojc-low-check-badge', 'ojc-low-review', 'ojc-tier-badge', 'ojc-flag-badge', 'ojc-hours', 'ojc-badges',
+    'ojc-salary-note', 'ojc-salary-sub', 'ojc-salary-warn', 'ojc-low-badge', 'ojc-low-check-badge', 'ojc-low-review', 'ojc-export-pick', 'ojc-tier-badge', 'ojc-flag-badge', 'ojc-hours', 'ojc-badges',
     // W4's detail-page marks. Not because the board's rules read them — a detail page has no cards to hide
     // — but because a mutation we cannot recognise schedules a rule pass, and a listing's own page can
     // carry related-job cards that those rules *do* read.

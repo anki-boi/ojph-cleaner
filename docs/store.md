@@ -59,7 +59,7 @@ association. See §5.
 See every OnlineJobs.ph job's real hourly rate, hide stale, unpaid and unwanted posts, and flag lowball offers to report
 ```
 
-**Detailed description** (as live in the dashboard since 0.19.0 — the listing's own voice, updated):
+**Detailed description** (for 0.25.1, the listing's own voice; 0.19.0's copy plus what 0.20 to 0.25 added):
 
 ```
 Tired of scrolling past job posts with no salary, posts from three months ago, and "$2/hr, must know everything"?
@@ -73,16 +73,25 @@ WHAT IT DOES
 • Hides the junk: listings with no pay ("TBD", "Negotiable", "DOE"), listings that are too old, gigs that don't say their hours, and anything that mentions words you block, like "unpaid trial" or "commission only".
 • Tells you why. One click shows what was hidden and the reason, and you can peek at them anytime.
 • Highlights what you want. Jobs that meet your minimum pay become ⭐ Top picks, and jobs that mention words you like get a green badge.
+• Tags the dealbreakers. Posts that want a video of you (a Loom intro) or a voice recording get a 🎥 or 🎙 tag, so you see it before you open the post.
 • Flags lowball offers. Jobs that work out at $2/hr or less (you choose the line) get a black ⚫ outline, and you can report them to OnlineJobs.ph as "Salary too low", one listing at a time, each shown to you before anything is sent.
-• Reads the full post for you, and tags the ones that want a video or a voice recording of you, so a dealbreaker shows at a glance.
-• Swipe through your shortlist with the arrow keys: save, pass, or mark as applied.
-• My jobs keeps track of everything you saved and applied to, with notes and a reminder to follow up. Export your Top picks, Maybes or Liked jobs to a spreadsheet, sorted by hourly rate.
+• Swipe through your shortlist with the arrow keys: save, pass, or mark as applied, with each job's whole post, its hourly rate and your keywords highlighted.
 
-Setup takes a minute: pick your kind of work (15 presets, from General VA to Medical VA) and your experience level, and your keyword lists fill themselves in. Then the least you'd take, and your instant no's.
+KNOW WHAT YOU ALREADY APPLIED TO
+
+• Most posts send you somewhere else to apply. When you come back from copying an address or pressing Apply, a small card asks "Did you apply?" One click files the job as Applied, with where you applied, and lets you add a note.
+• Jobs you applied to stay on the board, faded, with a stamp: "📨 Applied 3 days ago via forms.gle". When the same job is reposted, the new post tells you that you already applied.
+• My jobs keeps everything you saved and applied to, with notes and a reminder to follow up. Export your Top picks, Maybes or Liked jobs to a spreadsheet, sorted by hourly rate.
+
+SET UP IN A MINUTE
+
+Pick your kind of work (15 presets, from General VA to Medical VA) and your experience level, and your keyword lists fill themselves in. Or paste your resume (or pick the PDF or Word file): the job words in it that real posts use are offered as ticked boxes, each with how many posts use it. Then the least you'd take, and your instant no's.
+
+Moving to a new computer? Settings > Advanced > Back up everything saves one file with your settings, jobs and notes, and Restore puts it all back.
 
 PRIVATE BY DESIGN
 
-No account, no server, no tracking. Everything stays on your computer. The only outside request is a public exchange rate, so salaries in other currencies can be converted. The only thing ever sent to OnlineJobs.ph is a "Salary too low" report you choose to send, through the site's own report feature.
+No account, no server, no tracking. Everything stays on your computer, your resume included: it is read on your computer and never saved or sent. The only outside request is a public exchange rate, so salaries in other currencies can be converted. The only thing ever sent to OnlineJobs.ph is a "Salary too low" report you choose to send, through the site's own report feature.
 
 FROM THE DEVELOPER
 
@@ -131,6 +140,11 @@ The honest qualifications, if a field invites detail:
 - **The one write to OnlineJobs.ph** is its own "Salary too low" report (job id, reason 1, a
   short note), sent only when the user presses Report for that one listing, from their own
   signed-in tab. Nothing about the user is sent to us — there is no "us" to send it to.
+- **A resume, if the user offers one, is read on the device and dropped.** Pasted text or a picked file is turned
+  into text in the page to suggest keywords; it is never stored or sent. Only the words the user ticks are kept.
+- **"Did you apply?" watches nothing outside the listing.** Copying text from a post, opening a link in it or
+  pressing the site's Apply button arms one question in that tab; nothing about it leaves the device.
+- **A backup is a file the user saves.** Restore reads a file the user picks. Neither involves a server.
 - **`host_permissions` is one site.** No other host is contacted, and the extension has no
   remote code.
 

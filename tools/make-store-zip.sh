@@ -14,6 +14,8 @@ version=$(node -p "require('./manifest.json').version")
 out="dist/ojph-cleaner-$version.zip"
 stage=$(mktemp -d)
 trap 'rm -rf "$stage"' EXIT
+# node on Windows cannot open Git Bash's /tmp/… paths; give it the Windows form of the same folder.
+nstage=$(cygpath -m "$stage" 2>/dev/null || echo "$stage")
 
 # Everything the manifest loads, and nothing else: no tests, tools, docs or spec.
 files=$(node -e "
@@ -29,7 +31,7 @@ done
 
 # Bridge off: drop the localhost hosts, blank the default URL. Each edit must hit exactly once.
 node -e "
-  const fs = require('fs'), p = '$stage/manifest.json', m = JSON.parse(fs.readFileSync(p));
+  const fs = require('fs'), p = '$nstage/manifest.json', m = JSON.parse(fs.readFileSync(p));
   m.host_permissions = m.host_permissions.filter(h => !h.startsWith('http://127.0.0.1'));
   fs.writeFileSync(p, JSON.stringify(m, null, 2) + '\n');"
 for f in content.js options.js dashboard-fit.js; do
@@ -41,5 +43,17 @@ if grep -rn "127.0.0.1" "$stage"/*.json; then echo "store-zip: FAIL - localhost 
 
 mkdir -p dist
 rm -f "$out"
-(cd "$stage" && zip -qrX - .) > "$out"
+if command -v zip >/dev/null; then
+  (cd "$stage" && zip -qrX - .) > "$out"
+else
+  # No zip on stock Windows Git Bash: Python's zipfile writes the same archive (files at the root, deflated).
+  python -c "
+import os, sys, zipfile
+src, out = sys.argv[1], sys.argv[2]
+with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
+    for d, _, fs in sorted(os.walk(src)):
+        for f in sorted(fs):
+            full = os.path.join(d, f); z.write(full, os.path.relpath(full, src).replace(os.sep, '/'))
+" "$nstage" "$out"
+fi
 echo "store-zip: $out ($(unzip -l "$out" | tail -1 | awk '{print $2}') files)"

@@ -66,6 +66,12 @@
       media: { video: '🎥 wants a video of you', voice: '🎙 wants a voice recording',
         either: '🎥🎙 wants a video or voice recording', both: '🎥🎙 wants a video and a voice recording' },
       mediaTip: (q) => `The post asks: "${q}"`,
+      /** D87: more dealbreakers, found the same way. Tags, never a reason to hide. */
+      deal: (t) => (t.key === 'test' ? '🧪 wants a test task'
+        : t.key === 'hours' ? (t.kind === 'both' ? '🌙📅 nights and weekends' : t.kind === 'night' ? '🌙 night shift' : '📅 weekend work')
+          : t.key === 'language' ? `🗣 needs ${t.langs.join(', ')}`
+            : '🏢 recruitment agency'),
+      dealTip: (t) => t.quotes.slice(0, 2).map(q => `The post says: "${q}"`).join('\n'),
       negotiable: '⚠ negotiable', negotiableTip: 'states no figure — the pay is negotiable',
       closed: '⊘ closed', closedTip: 'you saw this listing closed — remembered so it stops appearing',
       assumes: (h) => `if full-time (${h} h/wk) — confirm the hours`,

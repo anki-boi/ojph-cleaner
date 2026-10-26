@@ -160,8 +160,9 @@ the listings it remembers, closed and reported listings, and the saved posts. `�
 on the other computer (or after a reinstall) says what the file holds and asks before it replaces
 anything; a file that is not a backup is refused untouched.
 
-**Also on board:** `🎥 wants a video of you` / `🎙 wants a voice recording` when a post asks you to record
-yourself (the ask, never a job's duties), a `⚠ risky N` score with every reason on hover, `🔁 posted N× in 30 days`, a
+**Also on board:** dealbreaker tags, read from the post's own words and never a reason to hide anything:
+`🎥 wants a video of you` / `🎙 wants a voice recording`, `🧪 wants a test task`, `🌙 night shift` / `📅 weekend work`,
+`🗣 needs Spanish` (any language besides English), and `🏢 recruitment agency`, each with the post's sentence on hover; a `⚠ risky N` score with every reason on hover, `🔁 posted N× in 30 days`, a
 post's stated hours converted to your time zone, `📌` compare up to three cards side by side, saved
 searches merged into one board, suggested block words learned from what you pass, `● new since
 last visit`, and a CSV export (⚙ → ⬇ CSV) where you tick ⭐ Top picks, 🤔 Maybe and/or 💚 Liked and get them sorted by
@@ -390,6 +391,7 @@ without a reload. Its label checks read `labels.js`, so a rename cannot drift fr
 | `risk.js` | `⚠ risky N` (D58): the fixed signal table and the 0–100 score. Pure, never a gate |
 | `schedule.js` | A post's hours in your time (D59): the zoned-range parser and the `Intl` conversion. Pure |
 | `trust.js` | Paints the trust tags on a card: risky, `🔁 posted N× in 30 days` (the `sightings` store), the hours in your time, and 🎥/🎙 |
+| `dealbreakers.js` | 🧪 a test task, 🌙 nights, 📅 weekends, 🗣 another language, 🏢 an agency (D87): the post's ask, never a duty or a look-alike. Pure, `test-dealbreakers.js` |
 | `media-ask.js` | Does a post ask you to record yourself, a video or a voice recording (D86)? The ask, never a duty. Pure, `test-media.js` |
 | `glance.js` / `glance-cards.js` | At a glance (D60): the word-for-word extraction from the post's own sections, and the folded block on the card |
 | `compare.js` | Pin up to 3 cards per tab and compare them side by side (D62) |

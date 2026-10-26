@@ -73,7 +73,7 @@ WHAT IT DOES
 • Hides the junk: listings with no pay ("TBD", "Negotiable", "DOE"), listings that are too old, gigs that don't say their hours, and anything that mentions words you block, like "unpaid trial" or "commission only".
 • Tells you why. One click shows what was hidden and the reason, and you can peek at them anytime.
 • Highlights what you want. Jobs that meet your minimum pay become ⭐ Top picks, and jobs that mention words you like get a green badge.
-• Tags the dealbreakers. Posts that want a video of you (a Loom intro) or a voice recording get a 🎥 or 🎙 tag, so you see it before you open the post.
+• Tags the dealbreakers, so you see them before you open the post: a video of you (🎥) or a voice recording (🎙), a test task (🧪), night shifts or weekends (🌙 📅), a language besides English (🗣), or a recruitment agency (🏢).
 • Flags lowball offers. Jobs that work out at $2/hr or less (you choose the line) get a black ⚫ outline, and you can report them to OnlineJobs.ph as "Salary too low", one listing at a time, each shown to you before anything is sent.
 • Swipe through your shortlist with the arrow keys: save, pass, or mark as applied, with each job's whole post, its hourly rate and your keywords highlighted.
 

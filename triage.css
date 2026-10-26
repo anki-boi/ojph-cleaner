@@ -206,3 +206,6 @@
 /* D86: the post wants a video or a voice recording of you: a dealbreaker for some, so it reads at a glance. */
 .ojc-media { background: rgba(142, 68, 173, .15); color: #6c3483; }
 :is(#ojc-detail-bar, .ojc-figbar) .ojc-bar-media { padding: 2px 8px; border-radius: 4px; background: #6c3483; color: #fff; font-weight: 700; }
+
+/* D87: the other dealbreakers share the purple of 🎥/🎙, so every "will you do this?" tag reads as one family. */
+.ojc-deal { background: rgba(142, 68, 173, .15); color: #6c3483; }

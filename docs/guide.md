@@ -112,7 +112,25 @@ recording` when it asks for both. Hover it for the post's own sentence. Only the
 ("edit short videos", "create Loom walkthroughs of our SOPs", "clean up podcast voice recordings") and a video call
 or interview never do. Checked on 70 live posts: 19 tagged, all of them real asks. It is a tag, never a filter:
 nothing is hidden or demoted for it, and a test fails if anything that decides a tier ever reads it. It replaced the old `⚠ wants you off OLJ` tag and its orange marks, which
-flagged nearly every post (most ask for a form or an email); that signal still counts quietly in `⚠ risky N`. Reading a post also prints its own
+flagged nearly every post (most ask for a form or an email); that signal still counts quietly in `⚠ risky N`.
+
+**More dealbreakers, the same way (D87).** In the same purple, from the post's own sentences:
+
+- `🧪 wants a test task`: a skills, typing, DISC or personality test, an assessment, a paid or unpaid trial, a test
+  on TestGorilla or Kolbe. Not a job's duties ("QA testing", "send and track test assignments", "patient
+  assessments", an "assessment coordinator" job) and not a probation ("3-month trial period").
+- `🌙 night shift`, `📅 weekend work`, `🌙📅 nights and weekends`: night, graveyard or overnight shifts as the post
+  says them; weekends, "Monday to Saturday", "6 days a week". Never "weekends off", "Monday to Friday" or "no night
+  shift", and an evening shift is not a night shift. "US business hours" with no times is not tagged: it was on 13 of
+  107 live posts, and a post that gives the hours as a range already gets `🕘 … your time`.
+- `🗣 needs Spanish` (any language besides English and the Philippines' own): asked of you ("fluent in", "native",
+  "Spanish-speaking VA", "Spanish is required"). Not "a plus", not "if you speak Spanish", not a market ("our Spanish
+  clients", "French-speaking Canada") or a workplace.
+- `🏢 recruitment agency`: "on behalf of our client", "our client is…", "we place VAs with our clients", "we are a
+  staffing / VA agency". Not "no agencies", not "experience at a staffing agency", not a marketing or insurance agency.
+
+Checked on 107 live posts: 12 test, 25 night or weekend, 3 language and 2 agency tags, every one read. Like 🎥/🎙,
+they are tags only, and `test-dealbreakers.js` fails if anything that decides a tier reads them. Reading a post also prints its own
 `HOURS PER WEEK` on the card, and flags a week longer than 40 hours.
 
 **It remembers each listing.** Every read or opened listing keeps its verdict, its figures and its

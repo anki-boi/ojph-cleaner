@@ -97,7 +97,7 @@
   }
 
   /** The bar's items, in order: [{ cls, text, title }]. `marks` are highlight()'s counts; `closed` the site's notice. */
-  function items(f, { settings, rates, marks = { warn: 0, pos: 0, neg: 0 }, closed = false, media = null }) {
+  function items(f, { settings, rates, marks = { warn: 0, pos: 0, neg: 0 }, closed = false, media = null, deals = [] }) {
     const out = [];
     const add = (cls, text, title) => out.push({ cls, text, title });
     const disp = dispOf(settings, rates);
@@ -149,6 +149,7 @@
     const kind = self.OJCMediaAsk?.kindOf(media);
     if (kind) add('ojc-bar-media', self.OJCLabels.mark.media[kind],
       [...media.video, ...media.voice, ...media.either].slice(0, 2).map(q => self.OJCLabels.mark.mediaTip(q)).join('\n'));
+    for (const d of deals || []) add(`ojc-bar-media ojc-bar-deal-${d.key}`, self.OJCLabels.mark.deal(d), self.OJCLabels.mark.dealTip(d));   // D87
     if (marks.pos || marks.neg) {
       add('ojc-bar-counts',
         [marks.pos ? `${marks.pos} ✓` : '', marks.neg ? `${marks.neg} ✗` : ''].filter(Boolean).join(' · ') + ' keyword match' + (marks.pos + marks.neg === 1 ? '' : 'es'),

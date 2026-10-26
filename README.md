@@ -123,6 +123,30 @@ every post the extension has read on your machine.
 
 ![My jobs: Saved, Applied, Interview and Offer columns, and the pay insights below](docs/img/my-jobs.png)
 
+### Know what you already applied to
+
+Most posts send you somewhere else to apply: a Google Form, a careers page, an email. The extension
+cannot see that moment, so it catches the step just before it. Copy something from a post, open a
+link it still carries, or press the site's own *Apply for this job*, then come back to the tab, and a
+small card asks **Did you apply?** with the place filled in (`via forms.gle`, an email address,
+`OnlineJobs.ph`). One click files it as Applied and turns the card into a note box, so what you sent
+is written down while you still remember it. Nothing is ever marked on its own; *Not yet* and *Stop
+asking* are one click too (and it switches off in ⚙ → Advanced).
+
+On the board, every card has `📨 Applied` next to Save, and a job you applied to stays on the board,
+dimmed, with its stamp: `📨 Applied 3 days ago via forms.gle · "sent my portfolio, asked for $6/hr"`.
+A blocked word never hides a job you applied to. When an employer reposts the same role under a new
+listing, the new card says `📨 You applied to this role on Oct 12` (or *this title*, when the card
+names no company). The `📨 Applied` pill on the bar shows just those. On a listing's own page, the
+note sits under `✓ I applied`, editable in place.
+
+### Move to another computer
+
+⚙ → Advanced → `⬇ Back up everything` saves one file with all of it: settings, My jobs and every note,
+the listings it remembers, closed and reported listings, and the saved posts. `⬆ Restore from a file`
+on the other computer (or after a reinstall) says what the file holds and asks before it replaces
+anything; a file that is not a backup is refused untouched.
+
 **Also on board:** a `⚠ risky N` score with every reason on hover, `🔁 posted N× in 30 days`, a
 post's stated hours converted to your time zone, `📌` compare up to three cards side by side, saved
 searches merged into one board, suggested block words learned from what you pass, `● new since
@@ -197,6 +221,7 @@ one step of Undo (D48).
 | `sortByPay` | on | *…then sort by pay, best first*: when a run ends, rank the board **by the hourly rate** (D71.2): every listing with an hourly figure first, highest first (a posted rate, or its month over its own stated hours); then months whose hours are not known yet, then day rates, then listings with no figure, which keep the site's own order. A month is never turned into an hour through a guessed week. The order stays as you scroll more pages in, and only after a run: until then the board is in the site's own newest-first order. |
 | `dashboardUrl` | `http://127.0.0.1:8371` | The local dashboard from the sibling repo (`onlinejobs.ph-suite`). Each card gets **fits your resume N/M**, that dashboard's score for your resume against this listing, and the badge is a link that opens the job in the dashboard. Empty turns the bridge off; if nothing is listening there the extension stays silent. The score is the dashboard's, never this extension's: it has no resume and no scorer. |
 | `currency` | `PHP` | Which currency every figure and your minimum pay are shown in: `PHP` or `USD` (D66). Only the display changes; every comparison is still made in pesos. The minimums are typed in this currency, and switching it in Settings converts them on the spot at the ECB reference rate (refreshed daily; under $100 keeps cents, larger rounds to whole dollars), so the floor means the same in either; a toast says so. If the dollar rate cannot be fetched, figures stay in pesos and the minimums are not judged rather than judged at a guessed rate. |
+| `askApplied` | `true` | Ask **Did you apply?** when you come back to a tab after copying from a post, opening a link it carries, or pressing the site's Apply (D76). One click files the job as Applied with where you applied, then offers a note. Never marks anything on its own. *Stop asking* on the card turns it off too. |
 | `weeklyApplyGoal` | `0` | How many applications a week you aim for (D64). Above 0, the bar shows your streak (days in a row with an application) and this week's count against the goal; My jobs shows it too. Counted from your own ✓ Applied marks; nothing is sent anywhere. `0` turns it off. |
 | `myHours` | empty | Your working hours in your own time zone, like `08:00-18:00` (D59). A post that states its schedule with a time zone (`6:00 AM to 9:00 AM Philippine Time`, `9-5 EST`) gets a tag with those hours converted to your zone (daylight saving included) and ✅ all inside / ⚠ partly / ✗ outside your hours. Without it, the tag still appears whenever the post's zone differs from yours. A range with no zone is never converted. |
 | `lowballHourly` | `2` | The lowball line, in **US dollars per hour** whatever `currency` shows (D67). A listing whose best possible rate is at or below it gets the black ⚫ *Lowball* outline. The top of a range is judged, never the bottom; the line is strictly per hour, and a monthly figure is converted **only with the post's own hours**: its `HOURS PER WEEK` (read by `Read posts`, which opens these first) or a number of hours in its text — never the *Full Time* label and never an assumed week ($400/mo is $2.50/hr at 40 h and $4/hr at 25 h). Until then it is `⚫? checking hours`, not a lowball. **Gigs are never judged**: a *Gig* type of work, or pay quoted for the whole job (`200.00 for the Gig`, `$300 per project`), has no hourly rate to compare. A month is 4 weeks; day and per-unit rates are never judged. `0` turns it off. |
@@ -239,10 +264,11 @@ door for keeping the same lists on two machines, or for a backup in a notes app.
   and no other host is ever contacted. The optional resume-fit bridge talks only to your own machine
   (`dashboardUrl`).
 - **Local state.** Settings, the cached rates, the remembered verdict for each listing, your own calls
-  (`myJobs`), the visit times and the re-post sightings live in `chrome.storage.local`; compare pins live in
+  (`myJobs`, with your notes and where you applied), the visit times and the re-post sightings live in `chrome.storage.local`; compare pins live in
   the tab's `sessionStorage`; the listing pages a run read are cached in IndexedDB, in the site's own
   origin. Pay insights, suggestions, risk scores and *At a glance* are computed from that, on this device.
-  There is no server, no account, and no analytics. See `SECURITY.md`.
+  There is no server, no account, and no analytics. A backup (⚙ → Advanced) is a file saved to your own
+  computer; nothing is uploaded. See `SECURITY.md`.
 - **One kind of write, on your click.** Everything above only reads. A lowball's tag and `⚫ Review N lowball`
   send OnlineJobs.ph's own *Salary too low* report (the same request as the site's REPORT button) from
   your signed-in tab, under your account: one listing at a time, only when you press Report for it, at most
@@ -316,7 +342,9 @@ without a reload. Its label checks read `labels.js`, so a rename cannot drift fr
 | `observer.js` | The one MutationObserver, and the `isOurs()` check that stops it eating itself |
 | `closed.js` / `closed-cards.js` | The closed-listing memory (pure maths + the storage applier) |
 | `detail-text.js` / `detail.js` | What to highlight on a listing's page, and the figures bar that applies it (W4) |
-| `detail-actions.js` | `💾 Save` / `✓ I applied` / `✕ Not for me` / `📋 My jobs` under the figures bar on a listing's own page (W21.2) |
+| `detail-actions.js` | `💾 Save` / `✓ I applied` / `✕ Not for me` / `📋 My jobs` under the figures bar on a listing's own page (W21.2), and the line with when and where you applied and your note (D77) |
+| `apply-ask.js` | *Did you apply?* (D76): copying from a post, opening its link or pressing Apply arms one question, asked when you come back to the tab; Yes files it as Applied with where, then offers a note |
+| `backup-file.js` / `backup.js` | Back up everything and restore it (D79): the file's shape and its checks (pure, `test-backup.js`), and the ⚙ buttons that read and replace `chrome.storage.local` and the saved posts |
 | `chip.js` | The status bar at the top of the results: the filter pills, the hidden breakdown with *Peek at hidden*, *Read posts* and ⚙ (D45/D46) |
 | `labels.js` | Every word the extension shows, in one table (D43). `test-labels.js` fails if a retired word is shown anywhere |
 | `toast.js` | The one-at-a-time notice at the bottom of the page, with Undo (D48) and the currency note (D66) |
@@ -327,8 +355,8 @@ without a reload. Its label checks read `labels.js`, so a rename cannot drift fr
 | `panel.js` | The settings drawer (the bar's ⚙): Basics, then Advanced; Save applies at once and offers Undo. Owns no rule logic |
 | `setup.js` | The first-run setup (D49/D50/D68): five skippable screens starting with the archetype and experience pickers, fresh installs only, `Run setup again` |
 | `presets.js` | Starter keyword lists for 15 kinds of online worker and 3 experience levels (D68), and the merge rule: a word any pick wants is never blocked. Pure and unit-tested (`test-presets.js`) |
-| `myjobs.js` | Your own calls (D51/D56): the pure `myJobs` reducer (saved, applied, interview, offer, passed), kept apart from settings and the job memory |
-| `triage.js` / `triage.css` | The card buttons (`💾 Save`, `✕ Not for me`), *You passed*, new since last visit, the suggested block word, and the bar's 🃏 / 📋 buttons |
+| `myjobs.js` | Your own calls (D51/D56): the pure `myJobs` reducer (saved, applied, interview, offer, passed), kept apart from settings and the job memory; where you applied, and the repost match (D76, D78) |
+| `triage.js` / `triage.css` | The card buttons (`💾 Save`, `📨 Applied`, `✕ Not for me`), the applied stamp and dimming, the repost tag, *You passed*, new since last visit, the suggested block word, and the bar's 🃏 / 📋 buttons |
 | `swipe.js` | Swipe mode (D52): one card at a time, keyboard first |
 | `suggest.js` | `Block "word"?` (D53): deterministic per-listing counting over what you passed and kept. Pure |
 | `visits.js` | New since your last visit (D54): the per-search key and the visit cutoff. Pure |
@@ -351,7 +379,8 @@ without a reload. Its label checks read `labels.js`, so a rename cannot drift fr
 | `options.html` / `options.js` | Standalone options page, mirroring the drawer's Basics / Advanced groups |
 | `test-rules.js` / `test-tiers.js` / `test-records.js` / `test-detail.js` / `test-closed.js` / `test-manifest.js` | Node tests, zero dependencies |
 | `test-per-hour.js` | Node tests for `per-hour.js`: stated hours only, the hourly-first line, prices for the whole job |
-| `test-labels.js` / `test-setup.js` / `test-myjobs.js` / `test-triage.js` | Node tests for the words, the first-run setup, the `myJobs` reducer and triage (suggestions, visits) |
+| `test-labels.js` / `test-setup.js` / `test-myjobs.js` / `test-triage.js` | Node tests for the words, the first-run setup, the `myJobs` reducer (with where you applied and reposts) and triage (suggestions, visits) |
+| `test-backup.js` | Node tests for the backup file: the round trip, what the restore question says, and every refusal |
 | `test-insights.js` / `test-trust.js` / `test-glance.js` | Node tests for pay insights, the trust tags (risk, re-posts, schedule) and At a glance |
 | `test-paysort.js` / `test-dashboard.js` | Node tests for the pay sort and the resume-fit bridge |
 | `test-pager.js` | Node tests for the pagination URL/offset maths and the stop conditions |

@@ -4,6 +4,9 @@
  * The page you read before applying is where "I applied" actually happens, so the three buttons sit right
  * under the figures bar (detail.js). They write the same `myJobs` map as the board's card buttons and Swipe
  * (myjobs.js), so My jobs, the board and this page always agree.
+ *
+ * Once the job is yours (saved or further), a line under the buttons says when you applied and where, and holds
+ * your note (D77): the place you apply from is where you remember what you sent.
  */
 (() => {
   'use strict';
@@ -12,7 +15,7 @@
   const id = closed?.jobIdFrom(location.pathname);
   if (!M || !id || !/\/jobseekers\/job\//.test(location.pathname)) return;
 
-  let jobs = {}, box = null;
+  let jobs = {}, box = null, mine = null;
   const text = (sel) => (document.querySelector(sel)?.textContent || '').replace(/\s+/g, ' ').trim();
   const facts = () => ({
     title: text('h1') || document.title.replace(/\s*[-|].*$/, ''),
@@ -56,6 +59,36 @@
       b.classList.toggle('is-on', b.dataset.state === now);
       b.setAttribute('aria-pressed', String(b.dataset.state === now));
     }
+    paintMine(jobs[id]);
+  }
+
+  const day = (t) => 'on ' + new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  /** When you applied and where, and your note: shown once the job is in My jobs (passed is not "yours"). */
+  function paintMine(e) {
+    if (!e || e.state === 'passed') { mine?.remove(); mine = null; return; }
+    if (!mine || !mine.isConnected) {
+      mine = document.createElement('div');
+      mine.id = 'ojc-detail-mine';
+      const when = document.createElement('span');
+      const note = document.createElement('input');
+      note.type = 'text';
+      note.placeholder = L.mine.notePh;
+      note.setAttribute('aria-label', L.mine.notePh);
+      const commit = async () => {
+        if ((jobs[id]?.note || '') === note.value.trim()) return;
+        jobs = M.note(jobs, id, note.value);
+        await chrome.storage.local.set({ myJobs: jobs });
+        self.OJCToast?.show(L.mine.noteSaved);
+      };
+      note.onchange = commit;
+      note.onkeydown = (ev) => { if (ev.key === 'Enter') note.blur(); };
+      mine.append(when, note);
+      box.after(mine);
+    }
+    const done = M.isDone(e);
+    mine.firstChild.textContent = done ? L.mine.stamp(e.state, day(M.appliedAt(e)), e.via) : L.mine.savedNote;
+    const note = mine.querySelector('input');
+    if (document.activeElement !== note) note.value = e.note || '';   // never under someone typing
   }
 
   chrome.storage.local.get('myJobs', (r) => {

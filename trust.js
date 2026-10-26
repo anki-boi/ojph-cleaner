@@ -73,7 +73,7 @@
 
   // The sightings are written in the background, at most every few seconds, and only when a new one appeared.
   setInterval(() => {
-    if (!dirty) return;
+    if (!dirty || self.OJCBackup?.restoring) return;   // D79: a restore is replacing this key
     dirty = false;
     const now = Date.now();
     const next = {};

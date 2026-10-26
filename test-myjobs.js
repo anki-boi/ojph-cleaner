@@ -57,4 +57,43 @@ assert.deepStrictEqual(M.streak(s, T0 + DAY + 3600e3), { days: 3, week: 2 }, 'no
 assert.deepStrictEqual(M.streak(s, T0 + 2 * DAY + 3600e3), { days: 0, week: 2 }, 'a missed day ends it');
 assert.deepStrictEqual(M.streak({}, T0), { days: 0, week: 0 });
 
-console.log('myjobs: ok (moves, history, passed, notes, follow-up, prune, streak)');
+// D76: where you applied is kept like any other fact, and survives later moves
+let v = M.set({}, '20', 'applied', T0, { title: 'VA', via: 'forms.gle' });
+assert.strictEqual(v['20'].via, 'forms.gle');
+v = M.set(v, '20', 'interview', T0 + DAY);
+assert.strictEqual(v['20'].via, 'forms.gle', 'via survives a move');
+assert.ok(!('via' in M.set({}, '21', 'applied', T0, { via: '' })['21']), 'an empty via is not stored');
+
+// D77: applied and further along are "done"; the applied date is the first applied move
+assert.ok(M.isDone(v['20']) && !M.isDone(M.set({}, '1', 'saved', T0)['1']) && !M.isDone(null));
+assert.strictEqual(M.appliedAt(v['20']), T0, 'moving to Interview keeps the day you applied');
+assert.strictEqual(M.appliedAt(M.set({}, '1', 'interview', T0 + 5)['1']), T0 + 5, 'no applied move: the entry\'s own time');
+
+// D78: a repost of a role you applied to
+const LONG = 'Senior Video Editor for Long-Form Video (Only Apply if You\'re Hungry to Grow)';
+let r = {};
+r = M.set(r, '500', 'applied', T0, { title: LONG });
+r = M.set(r, '501', 'applied', T0, { title: 'Virtual Assistant', company: 'Acme' });
+r = M.set(r, '502', 'saved', T0, { title: 'Bookkeeper for a Small Accounting Firm' });
+r = M.set(r, '503', 'applied', T0 + DAY, { title: LONG });
+assert.strictEqual(M.titleKey(LONG), 'senior video editor for long form video only apply if you re hungry to grow');
+const hit = M.repostOf(r, '999', 'senior video editor for long-form video (only apply if you\'re hungry to grow)', '');
+assert.strictEqual(hit.id, '500', 'the earliest application wins');
+assert.strictEqual(hit.sameCompany, false);
+assert.strictEqual(M.repostOf({ '500': r['500'] }, '500', LONG, ''), null, 'a listing never matches itself');
+assert.strictEqual(M.repostOf(r, '999', 'Virtual Assistant', ''), null, 'a short title needs the company');
+assert.strictEqual(M.repostOf(r, '999', 'Virtual Assistant', 'acme ').sameCompany, true, 'same company, any title length');
+assert.strictEqual(M.repostOf(r, '999', 'Virtual Assistant', 'Other Co'), null, 'two named companies are two jobs');
+assert.strictEqual(M.repostOf(r, '999', LONG, 'Some Co').id, '500', 'one side names no company: the long title decides');
+assert.strictEqual(M.repostOf(r, '999', 'Bookkeeper for a Small Accounting Firm', ''), null, 'saved is not applied');
+assert.strictEqual(M.repostOf(r, '999', '', ''), null);
+
+// D76: where copied text points
+assert.deepStrictEqual(M.whereFrom('Send your CV to hr.team@acme.com.au today'), { kind: 'email', via: 'hr.team@acme.com.au' });
+assert.deepStrictEqual(M.whereFrom('https://forms.gle/AbC123'), { kind: 'link', via: 'forms.gle' });
+assert.deepStrictEqual(M.whereFrom('www.acme.com/careers'), { kind: 'link', via: 'acme.com' });
+assert.deepStrictEqual(M.whereFrom('docs.google.com/forms/d/xyz'), { kind: 'link', via: 'docs.google.com' });
+assert.deepStrictEqual(M.whereFrom('experience with Node.js and React'), { kind: 'copy', via: null }, 'Node.js is not an address');
+assert.deepStrictEqual(M.whereFrom('PURPLE ELEPHANT'), { kind: 'copy', via: null });
+
+console.log('myjobs: ok (moves, history, passed, notes, follow-up, prune, streak, via, applied date, reposts)');

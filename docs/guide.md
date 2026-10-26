@@ -175,7 +175,7 @@ hourly is suggested as monthly ÷ 173.3 — 40 h × 52 weeks ÷ 12 — shown and
 shipped defaults; Finish replaces only what you answered, and offers Undo. An existing install is marked
 onboarded silently and never sees it. `⚙ → Advanced → Run setup again` reopens it.
 
-**Triage on every card (D51).** Each card gets `💾 Save`, `✕ Not for me` and `📌`. *Not for me* hides that
+**Triage on every card (D51).** Each card gets `💾 Save`, `📨 Applied` (D77), `✕ Not for me` and `📌`. *Not for me* hides that
 listing for good, counted under the bar's *You passed*, with Undo; while peeking, the card offers
 `↶ Show again`. Your decisions live in their own `chrome.storage.local` key, `myJobs` — never in
 `settings` (a settings Save writes the whole object) and never in the job memory (which is re-derived and
@@ -202,6 +202,29 @@ job applied 5 days ago with no move since, and a folded Passed list with `↶ Sh
 page, `💾 Save` / `✓ I applied` / `✕ Not for me` / `📋 My jobs` sit under the figures bar and write the same
 `myJobs`, so the board, the page and My jobs always agree.
 
+- **Applied, on the board (D77).** Every card has `📨 Applied` beside `💾 Save`. A job you applied to (or got
+  further with) stays on the board, dimmed until you point at it, with a stamp: `📨 Applied 3 days ago via
+  forms.gle · "your note"`. Your call outranks a word filter: a blocked word, no pay listed or a gig with no
+  hours never hides a job you applied to (too old and closed still do). The bar's `📨 Applied N` pill shows
+  only these, and the reposts below.
+- **Did you apply? (D76).** Most posts want you to apply elsewhere, which the extension cannot see, and
+  OnlineJobs.ph blanks the links in a post, so the address is copied by hand. On a listing's page, copying
+  text from the post, opening a link it still carries, or pressing the site's *Apply for this job* arms one
+  question (per tab, forgotten after 6 hours). Come back to the tab after at least 8 seconds away (another
+  tab, another app) and a card at the top right asks *Did you apply for "…"?*, saying what it saw (*You
+  copied hr@acme.com from this post*). `✓ Yes, I applied` files it as Applied with `via` (a link's host, the
+  email address, or OnlineJobs.ph) and becomes a one-line note box; `Not yet` drops the question; `Stop
+  asking` turns it off (`askApplied`, also in ⚙ → Advanced). It never marks anything by itself.
+- **Reposts of a role you applied to (D78).** A new listing whose title matches one you applied to says
+  `📨 You applied to this role on Oct 12` when both cards name the same company, or `… to this title …`
+  when the card names none, and then only for titles of 5 words or more, so a bare "Virtual Assistant"
+  never matches every other one.
+- **Back up and restore (D79).** ⚙ → Advanced → `⬇ Back up everything` downloads one file with every key the
+  extension keeps (settings, My jobs with notes, the job memory, closed and reported listings, sightings,
+  visits, rates) and the saved posts from IndexedDB. `⬆ Restore from a file` checks the file first, says
+  what it holds, and replaces everything only on `Replace`; other OnlineJobs.ph tabs reload onto the
+  restored data. It lives in the board's panel, not the options page, because the saved posts belong to
+  the OnlineJobs.ph page.
 - **Streak.** With `weeklyApplyGoal` above 0, the bar and My jobs show `🔥 Nd · X/goal` — days in a row
   with an application, and this week's count — counted from your own *Applied* marks.
 - **Pay insights.** Two histograms — full-time jobs per month, part-time and gigs per hour, never one axis

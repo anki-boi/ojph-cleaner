@@ -41,6 +41,7 @@
     $('dashboardUrl').value = s.dashboardUrl ?? '';
     $('currency').value = loadedCurrency = s.currency || 'PHP';
     $('weeklyApplyGoal').value = s.weeklyApplyGoal || '';
+    $('askApplied').checked = s.askApplied !== false;
     $('myHours').value = s.myHours || '';
     $('searches').value = toLines(s.searches);
     $('lowballHourly').value = s.lowballHourly || '';
@@ -87,6 +88,7 @@
       dashboardUrl: $('dashboardUrl').value.trim(),
       currency: cur,
       weeklyApplyGoal: Math.max(0, Math.round(Number($('weeklyApplyGoal').value) || 0)),
+      askApplied: $('askApplied').checked,
       myHours: $('myHours').value.trim(),
       searches: fromLines($('searches').value),
       lowballHourly: num($('lowballHourly').value, 'USD'),

@@ -107,3 +107,39 @@
 .ojc-sw-glance { margin: 10px 0 0; padding: 10px 12px; background: #f4f7fb; border-radius: 10px; font-size: 14px; }
 .ojc-sw-glance b { display: block; font-size: 12px; letter-spacing: .03em; text-transform: uppercase; color: #616e7c; }
 .ojc-sw-glance ul { margin: 2px 0 6px; padding-left: 18px; }
+
+/* ── Applied (D76 to D78) ── */
+.ojc-acts .ojc-act-applied.is-on { background: #e8eef8; border-color: #4d82c1; color: #2b5385; }
+.ojc-acts button[hidden] { display: none; }
+/* A job you applied to stays on the board, quieter, so the eye moves on; pointing at it brings it back. */
+.jobpost-cat-box.ojc-done { opacity: .62; transition: opacity .15s; }
+.jobpost-cat-box.ojc-done:hover, .jobpost-cat-box.ojc-done:focus-within { opacity: 1; }
+/* Shown because it is yours, not peeked at: no "would be hidden" outline (its ✗ word badge still says why). */
+.jobpost-cat-box.ojc-done.ojc-neg { outline: none !important; }
+.ojc-mine { margin: 6px 330px 4px 0; padding: 4px 10px; width: fit-content; max-width: 100%; box-sizing: border-box; border-radius: 8px; background: #f4f7fb; color: #33414f; font: 600 12.5px/1.4 system-ui, sans-serif; }
+.ojc-mine.is-done { background: #e8eef8; color: #2b5385; }
+@media (max-width: 760px) { .ojc-mine { margin-right: 0; margin-bottom: 44px; } }
+.ojc-repost { background: rgba(77, 130, 193, .16); color: #2b5385; }
+
+/* "Did you apply?": a small card at the top right, never covering the page's own Apply button. */
+#ojc-ask { position: fixed; top: 16px; right: 16px; z-index: 2147483003; width: min(360px, calc(100vw - 32px)); box-sizing: border-box; padding: 14px 16px 12px; border-radius: 12px; background: #1f2933; color: #e6edf3; box-shadow: 0 12px 40px rgba(0, 0, 0, .35); font: 14px/1.45 system-ui, -apple-system, sans-serif; }
+#ojc-ask b { display: block; padding-right: 22px; font-size: 15px; }
+#ojc-ask small { display: block; margin-top: 2px; color: #9fb3c8; font-size: 12.5px; }
+#ojc-ask input { width: 100%; box-sizing: border-box; margin-top: 8px; padding: 7px 10px; border: 1px solid #3e4c59; border-radius: 8px; background: #111a22; color: #e6edf3; font: 14px system-ui, sans-serif; }
+.ojc-ask-btns { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.ojc-ask-btns button { border: 1px solid #3e4c59; background: transparent; color: #e6edf3; font: 600 13px system-ui, sans-serif; padding: 6px 12px; border-radius: 999px; cursor: pointer; }
+.ojc-ask-btns .ojc-ask-yes { background: #3f7a4a; border-color: #3f7a4a; color: #fff; }
+.ojc-ask-btns .ojc-ask-never { margin-left: auto; border: 0; padding: 6px 4px; color: #9fb3c8; font-weight: 500; }
+.ojc-ask-btns button:focus-visible, .ojc-ask-x:focus-visible { outline: 2px solid #8ab4f8; outline-offset: 2px; }
+.ojc-ask-x { position: absolute; top: 8px; right: 8px; border: 0; background: transparent; color: #9fb3c8; font-size: 14px; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+
+/* The listing's own page: when you applied, where, and your note, under Save / I applied / Not for me. */
+#ojc-detail-mine { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: -6px 0 16px; font: 600 13px system-ui, sans-serif; color: #2b5385; }
+#ojc-detail-mine input { flex: 1 1 260px; padding: 7px 12px; border: 1px solid #cbd2d9; border-radius: 999px; font: 13px system-ui, sans-serif; color: #1f2933; background: #fff; }
+
+/* ⚙ → Advanced: the restore question, in the panel's dark palette. */
+#ojc-backup-row { display: flex; flex-wrap: wrap; gap: 8px; }
+#ojc-restore-ask { margin: 10px 0 4px; padding: 10px 12px; border: 1px solid #c0392b; border-radius: 10px; background: rgba(192, 57, 43, .12); }
+#ojc-restore-ask p { margin: 0 0 8px; font-size: 13px; line-height: 1.45; }
+#ojc-restore-ask button { margin-right: 8px; padding: 6px 12px; border: 1px solid #52606d; border-radius: 8px; background: #3e4c59; color: #e6edf3; font: 600 13px system-ui, sans-serif; cursor: pointer; }
+#ojc-restore-ask .ojc-restore-go { background: #c0392b; border-color: #c0392b; color: #fff; }

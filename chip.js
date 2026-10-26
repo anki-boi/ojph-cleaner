@@ -27,7 +27,7 @@
   const L = self.OJCLabels;
 
   const ID = 'ojc-chip';
-  const VIEWS = ['all', 'high', 'worth', 'pos', 'low'];
+  const VIEWS = ['all', 'high', 'worth', 'pos', 'low', 'applied'];   // `applied` is not a tier: triage.js marks those cards
   let ui = null;
   let popOpen = false;
   const actions = [];   // { id, text, title, onClick, order, hidden() } registered by other modules

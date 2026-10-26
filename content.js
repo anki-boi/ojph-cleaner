@@ -226,7 +226,7 @@
       // marked. `note` returns null for a card with no record and for an unchanged one — no storage write.
       if (tier !== 'passed') { records?.note(c, tier, cardFacts); records?.mark(c); }   // a pass is yours, not a verdict
       for (const hook of cardHooks) hook(c, { tier, box, at, now, counts });   // triage marks and buttons (W20)
-      if (view !== 'all' && tier !== view) c.hidden = true;   // the view has the last word
+      if (view !== 'all' && tier !== view && c.dataset.ojcView !== view) c.hidden = true;   // the view has the last word (a hook can add one: D77)
     }
     chipCounts = counts;
     passNo++;
@@ -241,7 +241,7 @@
     view = next;
     refreshRules();
     if (next === 'all') return;
-    const first = cards().find(c => !c.hidden && tierMap.get(c) === next);
+    const first = cards().find(c => !c.hidden && (tierMap.get(c) === next || c.dataset.ojcView === next));
     if (first) first.scrollIntoView({ block: 'center', behavior: 'instant' });
   }
   // ── Settings ─────────────────────────────────────────────────────────────

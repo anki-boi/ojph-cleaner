@@ -115,6 +115,7 @@
             <input type="text" id="ojc-myHours" placeholder="08:00-18:00">
             <span class="ojc-hint">Posts that state their hours with a time zone get them in your time, with ✅ / ⚠ / ✗ against these.</span>
           </div>
+          <label class="ojc-check" style="margin-top:14px"><input type="checkbox" id="ojc-askApplied"><span>Ask "Did you apply?" when I come back after copying from a post or pressing Apply</span></label>
           <div class="ojc-field" style="margin-top:14px">
             <label for="ojc-weeklyApplyGoal">Applications I aim for each week</label>
             <input type="number" id="ojc-weeklyApplyGoal" min="0" step="1" placeholder="0 = off">
@@ -130,6 +131,8 @@
             <div><label for="ojc-reportDailyCap">Reports a day, at most</label><input type="number" id="ojc-reportDailyCap" min="0" step="1" placeholder="20"></div>
           </div>
           <span class="ojc-hint">⚫ marks listings at or below this hourly rate, always in US dollars. A month counts only with the post's own hours. Clicking a card's black tag asks, then reports it as "Salary too low" under your account; the bar's review shows them one at a time. 0 turns either off.</span>
+          <div class="ojc-field ojc-row-btns" id="ojc-backup-row" style="margin-top:14px"><button id="ojc-backup-save" type="button">${L.backup.save}</button><button id="ojc-backup-load" type="button">${L.backup.load}</button></div>
+          <span class="ojc-hint">${L.backup.hint}</span>
           <div class="ojc-field ojc-row-btns" style="margin-top:14px"><button id="ojc-rerun-setup" type="button">Run setup again</button></div>
         </details>
       </div>
@@ -198,8 +201,7 @@
     $p('#ojc-maxAge').value = s.maxAgeDays ?? '';
     $p('#ojc-neg').value = toLines(s.negative);
     $p('#ojc-pos').value = toLines(s.positive);
-    $p('#ojc-noSalary').checked = s.noSalary;
-    $p('#ojc-rescueNoSalary').checked = s.rescueNoSalary;
+    $p('#ojc-noSalary').checked = s.noSalary; $p('#ojc-rescueNoSalary').checked = s.rescueNoSalary;
     $p('#ojc-rescueNegotiable').checked = s.rescueNegotiable;
     $p('#ojc-hideGigsNoHours').checked = s.hideGigsNoHours !== false;
     $p('#ojc-showHidden').checked = s.showHidden;
@@ -208,11 +210,10 @@
     $p('#ojc-goal-hourly').value = s.goalHourly || '';
     $p('#ojc-topPickMultiplier').value = s.topPickMultiplier ?? 1.5;
     $p('#ojc-autoScan').checked = s.autoScan;
-    $p('#ojc-scanWorth').checked = s.scanWorth !== false;
-    $p('#ojc-scanAll').checked = !!s.scanAll;
+    $p('#ojc-scanWorth').checked = s.scanWorth !== false; $p('#ojc-scanAll').checked = !!s.scanAll;
     $p('#ojc-sortByPay').checked = !!s.sortByPay;
     $p('#ojc-dashboardUrl').value = s.dashboardUrl ?? '';
-    $p('#ojc-weeklyApplyGoal').value = s.weeklyApplyGoal || '';
+    $p('#ojc-weeklyApplyGoal').value = s.weeklyApplyGoal || ''; $p('#ojc-askApplied').checked = s.askApplied !== false;
     $p('#ojc-myHours').value = s.myHours || '';
     $p('#ojc-searches').value = toLines(s.searches);
     $p('#ojc-lowballHourly').value = s.lowballHourly || '';
@@ -270,7 +271,7 @@
       sortByPay: $p('#ojc-sortByPay').checked,
       dashboardUrl: $p('#ojc-dashboardUrl').value.trim(),
       currency: cur,
-      weeklyApplyGoal: num($p('#ojc-weeklyApplyGoal').value),
+      weeklyApplyGoal: num($p('#ojc-weeklyApplyGoal').value), askApplied: $p('#ojc-askApplied').checked,
       myHours: $p('#ojc-myHours').value.trim(),
       searches: fromLines($p('#ojc-searches').value),
       lowballHourly: num($p('#ojc-lowballHourly').value, 'USD'),

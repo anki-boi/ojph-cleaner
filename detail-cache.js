@@ -146,5 +146,25 @@
     });
   };
 
-  self.OJCDetailCache = { getMany, put, drop, count, open, TTL_MS, MAX_ENTRIES, DB_NAME, STORE };
+  /** Every saved post, for a backup (D79). */
+  async function all() {
+    const db = await open();
+    return new Promise((resolve, reject) => {
+      const req = db.transaction(STORE, 'readonly').objectStore(STORE).getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  /** A restore (D79): the store emptied and refilled in ONE transaction, so a failure leaves the old posts. */
+  async function replaceAll(rows) {
+    const db = await open();
+    await tx(db, 'readwrite', (store) => {
+      store.clear();
+      for (const r of rows || []) if (r && r.id != null) store.put({ ...r, id: String(r.id), at: Number(r.at) || Date.now() });
+      trim(store, Date.now());
+    });
+  }
+
+  self.OJCDetailCache = { getMany, put, drop, count, all, replaceAll, open, TTL_MS, MAX_ENTRIES, DB_NAME, STORE };
 })();

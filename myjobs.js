@@ -6,7 +6,10 @@
  * for the reason Appendix C gives: the panel's Save writes the whole settings object, and a key in there is a key
  * a Save can drop.
  *
- *   chrome.storage.local.myJobs = { "<jobId>": { state, at, history: [{ state, at }], title, company, url, pay, note } }
+ *   chrome.storage.local.myJobs = { "<jobId>": { state, at, history: [{ state, at }], title, company, url, pay, note, via } }
+ *
+ * `via` is where you applied, when the extension saw it (D76): a link's host ("forms.gle"), an email address, or
+ * "OnlineJobs.ph" for the site's own Apply button. Never a guess: no `via` when nothing pointed anywhere.
  *
  * Pure: every function takes the map and returns a NEW map, so Undo can keep the old one (D48).
  */
@@ -30,7 +33,7 @@
     const prev = next[id];
     const keep = {};
     // `sig` is the listing's terms (suggest.js) — what D53 counts; without it a pass teaches nothing.
-    for (const k of ['title', 'company', 'url', 'pay', 'note', 'sig']) {
+    for (const k of ['title', 'company', 'url', 'pay', 'note', 'sig', 'via']) {
       const v = facts[k] ?? prev?.[k];
       if (v != null && v !== '' && !(Array.isArray(v) && !v.length)) keep[k] = v;
     }
@@ -88,5 +91,50 @@
     return { days: run, week };
   }
 
-  return { STATES, FOLLOW_UP_DAYS, set, note, stateOf, isPassed, counts, needsFollowUp, prune, streak, localDay };
+  /** Applied or further along: the states the board stamps and dims (D77). */
+  const DONE = ['applied', 'interview', 'offer'];
+  const isDone = (e) => !!e && DONE.includes(e.state);
+  /** When you applied: the first "applied" move in the history, else the entry's own time. */
+  const appliedAt = (e) => (e?.history || []).find(h => h.state === 'applied')?.at ?? e?.at ?? null;
+
+  /**
+   * The same role posted again under a new listing (D78). OnlineJobs.ph employers repost, and a new job id makes
+   * the repost look new. A match is the same title, lower-cased with punctuation dropped, AND either the same
+   * company, or (most cards name no company) a title of 5 words or more, so "Virtual Assistant" never matches
+   * every other "Virtual Assistant". Returns the earliest applied entry, and whether the company matched too.
+   */
+  const titleKey = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  function repostOf(map, id, title, company) {
+    const t = titleKey(title), co = String(company || '').trim().toLowerCase();
+    if (!t) return null;
+    let best = null;
+    for (const [other, e] of Object.entries(map || {})) {
+      if (other === String(id) || !isDone(e) || titleKey(e.title) !== t) continue;
+      const theirs = String(e.company || '').trim().toLowerCase();
+      const sameCompany = !!(co && theirs && co === theirs);
+      if (co && theirs && !sameCompany) continue;   // two named companies that differ are two jobs
+      if (!sameCompany && t.split(' ').length < 5) continue;
+      if (!best || appliedAt(e) < appliedAt(best.entry)) best = { id: other, entry: e, sameCompany };
+    }
+    return best;
+  }
+
+  /**
+   * Where a piece of text copied from a post points (D76): an email address, else a web address's host (with or
+   * without https:// or www.), else nowhere. A bare word with a dot ("Node.js") is not an address: only common
+   * endings count when there is no https:// or www. in front.
+   */
+  const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/;
+  const LINK = /(?:https?:\/\/\S+|\bwww\.\S+|\b(?:[a-z0-9-]+\.)+(?:com|net|org|io|co|ph|gle|ly|me|app|ai|us|au|uk|ca|link|site|page)\b(?:\/\S*)?)/i;
+  const hostOf = (s) => { try { return new URL(/^https?:/i.test(s) ? s : 'https://' + s).hostname.replace(/^www\./, '') || null; } catch { return null; } };
+  function whereFrom(text) {
+    const s = String(text || '');
+    const e = EMAIL.exec(s);
+    if (e) return { kind: 'email', via: e[0] };
+    const l = LINK.exec(s);
+    const host = l && hostOf(l[0]);
+    return host ? { kind: 'link', via: host } : { kind: 'copy', via: null };
+  }
+
+  return { STATES, DONE, hostOf, whereFrom, FOLLOW_UP_DAYS, set, note, stateOf, isPassed, isDone, appliedAt, counts, needsFollowUp, prune, streak, localDay, titleKey, repostOf };
 });

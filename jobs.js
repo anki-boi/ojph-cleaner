@@ -38,7 +38,7 @@
       e.url ? h('a', { class: 't', href: e.url, target: '_blank', rel: 'noopener' }, e.title || 'Untitled job') : h('b', {}, e.title || 'Untitled job'),
       e.company ? h('div', { class: 'co' }, e.company) : null,
       e.pay ? h('div', { class: 'pay' }, e.pay) : null,
-      h('div', { class: 'when' }, `${col.label} ${ago(e.at)}`),
+      h('div', { class: 'when' }, `${col.label} ${ago(e.at)}` + (e.via ? ` · applied via ${e.via}` : '')),
       M.needsFollowUp(e, Date.now()) ? h('span', { class: 'nudge', title: 'applied a while ago with no move since — a short, polite follow-up message often gets a reply' }, '📨 Follow up?') : null,
       note,
       h('div', { class: 'moves' },

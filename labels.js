@@ -16,12 +16,12 @@
 
   const L = {
     /** The tiers as filter pills and bar counts (plural), and as a single card's verdict (singular). */
-    tier: { all: 'Everything', high: 'Top picks', worth: 'Maybe', pos: 'Liked', low: 'Lowball' },
+    tier: { all: 'Everything', high: 'Top picks', worth: 'Maybe', pos: 'Liked', low: 'Lowball', applied: 'Applied' },
     tierOne: {
       high: 'Top pick', worth: 'Maybe', pos: 'Liked', kw: 'blocked word', nosal: 'no pay listed',
       stale: 'too old', closed: 'closed', none: 'not sorted yet', passed: 'you passed', low: 'lowball', gig: 'gig, no hours',
     },
-    icon: { high: '⭐', worth: '🤔', pos: '💚', low: '⚫', hidden: '🙈' },
+    icon: { high: '⭐', worth: '🤔', pos: '💚', low: '⚫', applied: '📨', hidden: '🙈' },
     /** Why a listing is hidden — the bar's breakdown. */
     hidden: {
       closed: 'Closed', stale: 'Too old', noSal: 'No pay listed', gig: 'Gigs with no hours', kw: 'Blocked words', passed: 'You passed',
@@ -40,6 +40,7 @@
       worth: 'mentions a word you block, but meets your minimum pay — your call',
       pos: 'mentions a word you are into, but pays below your minimum',
       low: 'pays at or below your lowball line (Settings → Advanced) — report them to OnlineJobs.ph as "Salary too low"',
+      applied: 'jobs on this board you applied to (or got further with), and new posts of a role you already applied to',
     },
     btn: {
       peek: 'Peek at hidden', unpeek: 'Hide them again', scan: 'Read posts', stop: 'Stop',
@@ -119,6 +120,39 @@
       ],
       never: 'A word never matches inside another: ai never matches email.',
       noBroad: 'Careful with * here: intern* would also hide internal and international jobs.',
+    },
+    /** Applied jobs (D76 to D78): the card stamp, the card button, the "Did you apply?" question, the note. */
+    mine: {
+      apply: '📨 Applied', applyTip: 'mark this job as applied (it moves to Applied in My jobs; you can undo)',
+      undoApplyTip: 'you marked this applied; click to take it out of My jobs (you can undo)',
+      laterTip: 'further along than applied: move it in My jobs',
+      stamp: (state, when, via) => (state === 'applied' ? `📨 Applied ${when}` : `📨 ${state === 'interview' ? 'Interview' : 'Offer'} · applied ${when}`) + (via ? ` via ${via}` : ''),
+      stampTip: 'your own record, kept on this computer. Open 📋 My jobs to move it along or edit the note',
+      savedNote: '💾 Saved',
+      repost: (when, sameCompany) => `📨 You applied to this ${sameCompany ? 'role' : 'title'} ${when}`,
+      repostTip: (title, sameCompany) => `You applied to "${title}" earlier, ` + (sameCompany
+        ? 'from the same company, under a different listing. This looks like a repost.'
+        : 'under a different listing with this exact title. The card names no company, so check it is the same employer.'),
+      ask: (title, via) => `Did you apply${title ? ` for "${title}"` : ''}` + (via ? ` via ${via}` : '') + '?',
+      askWhy: { link: (host) => `You opened ${host} from this post.`, email: (addr) => `You copied ${addr} from this post.`,
+        copy: 'You copied something from this post.', site: 'You pressed Apply for this job.' },
+      yes: '✓ Yes, I applied', notYet: 'Not yet', never: 'Stop asking',
+      neverDone: 'Okay, no more "Did you apply?" questions. Turn them back on in ⚙ Settings, Advanced.',
+      done: (title) => `Applied: ${title || 'this job'}`,
+      notePh: 'Add a note: what you sent, who to follow up with…',
+      noteSave: 'Save note', noteSaved: 'Note saved', close: 'Close',
+    },
+    /** Backup and restore (D79): everything the extension keeps, in one file, for another computer. */
+    backup: {
+      save: '⬇ Back up everything', load: '⬆ Restore from a file',
+      hint: 'One file with your settings, My jobs, notes and everything the extension remembers. Restore it on another computer (or after a reinstall) to carry on where you left off.',
+      made: (name) => `Backup saved as ${name}`,
+      bad: 'That file is not an OJ.ph Cleaner backup. Nothing was changed.',
+      confirm: (when, s) => `Replace everything here with the backup from ${when}? It holds ${s.jobs} job${s.jobs === 1 ? '' : 's'} in My jobs, ` +
+        `${s.records} remembered listing${s.records === 1 ? '' : 's'} and ${s.posts} saved post${s.posts === 1 ? '' : 's'}. What is on this computer now is replaced.`,
+      replace: 'Replace', cancel: 'Cancel',
+      restored: 'Restored. Reloading the page…',
+      failed: (why) => `Restore failed: ${why}.`,
     },
     /** The CSV chooser (D75). */
     exportPick: {

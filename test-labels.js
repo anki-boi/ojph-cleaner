@@ -9,7 +9,7 @@ const strings = (o, at = '') => Object.entries(o).flatMap(([k, v]) =>
   typeof v === 'string' ? [[at + k, v]] : typeof v === 'object' && v ? strings(v, at + k + '.') : []);
 for (const [k, v] of strings(L)) assert.ok(v.trim(), `label ${k} is empty`);
 // No two controls on the bar may share a word (D46): the old panel had "All" next to "Show All".
-const barWords = [L.tier.all, L.tier.high, L.tier.worth, L.tier.pos, L.btn.peek, L.btn.scan, L.btn.csv];
+const barWords = [L.tier.all, L.tier.high, L.tier.worth, L.tier.pos, L.tier.applied, L.btn.peek, L.btn.scan, L.btn.csv];
 assert.strictEqual(new Set(barWords).size, barWords.length, 'two bar controls share a label');
 for (const a of barWords) for (const b of barWords) {
   if (a !== b) assert.ok(!b.toLowerCase().includes(a.toLowerCase()), `"${b}" contains "${a}" — the D46 confusion again`);

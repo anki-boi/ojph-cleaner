@@ -197,7 +197,11 @@ rewritten), so nothing the extension recomputes can overwrite a call you made.
 
 **Swipe (D52).** `🃏 Swipe` walks the cards the board is showing, in its order, one at a time: `←` not for
 me, `→` save, `↑` applied, `Enter` open the post, `Z` undo, `Esc` close. A tier pill or the pay sort
-decides what you swipe through, and *At a glance* is shown when the post has been read.
+decides what you swipe through, and *At a glance* is shown when the post has been read. Each card shows the
+whole post (D84): a post Read posts has opened is already kept (IndexedDB, 7 days, up to 1 000), so it shows at
+once; one that has not is fetched when you reach it (one request, as Open post would make) and kept the same way,
+so its verdict and hourly figure update too, and the next card's post is fetched while you read this one, one
+request at a time and none while Read posts is running. A 429 stops the fetching for that swipe, and the preview stays.
 
 **Suggested block words (D53).** After at least 8 passes, a word or two-word phrase that appears in ≥ 50 %
 of the listings you passed and ≤ 10 % of the ones you kept (saved or applied) is offered on the bar as

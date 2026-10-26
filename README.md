@@ -120,8 +120,9 @@ judged.
 ### Swipe through the shortlist
 
 `🃏 Swipe` walks the board one card at a time: `→` save, `←` not for me, `↑` applied, `Enter`
-open the post, `Z` undo. *At a glance* shows what you'd do and what they want, lifted word for word
-from the post.
+open the post, `Z` undo. Each job shows its **whole post**, not the card's preview: one Read posts has
+opened shows at once, one it has not is fetched as you reach it (and the next one while you read), and kept.
+*At a glance* shows what you'd do and what they want, lifted word for word from the post.
 
 <img src="docs/img/swipe.gif" alt="Swipe mode: saving, passing and marking applied with the arrow keys, then undo" width="760">
 

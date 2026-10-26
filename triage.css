@@ -195,3 +195,6 @@
 #ojc-chip .ojc-newcount { font-variant-numeric: tabular-nums; }
 #ojc-chip #ojc-chip-total { font-variant-numeric: tabular-nums; }
 @media (max-width: 520px) { .ojc-bar-row { grid-template-columns: 1fr; } .ojc-bar-main { justify-content: flex-end; } }
+
+/* Swipe's full post (D84): the preview says it is one while the post loads. */
+.ojc-sw-desc.is-preview[data-note]::after { content: attr(data-note); display: block; margin-top: 8px; color: #8a6d3b; font-size: 12.5px; }

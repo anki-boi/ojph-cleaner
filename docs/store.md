@@ -59,7 +59,7 @@ association. See §5.
 See every OnlineJobs.ph job's real hourly rate, hide stale, unpaid and unwanted posts, and flag lowball offers to report
 ```
 
-**Detailed description** (submitted with 0.25.1 on 2026-10-26, pending review, set to publish automatically once approved; 0.19.0's copy plus what 0.20 to 0.25 added):
+**Detailed description** (submitted with 0.26.0 on 2026-10-26, replacing the 0.25.1 submission, pending review and set to publish automatically once approved; 0.19.0's copy plus what 0.20 to 0.26 added):
 
 ```
 Tired of scrolling past job posts with no salary, posts from three months ago, and "$2/hr, must know everything"?

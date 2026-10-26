@@ -84,6 +84,10 @@ PRIVATE BY DESIGN
 
 No account, no server, no tracking. Everything stays on your computer. The only outside request is a public exchange rate, so salaries in other currencies can be converted. The only thing ever sent to OnlineJobs.ph is a "Salary too low" report you choose to send, through the site's own report feature.
 
+FROM THE DEVELOPER
+
+The Settings panel opens with a small card from me, the developer, about my automation work (a link to my site and a "Book a call" link). It appears only inside Settings, never on the job board, loads nothing until you click it, and one click on "Hide" removes it for good.
+
 SOURCE CODE ON GITHUB
 
 See how it works, report a bug, or suggest a feature:

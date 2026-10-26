@@ -190,6 +190,18 @@
       pasteNow: 'Open your resume, select all (Ctrl+A), copy (Ctrl+C), then paste it here (Ctrl+V). The words are found as soon as you paste.',
       wrongText: 'Words look wrong? Paste the text instead',
     },
+    /** A note from the maker, at the top of ⚙ (D81). Who it is from, said first: the store's ads policy asks for it. */
+    maker: {
+      label: 'A note from the maker of OJ.ph Cleaner',
+      from: 'From the maker of OJ.ph Cleaner',
+      name: 'Jeyson Dagondon',
+      role: 'AI-Native Workflow Automation · RPh',
+      body: 'I build browser extensions like this one, CRM pipelines, AI agents and small internal tools. ' +
+        'If you, or a client you land, have busywork that should run itself, let’s talk.',
+      call: 'Book a call', work: 'See my work ↗',
+      hide: 'Hide', hideTip: 'hide this note for good',
+      hidden: 'Hidden. It will not show again.',
+    },
     /** The CSV chooser (D75). */
     exportPick: {
       title: 'Export which listings?',

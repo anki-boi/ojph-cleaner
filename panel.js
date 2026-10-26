@@ -41,6 +41,7 @@
         <button id="ojc-close" type="button" title="Close (Esc)" aria-label="Close">✕</button>
       </div>
       <div id="ojc-panel-body">
+        <div id="ojc-maker-slot"></div>
         <div class="ojc-sec">
           <div class="ojc-field">
             <label for="ojc-neg">Never show me jobs that mention</label>

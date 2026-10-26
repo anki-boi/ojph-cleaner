@@ -171,3 +171,23 @@
 #ojc-resume-text.is-paste { border-color: #8ab4f8; box-shadow: 0 0 0 2px rgba(138, 180, 248, .35); }
 .ojc-rw-card .ojc-rw-link { border: 0; background: none; padding: 0; color: #8ab4f8; font: 12.5px system-ui, sans-serif; text-decoration: underline; cursor: pointer; }
 .ojc-rw-card button.ojc-rw-link:hover:not(:disabled) { background: none; color: #b3cefb; }
+
+/* ── The maker's card (D81): top of ⚙, in anki-boi.github.io/work's own colours (warm black, gold, a serif name) ── */
+.ojc-maker { margin: 10px 0 14px; padding: 12px 14px; border: 1px solid rgba(255, 181, 71, .26); border-radius: 10px; background: #17130f; color: #c9c1b5; font: 13px/1.45 system-ui, sans-serif; }
+.ojc-maker-head { display: flex; align-items: flex-start; gap: 10px; }
+.ojc-maker-head > div { flex: 1; min-width: 0; }
+.ojc-maker-mono { flex: none; display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border: 1px solid rgba(255, 181, 71, .45); border-radius: 8px; color: #f5f1eb; font: 700 16px Georgia, 'Times New Roman', serif; letter-spacing: -.02em; }
+.ojc-maker-mono i { color: #ffb547; font-style: normal; }
+.ojc-maker small { display: block; color: #ffb547; font: 600 10px ui-monospace, Consolas, monospace; letter-spacing: .08em; text-transform: uppercase; }
+.ojc-maker b { display: block; margin-top: 1px; color: #f5f1eb; font: 600 18px/1.2 Georgia, 'Times New Roman', serif; }
+.ojc-maker-role { display: block; color: #9a9184; font: 11px ui-monospace, Consolas, monospace; }
+.ojc-maker p { margin: 8px 0 10px; }
+.ojc-maker-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+#ojc-panel .ojc-maker a { margin-left: 0; }   /* the drawer pushes its footer link right; not these */
+.ojc-maker-call { padding: 6px 14px; border-radius: 999px; background: #ffb547; color: #0d0b09 !important; font-weight: 700; text-decoration: none; }
+#ojc-panel .ojc-maker-call:hover { background: #e89a2a; text-decoration: none; }
+.ojc-maker-work { color: #ffb547 !important; font-weight: 600; text-decoration: none; }
+#ojc-panel .ojc-maker-work:hover { color: #ffb547; text-decoration: underline; }
+.ojc-maker a:focus-visible, .ojc-maker-hide:focus-visible { outline: 2px solid #ffb547; outline-offset: 2px; }
+.ojc-maker-hide { border: 0; background: none; color: #9a9184; font: 12px system-ui, sans-serif; cursor: pointer; padding: 2px 4px; }
+.ojc-maker-hide:hover { color: #f5f1eb; text-decoration: underline; }

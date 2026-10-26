@@ -111,7 +111,7 @@ link), `🎥🎙 wants a video or voice recording` when either will do, and `�
 recording` when it asks for both. Hover it for the post's own sentence. Only the ASK counts: a job's duties
 ("edit short videos", "create Loom walkthroughs of our SOPs", "clean up podcast voice recordings") and a video call
 or interview never do. Checked on 70 live posts: 19 tagged, all of them real asks. It is a tag, never a filter:
-nothing is hidden or demoted for it. It replaced the old `⚠ wants you off OLJ` tag and its orange marks, which
+nothing is hidden or demoted for it, and a test fails if anything that decides a tier ever reads it. It replaced the old `⚠ wants you off OLJ` tag and its orange marks, which
 flagged nearly every post (most ask for a form or an email); that signal still counts quietly in `⚠ risky N`. Reading a post also prints its own
 `HOURS PER WEEK` on the card, and flags a week longer than 40 hours.
 

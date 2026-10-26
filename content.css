@@ -221,7 +221,7 @@
 
 /* The bar that carries what the board cannot: the hours this listing states, the month computed
    from them, and whether the listing asks you to apply somewhere else. */
-#ojc-detail-bar {
+:is(#ojc-detail-bar, .ojc-figbar) {
   display: flex;
   flex-wrap: wrap;
   gap: 6px 10px;
@@ -234,19 +234,19 @@
   font: 600 12px system-ui, sans-serif;
   color: #33424f;
 }
-#ojc-detail-bar span { white-space: nowrap; }
-#ojc-detail-bar .ojc-bar-pay { color: #14571f; }
-#ojc-detail-bar .ojc-bar-unknown { color: #7a8794; font-weight: 500; }
-#ojc-detail-bar .ojc-bar-assumed { color: #8a6100; font-weight: 500; }
-#ojc-detail-bar .ojc-bar-goal { color: #7a8794; font-weight: 500; }
-#ojc-detail-bar .ojc-bar-goal.ojc-bar-met { color: #14571f; }
-#ojc-detail-bar .ojc-bar-warn {
+:is(#ojc-detail-bar, .ojc-figbar) span { white-space: nowrap; }
+:is(#ojc-detail-bar, .ojc-figbar) .ojc-bar-pay { color: #14571f; }
+:is(#ojc-detail-bar, .ojc-figbar) .ojc-bar-unknown { color: #7a8794; font-weight: 500; }
+:is(#ojc-detail-bar, .ojc-figbar) .ojc-bar-assumed { color: #8a6100; font-weight: 500; }
+:is(#ojc-detail-bar, .ojc-figbar) .ojc-bar-goal { color: #7a8794; font-weight: 500; }
+:is(#ojc-detail-bar, .ojc-figbar) .ojc-bar-goal.ojc-bar-met { color: #14571f; }
+:is(#ojc-detail-bar, .ojc-figbar) .ojc-bar-warn {
   color: #fff;
   background: #c0392b;
   padding: 2px 8px;
   border-radius: 4px;
 }
-#ojc-detail-bar .ojc-bar-counts { color: #5a6b7a; font-weight: 500; }
+:is(#ojc-detail-bar, .ojc-figbar) .ojc-bar-counts { color: #5a6b7a; font-weight: 500; }
 
 /* ── Closed listings (W9) ────────────────────────────────────────────────────
    A remembered closure is a fact, not a judgement call, so it is grey rather than the
@@ -279,7 +279,7 @@ tr.ojc-closed-row .ojc-closed-badge { position: static; margin-left: 8px; }
 /* F2: the scan's tier, on a saved-job row — a mark beside the title, not a filter. */
 .ojc-row-tier { position: static; margin-left: 8px; padding: 0 6px; border-radius: 8px; font-size: 12px;
   background: rgba(20, 87, 31, .10); color: #14571f; }
-#ojc-detail-bar .ojc-bar-closed {
+:is(#ojc-detail-bar, .ojc-figbar) .ojc-bar-closed {
   color: #fff;
   background: #7a8794;
   padding: 2px 8px;

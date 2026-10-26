@@ -51,10 +51,15 @@
     return fetching.get(id);
   }
   /** Show this card's post in full; fetch it first when it has not been read, then the next one in the deck. */
-  function fill(card, p) {
+  function fill(card, p, figs) {
     const full = fullOf(card);
+    const settings = api.getSettings();
+    FG = FG || self.OJCFigures || null;
     // Posts space every line with blank ones; one line each reads as the post, without screens of white.
-    if (full) { p.textContent = full.replace(/[ \t]+\n/g, '\n').replace(/\n{2,}/g, '\n').trim(); p.classList.remove('is-preview'); }
+    if (full) p.textContent = full.replace(/[ \t]+\n/g, '\n').replace(/\n{2,}/g, '\n').trim();
+    // D85: the same marks and the same bar as the post's own page (figures.js), so the two never disagree.
+    const marks = FG ? FG.highlight(p, settings) : null;
+    if (full) { p.classList.remove('is-preview'); if (FG) figures(card, marks, figs, settings); }
     else if (!refused) {
       p.classList.add('is-preview');
       p.dataset.note = 'Loading the full post…';
@@ -64,6 +69,21 @@
     if (self.OJCScan?.isRunning?.()) return;   // Read posts is already fetching; one prefetch would be a third request
     const next = deck[deck.indexOf(card) + 1];
     if (next && !fullOf(next)) fetchFull(next);
+  }
+
+  // figures.js loads after this file (it sits beside detail.js), so it is looked up when a card is drawn.
+  let FG = null;
+  /** The figures bar from the kept post's own fields (WAGE, HOURS PER WEEK, TYPE OF WORK), at the live rate. */
+  async function figures(card, marks, host, settings) {
+    const row = R?.textFor?.(idOf(card));
+    if (!row || !host) return;
+    const fl = row.fields || {};
+    let rates = {};
+    const want = FG.currencies(fl.wage, settings);
+    if (want.length) { try { rates = (await self.OJCSalaryUI?.loadRates?.(want)) || {}; } catch { rates = {}; } }
+    const f = FG.facts({ posted: fl.wage, hoursRaw: fl.hoursPerWeek != null ? String(fl.hoursPerWeek) : '', typeRaw: fl.typeOfWork }, rates);
+    host.replaceChildren(FG.bar(FG.items(f, { settings, rates, marks, closed: !!row.closed })));
+    host.previousElementSibling?.matches('.ojc-sw-sub') && (host.previousElementSibling.hidden = true);   // the bar says it better
   }
 
   function face(card) {
@@ -76,11 +96,12 @@
     if (state) marks.appendChild(el('span', 'ojc-sw-state', state));
     const desc = ownText(card.querySelector('.desc') || card).replace(/\s*See More\s*$/i, '').slice(0, 700).replace(/[.…\s]+$/, '');
     const descP = el('p', 'ojc-sw-desc', desc + '…');
+    const figs = el('div', 'ojc-sw-figs');
     wrap.append(marks, el('h3', null, f.title || 'Untitled'), el('p', 'ojc-sw-co', f.company),
       el('p', 'ojc-sw-pay', card.querySelector('.ojc-salary-note')?.textContent || ownText(card.querySelector(api.SELECTORS.cardSalary))),
       el('p', 'ojc-sw-sub', [card.querySelector('.ojc-salary-warn')?.textContent, card.querySelector('.ojc-hours')?.textContent].filter(Boolean).join(' · ')),
-      descP);
-    fill(card, descP);
+      figs, descP);
+    fill(card, descP, figs);
     // At a glance (D60), when the post has been read: the fastest way to decide, so it goes first in line.
     const g = self.OJCGlanceUI?.modelFor?.(card);
     if (g && (g.doing.length || g.want.length)) {
@@ -99,6 +120,7 @@
   function render() {
     const body = node.querySelector('.ojc-sw-body');
     body.innerHTML = '';
+    body.scrollTop = 0;   // every job starts at its title, whatever the last one was scrolled to
     node.querySelector('.ojc-sw-count').textContent = at < deck.length ? `${at + 1} of ${deck.length}` : `${deck.length} of ${deck.length}`;
     node.querySelector('#ojc-sw-undo').disabled = !done.length;
     if (at >= deck.length) {

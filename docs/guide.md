@@ -201,7 +201,10 @@ decides what you swipe through, and *At a glance* is shown when the post has bee
 whole post (D84): a post Read posts has opened is already kept (IndexedDB, 7 days, up to 1 000), so it shows at
 once; one that has not is fetched when you reach it (one request, as Open post would make) and kept the same way,
 so its verdict and hourly figure update too, and the next card's post is fetched while you read this one, one
-request at a time and none while Read posts is running. A 429 stops the fetching for that swipe, and the preview stays.
+request at a time and none while Read posts is running. A 429 stops the fetching for that swipe, and the preview stays. Once the post is in, the card carries the
+same figures bar as the post's own page (hours, hourly rate and month, your minimum, ⚠ off-platform, keyword
+count) and the same highlighted words (figures.js, shared by both, D85). The card is one fixed size whatever the
+post's length, so the buttons never move; a long post scrolls inside it.
 
 **Suggested block words (D53).** After at least 8 passes, a word or two-word phrase that appears in ≥ 50 %
 of the listings you passed and ≤ 10 % of the ones you kept (saved or applied) is offered on the bar as

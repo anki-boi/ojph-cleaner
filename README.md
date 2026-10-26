@@ -122,6 +122,8 @@ judged.
 `🃏 Swipe` walks the board one card at a time: `→` save, `←` not for me, `↑` applied, `Enter`
 open the post, `Z` undo. Each job shows its **whole post**, not the card's preview: one Read posts has
 opened shows at once, one it has not is fetched as you reach it (and the next one while you read), and kept.
+It carries the post page's own figures bar and highlighted words, and the card is one fixed size, so
+Save and Not for me never move.
 *At a glance* shows what you'd do and what they want, lifted word for word from the post.
 
 <img src="docs/img/swipe.gif" alt="Swipe mode: saving, passing and marking applied with the arrow keys, then undo" width="760">
@@ -358,6 +360,7 @@ without a reload. Its label checks read `labels.js`, so a rename cannot drift fr
 | `observer.js` | The one MutationObserver, and the `isOurs()` check that stops it eating itself |
 | `closed.js` / `closed-cards.js` | The closed-listing memory (pure maths + the storage applier) |
 | `detail-text.js` / `detail.js` | What to highlight on a listing's page, and the figures bar that applies it (W4) |
+| `figures.js` | The figures bar and the highlighting, shared by a listing's page and the Swipe card so they never disagree (D85) |
 | `detail-actions.js` | `💾 Save` / `✓ I applied` / `✕ Not for me` / `📋 My jobs` under the figures bar on a listing's own page (W21.2), and the line with when and where you applied and your note (D77) |
 | `apply-ask.js` | *Did you apply?* (D76): copying from a post, opening its link or pressing Apply arms one question, asked when you come back to the tab; Yes files it as Applied with where, then offers a note |
 | `resume-read.js` / `resume-pdf.js` | A resume's text from .txt, .docx (a zip, unpacked by the browser) or .pdf (each string decoded through its font's character table, letter widths for the spaces), with no library (D80) |

@@ -178,8 +178,9 @@ onboarded silently and never sees it. `⚙ → Advanced → Run setup again` reo
 **Words from your resume (D80).** Setup's *What are you hunting?* screen has `📄 Fill these from my resume`,
 and ⚙ has `📄 From my resume` beside *＋ Add words for…*. Paste the resume, or pick a .pdf, .docx or .txt; it is
 read in the page (a .docx is a zip the browser unpacks; a PDF's strings are decoded through each font's
-character table, and letter widths decide where a space goes) and is never stored. A scanned or password-locked
-PDF says so and asks for pasted text. The words offered are the known job words (the 15 presets' words and every
+character table, and letter widths decide where a space goes) and is never stored. A file that will not read (a scan, a locked PDF, fewer than
+25 words out) empties the box, highlights it with how to paste, and puts the cursor there; after a good read,
+`Words look wrong? Paste the text instead` does the same. Pasting finds the words as soon as the text lands. The words offered are the known job words (the 15 presets' words and every
 skill tag OnlineJobs.ph has shown on a card here, kept 60 days as `jobTags`) that the resume contains, matched by
 the board's own matcher, and only those used by at least one post seen on this computer (the kept titles and tags,
 the cards on the board, and the saved posts' full text). Each shows its post count; general skills (English,

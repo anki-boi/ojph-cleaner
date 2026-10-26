@@ -179,12 +179,16 @@
         (unblocked.length ? `, and took ${unblocked.map(w => `"${w}"`).join(', ')} off the hide list` : '') + '.',
       privacy: 'Your resume stays on this computer and is not saved. Only the words you add are kept.',
       err: {
-        encrypted: 'This PDF is locked with a password. Open it, copy all the text, and paste it here.',
-        'no text': 'No text found in this file (a scanned picture, perhaps). Open it, copy all the text, and paste it here.',
-        'old Word file': 'This is an old .doc file. Save it as .docx or PDF, or paste the text here.',
-        'too big': 'That file is too big for a resume (over 15 MB).',
-        other: 'Could not read this file. Open it, copy all the text, and paste it here.',
+        encrypted: 'This PDF is locked with a password.',
+        'no text': 'No text came out of this file (a scanned picture, perhaps).',
+        'old Word file': 'This is an old .doc file.',
+        'too big': 'That file is over 15 MB.',
+        few: (n) => `Only ${n} word${n === 1 ? '' : 's'} came out of this file.`,
+        other: "This file couldn't be read.",
       },
+      pasteBelow: 'Paste the text in the box above instead.',
+      pasteNow: 'Open your resume, select all (Ctrl+A), copy (Ctrl+C), then paste it here (Ctrl+V). The words are found as soon as you paste.',
+      wrongText: 'Words look wrong? Paste the text instead',
     },
     /** The CSV chooser (D75). */
     exportPick: {

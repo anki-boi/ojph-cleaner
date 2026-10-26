@@ -39,14 +39,28 @@
     const count = () => results.querySelectorAll('input:checked').length;
     const paintAdd = () => { const n = count(); add.textContent = L.add(n); add.disabled = !n; };
 
+    /** The way out when a file will not read (or reads wrong): an empty box that says how to paste, and focus in it.
+     *  Not every PDF maker is handled, and does not need to be: pasting always works. */
+    function pasteInstead(why) {
+      results.innerHTML = '';
+      text.value = '';
+      text.placeholder = L.pasteNow;
+      text.classList.add('is-paste');
+      status.replaceChildren(why ? `${why} ` : '', L.pasteBelow);
+      paintAdd();
+      text.focus();
+    }
+    const wrongLink = () => h('button', { type: 'button', class: 'ojc-rw-link', onclick: () => pasteInstead('') }, L.wrongText);
+
     async function find() {
       if (!text.value.trim()) { text.focus(); return; }
-      const said = status.textContent;   // "Read 312 words from cv.pdf" stays once the words are found
+      text.classList.remove('is-paste');
+      const said = [...status.childNodes];   // "Read 312 words from cv.pdf" stays once the words are found
       status.textContent = L.looking;
       results.innerHTML = '';
       const seen = (await self.OJCSkillTags?.gather?.()) || { tags: [], corpus: [] };
       rows = RW.suggest({ resume: text.value, vocab: RW.vocabulary(PR?.ARCHETYPES, seen.tags), corpus: seen.corpus, existing });
-      status.textContent = said === L.looking ? '' : said;
+      status.replaceChildren(...said.filter(n => n.textContent !== L.looking && n.textContent !== L.pasteBelow));
       if (!rows.length) { results.append(h('p', { class: 'ojc-rw-none' }, L.none(seen.corpus.length))); paintAdd(); return; }
       results.append(h('p', {}, L.found(rows.length, seen.corpus.length)),
         h('div', { class: 'ojc-rw-chips' }, rows.map((r) => {
@@ -65,15 +79,17 @@
       input.value = '';
       if (!f) return;
       status.textContent = L.reading(f.name);
-      try {
-        const t = await RR.read(f.name, await f.arrayBuffer());
-        text.value = t;
-        status.textContent = L.read(f.name, (t.match(/\S+/g) || []).length);
-        await find();
-      } catch (e) {
-        status.textContent = L.err[e?.message] || L.err.other;
-      }
+      let t;
+      try { t = await RR.read(f.name, await f.arrayBuffer()); }
+      catch (e) { pasteInstead(L.err[e?.message] || L.err.other); return; }
+      const n = (t.match(/\S+/g) || []).length;
+      if (n < 25) { pasteInstead(L.err.few(n)); return; }   // a page of a resume is hundreds of words: this read wrong
+      text.value = t;
+      status.replaceChildren(L.read(f.name, n) + ' ', wrongLink());
+      await find();
     };
+    // Pasting is the whole action: find the words as soon as the text lands.
+    text.addEventListener('paste', () => setTimeout(() => { if (text.value.trim()) { status.textContent = ''; find(); } }, 0));
 
     add.onclick = () => {
       const words = [...results.querySelectorAll('input:checked')].map(cb => cb.value);

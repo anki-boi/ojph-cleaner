@@ -59,7 +59,9 @@ knows (the presets, and the skill tags OnlineJobs.ph puts on the posts you have 
 the ones that are in your resume **and** in real posts, each with how many posts use it:
 `QuickBooks · 101 posts`, `Xero · 54 posts`. They come ticked, except general skills like English;
 untick any, then Add. A word you add takes a clashing block word off your hide list (and says so), the
-same rule the presets follow. No AI and no upload: the file is read on your computer and not kept.
+same rule the presets follow. No AI and no upload: the file is read on your computer and not kept. A PDF
+that will not read (a scan, a locked file, an unusual maker) empties the box and asks you to paste the
+text instead; pasting finds the words at once, and `Words look wrong? Paste the text instead` is always there.
 
 <img src="docs/img/setup.gif" alt="First-run setup: picking General VA and Customer Support, then New to online work, the filled-in word lists with the matching guide, a minimum, and the instant no's" width="760">
 

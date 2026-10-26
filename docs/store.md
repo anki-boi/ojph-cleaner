@@ -74,7 +74,7 @@ WHAT IT DOES
 • Tells you why. One click shows what was hidden and the reason, and you can peek at them anytime.
 • Highlights what you want. Jobs that meet your minimum pay become ⭐ Top picks, and jobs that mention words you like get a green badge.
 • Flags lowball offers. Jobs that work out at $2/hr or less (you choose the line) get a black ⚫ outline, and you can report them to OnlineJobs.ph as "Salary too low", one listing at a time, each shown to you before anything is sent.
-• Reads the full post for you, and flags red flags like a job that wants you to apply off the platform.
+• Reads the full post for you, and tags the ones that want a video or a voice recording of you, so a dealbreaker shows at a glance.
 • Swipe through your shortlist with the arrow keys: save, pass, or mark as applied.
 • My jobs keeps track of everything you saved and applied to, with notes and a reminder to follow up. Export your Top picks, Maybes or Liked jobs to a spreadsheet, sorted by hourly rate.
 

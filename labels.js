@@ -62,6 +62,10 @@
       up: '↑ better than it looked', down: '↓ worse than it looked',
       offPlatform: '⚠ wants you off OLJ',
       offPlatformTip: 'asks you to apply or talk somewhere other than OnlineJobs.ph',
+      /** D86: the post wants you to record yourself. A tag, never a reason to hide. */
+      media: { video: '🎥 wants a video of you', voice: '🎙 wants a voice recording',
+        either: '🎥🎙 wants a video or voice recording', both: '🎥🎙 wants a video and a voice recording' },
+      mediaTip: (q) => `The post asks: "${q}"`,
       negotiable: '⚠ negotiable', negotiableTip: 'states no figure — the pay is negotiable',
       closed: '⊘ closed', closedTip: 'you saw this listing closed — remembered so it stops appearing',
       assumes: (h) => `if full-time (${h} h/wk) — confirm the hours`,

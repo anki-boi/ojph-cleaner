@@ -82,7 +82,8 @@
     const want = FG.currencies(fl.wage, settings);
     if (want.length) { try { rates = (await self.OJCSalaryUI?.loadRates?.(want)) || {}; } catch { rates = {}; } }
     const f = FG.facts({ posted: fl.wage, hoursRaw: fl.hoursPerWeek != null ? String(fl.hoursPerWeek) : '', typeRaw: fl.typeOfWork }, rates);
-    host.replaceChildren(FG.bar(FG.items(f, { settings, rates, marks, closed: !!row.closed })));
+    const media = self.OJCMediaAsk?.find(row.desc || '');   // D86
+    host.replaceChildren(FG.bar(FG.items(f, { settings, rates, marks, media, closed: !!row.closed })));
     host.previousElementSibling?.matches('.ojc-sw-sub') && (host.previousElementSibling.hidden = true);   // the bar says it better
   }
 

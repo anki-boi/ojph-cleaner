@@ -2,7 +2,7 @@
  * figures.js: a listing's figures bar and its highlighted words, shared by the listing's own page (detail.js) and
  * the Swipe card (swipe.js), so the two can never tell you different things about the same post (spec.md D85).
  *
- *   ⏱ 40 h/week   ≈ $8/hr (≈ $1,280/mo)   ✗ below your $8.76/hr minimum   ⚠ wants you off OLJ   2 ✓ keyword matches
+ *   ⏱ 40 h/week   ≈ $8/hr (≈ $1,280/mo)   ✗ below your $8.76/hr minimum   🎥 wants a video of you   2 ✓ keyword matches
  *
  * Split out of detail.js, unchanged in what it decides. It reads nothing itself: the caller hands it the post's
  * own fields (WAGE / SALARY, HOURS PER WEEK, TYPE OF WORK, from the page or from the kept copy), the settings and
@@ -39,8 +39,11 @@
     root.normalize();   // rejoin the split text nodes, or every run fragments the paragraph further
   }
 
-  /** Mark the words in `root`: keywords you like and block, and anything that sends you off the platform. */
+  /** Mark the words in `root`: keywords you like and block. The off-platform marks (links, emails, "apply via") are
+   *  retired with the tag (D86): nearly every post asks for a form or an email, so they marked nearly every post. */
+  const KEYWORDS_ONLY = { url: false, email: false, ask: false, redacted: false };
   function highlight(root, settings) {
+    settings = { ...settings, detect: KEYWORDS_ONLY };
     unwrap(root);
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     const nodes = [];
@@ -94,7 +97,7 @@
   }
 
   /** The bar's items, in order: [{ cls, text, title }]. `marks` are highlight()'s counts; `closed` the site's notice. */
-  function items(f, { settings, rates, marks = { warn: 0, pos: 0, neg: 0 }, closed = false }) {
+  function items(f, { settings, rates, marks = { warn: 0, pos: 0, neg: 0 }, closed = false, media = null }) {
     const out = [];
     const add = (cls, text, title) => out.push({ cls, text, title });
     const disp = dispOf(settings, rates);
@@ -142,7 +145,10 @@
         met ? 'at or above the minimum pay you set' : 'below the minimum pay you set');
     }
 
-    if (marks.warn) add('ojc-bar-warn', self.OJCLabels.mark.offPlatform, 'this listing asks you to apply or contact outside OnlineJobs.ph');
+    // D86: the post wants you to record yourself (media-ask.js) — the ask people mind, where "apply via a form" was noise.
+    const kind = self.OJCMediaAsk?.kindOf(media);
+    if (kind) add('ojc-bar-media', self.OJCLabels.mark.media[kind],
+      [...media.video, ...media.voice, ...media.either].slice(0, 2).map(q => self.OJCLabels.mark.mediaTip(q)).join('\n'));
     if (marks.pos || marks.neg) {
       add('ojc-bar-counts',
         [marks.pos ? `${marks.pos} ✓` : '', marks.neg ? `${marks.neg} ✗` : ''].filter(Boolean).join(' · ') + ' keyword match' + (marks.pos + marks.neg === 1 ? '' : 'es'),

@@ -105,10 +105,14 @@ listing moves between tiers after its post is read, the card carries `↑ better
 whose listing has been read shows `★ top pick`, `maybe`, or `✓ liked` beside it, and the marks follow a
 re-read in another tab.
 
-**Off-platform asks are a tag, not a filter.** A listing that asks you to apply by email, Telegram or a Google
-Form gets a `⚠ wants you off OLJ` tag beside its badge. It is never hidden for it and never demoted for it
-— the tag is there so you can decide. (An earlier version demoted them, which moved 176 of 227 read
-listings out of the top tier: a filter that had stopped filtering.) Reading a post also prints its own
+**A post that wants you to record yourself gets a tag (D86).** `🎥 wants a video of you` (a Loom intro, "a
+2-3 minute video introducing yourself"), `🎙 wants a voice recording` (a voice memo, an audio sample, a Vocaroo
+link), `🎥🎙 wants a video or voice recording` when either will do, and `🎥🎙 wants a video and a voice
+recording` when it asks for both. Hover it for the post's own sentence. Only the ASK counts: a job's duties
+("edit short videos", "create Loom walkthroughs of our SOPs", "clean up podcast voice recordings") and a video call
+or interview never do. Checked on 70 live posts: 19 tagged, all of them real asks. It is a tag, never a filter:
+nothing is hidden or demoted for it. It replaced the old `⚠ wants you off OLJ` tag and its orange marks, which
+flagged nearly every post (most ask for a form or an email); that signal still counts quietly in `⚠ risky N`. Reading a post also prints its own
 `HOURS PER WEEK` on the card, and flags a week longer than 40 hours.
 
 **It remembers each listing.** Every read or opened listing keeps its verdict, its figures and its
@@ -202,7 +206,7 @@ whole post (D84): a post Read posts has opened is already kept (IndexedDB, 7 day
 once; one that has not is fetched when you reach it (one request, as Open post would make) and kept the same way,
 so its verdict and hourly figure update too, and the next card's post is fetched while you read this one, one
 request at a time and none while Read posts is running. A 429 stops the fetching for that swipe, and the preview stays. Once the post is in, the card carries the
-same figures bar as the post's own page (hours, hourly rate and month, your minimum, ⚠ off-platform, keyword
+same figures bar as the post's own page (hours, hourly rate and month, your minimum, 🎥/🎙, keyword
 count) and the same highlighted words (figures.js, shared by both, D85). The card is one fixed size whatever the
 post's length, so the buttons never move; a long post scrolls inside it.
 

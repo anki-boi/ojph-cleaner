@@ -79,7 +79,7 @@ A slim bar sits on top of the site's own results. Pills filter to **⭐ Top pick
 
 A card only carries a title and a salary line. `Read posts` loads every result inside your recency
 window, then opens each listing, two at a time, and re-decides it against the full post: the word
-the card never mentioned, the stated hours, the ask to move off the platform. Cards that moved get
+the card never mentioned, the stated hours, an ask for a video or a voice recording of you. Cards that moved get
 `↑ better than it looked` or `↓ worse than it looked`, and the board ends ranked by pay.
 
 <img src="docs/img/read-posts.gif" alt="Read posts running on a virtual assistant search: a progress strip, cards gaining hours, pay marks and trust tags" width="760">
@@ -160,7 +160,8 @@ the listings it remembers, closed and reported listings, and the saved posts. `�
 on the other computer (or after a reinstall) says what the file holds and asks before it replaces
 anything; a file that is not a backup is refused untouched.
 
-**Also on board:** a `⚠ risky N` score with every reason on hover, `🔁 posted N× in 30 days`, a
+**Also on board:** `🎥 wants a video of you` / `🎙 wants a voice recording` when a post asks you to record
+yourself (the ask, never a job's duties), a `⚠ risky N` score with every reason on hover, `🔁 posted N× in 30 days`, a
 post's stated hours converted to your time zone, `📌` compare up to three cards side by side, saved
 searches merged into one board, suggested block words learned from what you pass, `● new since
 last visit`, and a CSV export (⚙ → ⬇ CSV) where you tick ⭐ Top picks, 🤔 Maybe and/or 💚 Liked and get them sorted by
@@ -388,7 +389,8 @@ without a reload. Its label checks read `labels.js`, so a rename cannot drift fr
 | `insights.js` | Pay insights (D61): percentiles, histograms and *your minimum is above X %*, from the job memory on this device |
 | `risk.js` | `⚠ risky N` (D58): the fixed signal table and the 0–100 score. Pure, never a gate |
 | `schedule.js` | A post's hours in your time (D59): the zoned-range parser and the `Intl` conversion. Pure |
-| `trust.js` | Paints the three trust tags on a card: risky, `🔁 posted N× in 30 days` (the `sightings` store), and the hours in your time |
+| `trust.js` | Paints the trust tags on a card: risky, `🔁 posted N× in 30 days` (the `sightings` store), the hours in your time, and 🎥/🎙 |
+| `media-ask.js` | Does a post ask you to record yourself, a video or a voice recording (D86)? The ask, never a duty. Pure, `test-media.js` |
 | `glance.js` / `glance-cards.js` | At a glance (D60): the word-for-word extraction from the post's own sections, and the folded block on the card |
 | `compare.js` | Pin up to 3 cards per tab and compare them side by side (D62) |
 | `searches.js` | Saved searches (D63): ☆ Save, and 🔎 checking the others into this board inside the shared caps |

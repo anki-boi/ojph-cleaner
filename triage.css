@@ -202,3 +202,7 @@
 /* D85: the post's figures bar inside the Swipe card (its look is content.css's .ojc-figbar, shared with the post's page). */
 .ojc-sw-figs .ojc-figbar { margin: 10px 0 12px; }
 .ojc-sw-figs:empty { display: none; }
+
+/* D86: the post wants a video or a voice recording of you: a dealbreaker for some, so it reads at a glance. */
+.ojc-media { background: rgba(142, 68, 173, .15); color: #6c3483; }
+:is(#ojc-detail-bar, .ojc-figbar) .ojc-bar-media { padding: 2px 8px; border-radius: 4px; background: #6c3483; color: #fff; font-weight: 700; }

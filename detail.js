@@ -50,7 +50,8 @@
     const desc = document.querySelector(DESC_SEL);
     if (!desc || !desc.parentNode) return;
     document.getElementById(BAR_ID)?.remove();                // rebuilt whole, so a stale state cannot linger
-    const bar = F.bar(F.items(payFacts(), { settings, rates, marks, closed: !!self.OJCClosed?.pageSaysClosed() }), BAR_ID);
+    const media = self.OJCMediaAsk?.find(dp.textOf(desc));   // D86
+    const bar = F.bar(F.items(payFacts(), { settings, rates, marks, media, closed: !!self.OJCClosed?.pageSaysClosed() }), BAR_ID);
     desc.parentNode.insertBefore(bar, desc);
   }
 

@@ -1,6 +1,6 @@
 /**
- * trust.js — the three trust tags on a card (spec.md W22): ⚠ risky N (D58), 🔁 posted N× in 30 days (D57), and
- * the post's hours in your time (D59). All three are TAGS: they never hide a listing and never move its tier.
+ * trust.js — the trust tags on a card (spec.md W22): ⚠ risky N (D58), 🔁 posted N× in 30 days (D57), the post's
+ * hours in your time (D59), and 🎥/🎙 when the post wants a video or a voice recording of you (D86). All three are TAGS: they never hide a listing and never move its tier.
  *
  * A card hook (content.js runs it after the verdict), so it reads what the pass already decided and only paints.
  * The "always hiring" memory is `chrome.storage.local.sightings = { "<company>|<title>": { "<jobId>": at } }`,
@@ -11,7 +11,7 @@
   if (typeof chrome === 'undefined' || !chrome.storage || typeof document === 'undefined') return;
   const api = self.OJC;
   if (!api) return;
-  const R = self.OJCRisk, SC = self.OJCSchedule;
+  const R = self.OJCRisk, SC = self.OJCSchedule, MA = self.OJCMediaAsk, L = self.OJCLabels;
   const WINDOW = 30 * 864e5, AGAIN = 3;
   const viewerZone = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; } })();
 
@@ -39,7 +39,7 @@
   }
 
   function decorate(card, { box, now }) {
-    box.querySelectorAll(':scope > .ojc-risk, :scope > .ojc-again, :scope > .ojc-sched').forEach(b => b.remove());
+    box.querySelectorAll(':scope > .ojc-risk, :scope > .ojc-again, :scope > .ojc-sched, :scope > .ojc-media').forEach(b => b.remove());
     const id = idOf(card), company = companyOf(card);
     // Sightings: every listed card counts, hidden or not — a re-post is a fact about the employer.
     const key = company && titleKey(card) ? `${company.toLowerCase()}|${titleKey(card)}` : null;
@@ -50,6 +50,12 @@
     const text = `${api.ownText(card)}\n${desc}`;
     const r = R.score({ text, flags: self.OJCRecordsUI?.detailFor?.(card)?.flags || [], company,
       pay: card.dataset.ojcPayUnit === 'month' ? Number(card.dataset.ojcPay) : 0, median: boardMedian(now) });
+    // D86: the post wants you to record yourself — a dealbreaker for some, so it is seen at a glance. A tag only.
+    const media = MA?.find(text), kind = MA?.kindOf(media);
+    if (kind) {
+      const quotes = [...media.video, ...media.voice, ...media.either].slice(0, 2);
+      tag(box, 'ojc-media', L.mark.media[kind], quotes.map(q => L.mark.mediaTip(q)).join('\n'));
+    }
     if (r.tagged) tag(box, 'ojc-risk', `⚠ risky ${r.score}`, 'Why: ' + r.reasons.map(x => `${x.why} (+${x.points})`).join('; ') +
       ' — a warning to read carefully, not a verdict. Nothing is hidden for it.');
 

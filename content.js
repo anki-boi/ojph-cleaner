@@ -160,13 +160,10 @@
         ? 'matched in the listing\'s description: ' + list.filter(k => fromDesc.includes(k)).join(', ')
         : undefined);
       const box = badgeBox(c);
-      /** The off-platform tag. A TAG, not a verdict (the user: "it should just be a tag"): it goes on every
-       *  card that carries one, whatever its tier, and it never hides or demotes anything. */
-      const tagOff = () => {
-        if (!flags.length) return;
-        badge(box, 'ojc-flag-badge', L.mark.offPlatform, L.mark.offPlatformTip + ' (' + flags.join(', ') + ')');
-        counts.offPlat++;
-      };
+      /** The off-platform tag is retired (D86, the owner: "way too much false positives … just noise": most posts
+       *  ask for a form or an email). `flags` are still kept on the record, and the ⚠ risky score still weighs
+       *  them. What replaces it is trust.js's 🎥/🎙 tag for a post that wants a video or a voice recording. */
+      const tagOff = () => {};
       const tagDup = () => {
         if (!dupSet.has(i)) return;
         badge(box, 'ojc-dup', L.mark.dup, L.mark.dupTip);

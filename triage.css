@@ -188,9 +188,7 @@
 #ojc-panel .ojc-maker-call:hover { background: #e89a2a; text-decoration: none; }
 .ojc-maker-work { color: #ffb547 !important; font-weight: 600; text-decoration: none; }
 #ojc-panel .ojc-maker-work:hover { color: #ffb547; text-decoration: underline; }
-.ojc-maker a:focus-visible, .ojc-maker-hide:focus-visible { outline: 2px solid #ffb547; outline-offset: 2px; }
-.ojc-maker-hide { border: 0; background: none; color: #9a9184; font: 12px system-ui, sans-serif; cursor: pointer; padding: 2px 4px; }
-.ojc-maker-hide:hover { color: #f5f1eb; text-decoration: underline; }
+.ojc-maker a:focus-visible { outline: 2px solid #ffb547; outline-offset: 2px; }
 
 /* ── The bar's fixed layout (D82): Read posts and Stop take the same width, so swapping them moves nothing ── */
 #ojc-chip #ojc-scan { min-width: 92px; text-align: center; }

@@ -67,10 +67,15 @@
     const frag = document.createDocumentFragment();
     for (const it of want) frag.appendChild(it.card);
     container.insertBefore(frag, place);
+    self.OJCObserver?.forget?.();   // our own move: no verdict changed, so no pass is owed for it
   }
+
+  /** Arm the sort for the pass that is about to run (scan.js's last one), instead of a separate re-derive. */
+  function arm() { if (api.getSettings().sortByPay) armed = true; }
 
   root.OJCPaySort.afterScan = afterScan;
   root.OJCPaySort.resort = resort;
+  root.OJCPaySort.arm = arm;
 })(typeof self !== 'undefined' ? self : this, function () {
   const BLOCK = { hour: 0, month: 1, day: 2 };   // 3 = no figure
   const RATES = ['hour', 'day'];

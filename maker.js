@@ -5,9 +5,10 @@
  *
  * It follows the Chrome Web Store's ads policy, because it shows beside a third-party site: it lives only inside the
  * extension's own settings drawer (never on the board, never near the site's own content or ads), it says who it is
- * from, it is disclosed in the store listing, and it is removable in settings: "Hide" keeps it hidden
- * (`ui.hideMaker`), and nothing has to be clicked to use the extension. The links open only on a click; nothing is
- * loaded or sent before that (the serif is the system's own, no web font is fetched).
+ * from, it is disclosed in the store listing, nothing has to be clicked to use the extension, and it goes with the
+ * extension when it is uninstalled (the policy's "adjusting the settings or uninstalling"). No Hide button: the
+ * owner's call (2026-10-26), and the card only shows when someone opens ⚙. The links open only on a click; nothing
+ * is loaded or sent before that (the serif is the system's own, no web font is fetched).
  */
 (() => {
   'use strict';
@@ -21,28 +22,17 @@
   const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
   const link = (cls, text, href) => { const a = el('a', cls, text); a.href = href; a.target = '_blank'; a.rel = 'noopener'; return a; };
 
-  async function paint() {
+  function paint() {
     const slot = document.getElementById('ojc-maker-slot');
     if (!slot) return;
-    const { ui } = await chrome.storage.local.get('ui');
-    if (ui?.hideMaker) { slot.replaceChildren(); return; }
     if (slot.firstChild) return;
     const card = el('aside', 'ojc-maker');
     card.setAttribute('aria-label', L.label);
-    const hide = el('button', 'ojc-maker-hide', L.hide);
-    hide.type = 'button';
-    hide.title = L.hideTip;
-    hide.onclick = async () => {
-      const cur = (await chrome.storage.local.get('ui')).ui || {};
-      await chrome.storage.local.set({ ui: { ...cur, hideMaker: true } });
-      slot.replaceChildren();
-      self.OJCToast?.show(L.hidden);
-    };
     const mono = el('span', 'ojc-maker-mono');
     mono.append('J', el('i', null, 'D'));
     mono.setAttribute('aria-hidden', 'true');
     const head = el('div', 'ojc-maker-head');
-    head.append(mono, el('div', null), hide);
+    head.append(mono, el('div', null));
     head.children[1].append(el('small', null, L.from), el('b', null, L.name), el('span', 'ojc-maker-role', L.role));
     const row = el('div', 'ojc-maker-row');
     row.append(link('ojc-maker-call', L.call, CALL), link('ojc-maker-work', L.work, WORK));

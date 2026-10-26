@@ -86,7 +86,7 @@ No account, no server, no tracking. Everything stays on your computer. The only 
 
 FROM THE DEVELOPER
 
-The Settings panel opens with a small card from me, the developer, about my automation work (a link to my site and a "Book a call" link). It appears only inside Settings, never on the job board, loads nothing until you click it, and one click on "Hide" removes it for good.
+The Settings panel opens with a small card from me, the developer, about my automation work (a link to my site and a "Book a call" link). It appears only inside Settings, never on the job board, and loads nothing until you click it.
 
 SOURCE CODE ON GITHUB
 

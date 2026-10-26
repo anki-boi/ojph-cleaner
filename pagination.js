@@ -114,7 +114,7 @@
    * Returns `{ ok, added, url, reason, done }`. `done` means "there is nothing more to fetch", so the
    * scroll path may stop the loader for good; a plain miss (too soon, autoLoad off) leaves it armed.
    */
-  async function loadOne(force = false) {
+  async function loadOne(force = false, signal = undefined) {
     if (pag.busy) return { ok: false, reason: 'already loading', retry: true };
     if (pag.done) return { ok: false, reason: 'the end of the list was already reached', done: true };
     const settings = api.getSettings();
@@ -140,6 +140,7 @@
     if (force) {
       const wait = MIN_GAP_MS - (Date.now() - pag.lastAt);
       if (wait > 0) await new Promise(r => setTimeout(r, wait));
+      if (signal?.aborted) return { ok: false, reason: 'stopped', aborted: true };
     } else if (Date.now() - pag.lastAt < MIN_GAP_MS) {
       return { ok: false, reason: 'too soon', retry: true };
     }
@@ -150,7 +151,7 @@
     const seen = new Set(now.map(c => jobKeyOf(c, ownText)));
     try {
       const url = nextPageUrl(location.href, here);
-      const res = await fetch(url, { credentials: 'same-origin' });
+      const res = await fetch(url, { credentials: 'same-origin', signal });
       if (!res.ok) return { ok: false, reason: `the next page returned ${res.status}`, done: true };
       const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
       // A page of nothing but jobs we already have means we are at the end (or the site repeats itself) —
@@ -162,7 +163,9 @@
       placeSentinel();   // the new last card is further down; the trigger must follow it
       pag.pages++;
       return { ok: true, added: incoming.length, url };
-    } catch {
+    } catch (e) {
+      // The scan's Stop (D83): the page was not wanted after all, and the list has not ended, so not `done`.
+      if (e?.name === 'AbortError') return { ok: false, reason: 'stopped', aborted: true };
       return { ok: false, reason: 'offline or blocked', done: true };
     } finally {
       pag.busy = false;

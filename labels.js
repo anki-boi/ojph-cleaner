@@ -199,8 +199,6 @@
       body: 'I build browser extensions like this one, CRM pipelines, AI agents and small internal tools. ' +
         'If you, or a client you land, have busywork that should run itself, let’s talk.',
       call: 'Book a call', work: 'See my work ↗',
-      hide: 'Hide', hideTip: 'hide this note for good',
-      hidden: 'Hidden. It will not show again.',
     },
     /** The CSV chooser (D75). */
     exportPick: {

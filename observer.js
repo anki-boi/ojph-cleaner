@@ -36,7 +36,9 @@
     // W22's trust tags.
     'ojc-risk', 'ojc-again', 'ojc-sched',
     // W23/W24: the at-a-glance fold and the saved-search tag.
-    'ojc-glance', 'ojc-from'];
+    'ojc-glance', 'ojc-from',
+    // D77: the applied stamp under a card.
+    'ojc-mine'];
 
   function isOurs(node) {
     let n = node;
@@ -64,11 +66,14 @@
     }
   }
 
-  const watch = () => new MutationObserver(onMutate)
-    .observe(document.body, { childList: true, subtree: true, characterData: true });
+  let mo = null;
+  const watch = () => { mo = new MutationObserver(onMutate); mo.observe(document.body, { childList: true, subtree: true, characterData: true }); };
+  /** Drop the records of a change we just made ourselves and know needs no pass: the pay sort moving cards
+   *  (pay-sort.js). Moving them changes no verdict, and the pass it used to schedule was a full one. */
+  const forget = () => { mo?.takeRecords(); };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watch);
   else watch();
 
-  self.OJCObserver = { isOurs, OUR_CLASSES, schedule, watch };
+  self.OJCObserver = { isOurs, OUR_CLASSES, schedule, watch, forget };
 })();

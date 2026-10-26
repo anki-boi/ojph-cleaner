@@ -33,10 +33,27 @@
    * disclaimer's "40 h/week" into the figure (₱50,186 - ₱401,485/mo), and the keyword "assumes" — which
    * appears on no listing on the board — highlighted a card because of our warning.
    */
+  // Walked, not cloned: copying every card to strip our nodes was the largest single cost of a rule pass (profiled
+  // after Stop on a 225-card board: ~110 ms of cloneNode). Same result: an element whose class attribute starts
+  // with "ojc-" is skipped with everything inside it, and the root itself never is.
+  const ours = (n) => n.getAttribute('class')?.startsWith('ojc-');
+  const readOwn = (el) => {
+    let out = '';
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+      acceptNode: (n) => (n.nodeType !== 1 ? NodeFilter.FILTER_ACCEPT : ours(n) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP) });
+    for (let n = w.nextNode(); n; n = w.nextNode()) out += n.nodeValue;
+    return out;
+  };
+  // A pass asks for the same card's text several times (the verdict, the hours, the trust tags). Within one task
+  // the answer cannot change (the site's own script cannot run mid-task, and our nodes are skipped), so it is
+  // kept until the task ends.
+  let memo = null;
   const ownText = (el) => {
-    const own = el.cloneNode(true);
-    for (const injected of own.querySelectorAll('[class^="ojc-"]')) injected.remove();
-    return own.textContent || '';
+    if (!el) return '';
+    if (!memo) { memo = new WeakMap(); setTimeout(() => { memo = null; }, 0); }
+    let v = memo.get(el);
+    if (v === undefined) { v = readOwn(el); memo.set(el, v); }
+    return v;
   };
 
   /** The site's posted salary text, with our annotation stripped: the no-salary verdict must not be able to

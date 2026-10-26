@@ -282,8 +282,8 @@ door for keeping the same lists on two machines, or for a backup in a notes app.
   computer; nothing is uploaded. A resume you paste or pick for *Words from your resume* is read in the page and
   never stored or sent. See `SECURITY.md`.
 - **A card from the maker, in ⚙ only.** The settings drawer opens with a small business card from the developer
-  (his automation work, `Book a call`, `See my work`). It never appears on the board, loads nothing until clicked,
-  and `Hide` removes it for good (`ui.hideMaker`). The Chrome Web Store listing says so too.
+  (his automation work, `Book a call`, `See my work`). It never appears on the board and loads nothing until
+  clicked. The Chrome Web Store listing says so too.
 - **One kind of write, on your click.** Everything above only reads. A lowball's tag and `⚫ Review N lowball`
   send OnlineJobs.ph's own *Salary too low* report (the same request as the site's REPORT button) from
   your signed-in tab, under your account: one listing at a time, only when you press Report for it, at most
@@ -363,7 +363,7 @@ without a reload. Its label checks read `labels.js`, so a rename cannot drift fr
 | `resume-words.js` | Which known job words (presets plus the site's skill tags) are in a resume and in posts seen, with counts; general skills unticked. Pure |
 | `skill-tags.js` | Keeps the title and skill tags of every post the board shows (`jobTags`), and gathers the posts seen for the resume picker |
 | `resume-ui.js` | The *Words from your resume* window, opened from setup and from ⚙'s `📄 From my resume` |
-| `maker.js` | The maker's business card at the top of ⚙ (D81): in his site's colours, `Book a call` and `See my work`, `Hide` for good |
+| `maker.js` | The maker's business card at the top of ⚙ (D81): in his site's colours, `Book a call` and `See my work` |
 | `backup-file.js` / `backup.js` | Back up everything and restore it (D79): the file's shape and its checks (pure, `test-backup.js`), and the ⚙ buttons that read and replace `chrome.storage.local` and the saved posts |
 | `chip.js` | The status bar at the top of the results: the filter pills, the hidden breakdown with *Peek at hidden*, *Read posts* and ⚙ (D45/D46) |
 | `labels.js` | Every word the extension shows, in one table (D43). `test-labels.js` fails if a retired word is shown anywhere |

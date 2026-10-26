@@ -36,6 +36,7 @@
    *  highlighted card (a keyword you like, below your goal) rides with Worth considering: it is the other
    *  "interesting but not high-yield" bucket, and its description is still worth reading. */
   const RANK = { high: 0, worth: 1, pos: 1, kw: 2, none: 2 };
+  let ctl = null;   // aborts the listings in flight when Stop is pressed, so Stop ends the run at once
   const st = { running: false, stopped: false, attempted: 0, total: 0, pages: 0, promoted: 0,
     demoted: 0, closed: 0, cached: 0, failed: 0, noDesc: 0, reasons: [], reason: '' };
 
@@ -64,7 +65,8 @@
     let retries = 0;
     while (st.pages < MAX_PAGES && !st.stopped) {
       const before = api.cards().length;
-      const r = await loader.loadOne(true);
+      const r = await loader.loadOne(true, ctl?.signal);
+      if (st.stopped) return;   // Stop during a page load: its reason stands
       if (!r.ok) {
         if (r.retry) {
           // The only retry a FORCED load can give is "another load is in flight" — a user scroll racing
@@ -94,7 +96,9 @@
       }
       api.setNote(self.OJCLabels.note.loadedJobs(api.cards().length));
     }
-    st.reason = st.pages >= MAX_PAGES ? `stopped at the ${MAX_PAGES}-page cap` : 'reached the end of the results';  }
+    // Left by Stop: the reason is already "stopped by you", and the end of the results was never reached.
+    if (!st.stopped) st.reason = st.pages >= MAX_PAGES ? `stopped at the ${MAX_PAGES}-page cap` : 'reached the end of the results';
+  }
 
   // ── Phase 2: open the listings, priority first ───────────────────────────
   /** The queue, in pass order. Cards hidden by a closed/stale/no-salary verdict are not scanned — no
@@ -130,7 +134,7 @@
     st.attempted++;
     const note = (why) => { if (st.reasons.length < 5 && !st.reasons.includes(why)) st.reasons.push(why); };
     try {
-      const res = await fetch(item.url, { credentials: 'same-origin' });
+      const res = await fetch(item.url, { credentials: 'same-origin', signal: ctl?.signal });
       if (res.status === 429) {
         st.reason = 'the site asked us to slow down (HTTP 429)';
         st.stopped = true;
@@ -145,6 +149,7 @@
       if (r.closed) { st.closed++; await closed?.remember?.(item.id); }
       if (r.moved) (RANK[r.tier] < RANK[r.prevTier] ? st.promoted++ : st.demoted++);
     } catch (e) {
+      if (e?.name === 'AbortError') { st.attempted--; return; }   // Stop: not read, not an error
       st.reason = `offline or blocked (${e && e.name ? e.name : 'fetch failed'})`;
       st.stopped = true;
     }
@@ -186,6 +191,7 @@
     if (!st.running) return;
     st.stopped = true;
     st.reason = why || 'stopped by you';
+    ctl?.abort();
   }
 
   async function start() {
@@ -201,6 +207,7 @@
     Object.assign(st, { running: true, stopped: false, attempted: 0, total: 0, pages: 0, promoted: 0,
       demoted: 0, closed: 0, cached: 0, failed: 0, noDesc: 0, reasons: [], reason: '' });
     const startedAt = Date.now();
+    ctl = new AbortController();
     api.setNote(self.OJCLabels.note.loadingPages);
     try {
       await paginate();
@@ -210,10 +217,12 @@
       st.reason = `stopped: ${(e && e.message) || e}`;
     } finally {
       st.running = false;
-      api.refreshRules();
       // D41: a run has ended, so the board may be ranked — ANY end, because a partial ranking of the
       // figures we do have is still honest, and the next run moves cards up as more of them are stated.
-      self.OJCPaySort?.afterScan?.();
+      // Armed BEFORE the last pass, so that pass's own salary step ranks the board: one pass at the end of a
+      // run, where there used to be a pass, a second salary pass, and the pass the reorder scheduled.
+      self.OJCPaySort?.arm?.();
+      api.refreshRules();
       api.setNote(outcome());
       console.log('[OJ Cleaner] scan', st);
     }

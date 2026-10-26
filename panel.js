@@ -56,7 +56,7 @@
             <div class="ojc-keyword-io">
               <button id="ojc-kw-copy" type="button">⧉ Copy both lists</button>
               <button id="ojc-kw-paste" type="button">⎘ Paste both lists</button>
-              <select id="ojc-preset" aria-label="Add words for a kind of work"><option value="">＋ Add words for…</option></select>
+              <select id="ojc-preset" aria-label="Add words for a kind of work"><option value="">＋ Add words for…</option></select><button id="ojc-kw-resume" type="button">${L.resume.btn}</button>
             </div>
           </div>
         </div>

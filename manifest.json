@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "OJ.ph Cleaner",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "description": "See every OnlineJobs.ph job's real hourly rate, hide stale, unpaid and unwanted posts, and flag lowball offers to report",
   "permissions": ["storage"],
   "host_permissions": ["https://www.onlinejobs.ph/*", "https://onlinejobs.ph/*",
@@ -14,7 +14,8 @@
         "records.js", "toast.js", "chip.js", "content.js", "observer.js", "salary.js", "per-hour.js", "salary-cards.js",
         "closed-cards.js", "records-store.js", "records-cards.js", "export.js", "pagination.js", "scan.js", "pay-sort.js",
         "dashboard-fit.js", "dashboard-cards.js", "presets.js", "panel.js", "setup.js", "myjobs.js", "suggest.js", "visits.js", "triage.js", "lowball.js", "lowball-cards.js","swipe.js", "risk.js", "schedule.js", "trust.js", "glance.js", "glance-cards.js", "compare.js", "searches.js", "detail.js", "detail-actions.js",
-        "apply-ask.js", "backup-file.js", "backup.js"
+        "apply-ask.js", "backup-file.js", "backup.js",
+        "resume-read.js", "resume-pdf.js", "resume-words.js", "skill-tags.js", "resume-ui.js"
       ],
       "css": ["ui.css", "content.css", "triage.css"],
       "run_at": "document_idle"

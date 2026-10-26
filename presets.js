@@ -184,5 +184,13 @@
     return settle([...(lists.positive || []), ...p.positive], [...(lists.negative || []), ...p.negative]);
   }
 
-  return { ARCHETYPES, LEVELS, MAX_PICKS, merge, repick, addTo };
+  /** Add words of the person's own (from a resume, D80) by the same rule: a block on one of THESE words goes, and
+   *  says which, so the toast can tell them. Blocks that only clash with older words are theirs to keep. */
+  function addWords(lists, words) {
+    const old = lists.negative || [];
+    const negative = old.filter(n => !(words || []).some(w => clashes(n, w)));
+    return { positive: uniq([...(lists.positive || []), ...(words || [])]), negative, unblocked: old.filter(n => !negative.includes(n)) };
+  }
+
+  return { ARCHETYPES, LEVELS, MAX_PICKS, merge, repick, addTo, addWords };
 });

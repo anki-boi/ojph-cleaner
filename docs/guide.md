@@ -175,6 +175,19 @@ hourly is suggested as monthly ÷ 173.3 — 40 h × 52 weeks ÷ 12 — shown and
 shipped defaults; Finish replaces only what you answered, and offers Undo. An existing install is marked
 onboarded silently and never sees it. `⚙ → Advanced → Run setup again` reopens it.
 
+**Words from your resume (D80).** Setup's *What are you hunting?* screen has `📄 Fill these from my resume`,
+and ⚙ has `📄 From my resume` beside *＋ Add words for…*. Paste the resume, or pick a .pdf, .docx or .txt; it is
+read in the page (a .docx is a zip the browser unpacks; a PDF's strings are decoded through each font's
+character table, and letter widths decide where a space goes) and is never stored. A scanned or password-locked
+PDF says so and asks for pasted text. The words offered are the known job words (the 15 presets' words and every
+skill tag OnlineJobs.ph has shown on a card here, kept 60 days as `jobTags`) that the resume contains, matched by
+the board's own matcher, and only those used by at least one post seen on this computer (the kept titles and tags,
+the cards on the board, and the saved posts' full text). Each shows its post count; general skills (English,
+communication, attention to detail…) start unticked, everything else ticked. Commonness is deliberately not a
+reason to untick: the posts seen come from your own searches, so the words that fill them are your best ones.
+Add puts the ticked words in *I'm into* (⚙ then needs Save) and, like the presets, drops a block word that would
+hide them, naming it in the message.
+
 **Triage on every card (D51).** Each card gets `💾 Save`, `📨 Applied` (D77), `✕ Not for me` and `📌`. *Not for me* hides that
 listing for good, counted under the bar's *You passed*, with Undo; while peeking, the card offers
 `↶ Show again`. Your decisions live in their own `chrome.storage.local` key, `myJobs` — never in

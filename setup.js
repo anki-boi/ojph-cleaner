@@ -132,9 +132,18 @@
       const first = () => answers.positive[0] || 'virtual assistant';
       const link = h('a', { href: '#', target: '_blank' }, 'Search OnlineJobs for it ↗');
       link.onmouseenter = link.onfocus = () => { link.href = `/jobseekers/jobsearch?jobkeyword=${encodeURIComponent(first())}`; };
+      // D80: the resume's job words, picked in their own window and added to this box.
+      const fromResume = self.OJCResumeUI && h('button', { type: 'button', class: 'ojc-setup-resume', onclick: () => self.OJCResumeUI.open({
+        existing: [...answers.positive, ...answers.negative],
+        onAdd: (words) => {
+          const next = PR.addWords(answers, words);
+          Object.assign(answers, { positive: next.positive, negative: next.negative });
+          render();
+          self.OJCToast?.show(L.resume.addedSetup(words.length, next.unblocked));
+        } }) }, L.resume.setupBtn);
       return [h('h2', {}, 'What are you hunting?'),
         h('p', {}, 'Job titles, tools or words you want to see. Matching jobs get a green badge — these never hide anything.'),
-        box, h('p', { class: 'ojc-setup-hint' }, 'Separate with commas or new lines. ', link), matchGuide(true, false)];
+        box, fromResume, h('p', { class: 'ojc-setup-hint' }, 'Separate with commas or new lines. ', link), matchGuide(true, false)];
     }
     if (step === 3) {
       const cur = h('select', { id: 'ojc-setup-cur' },
@@ -215,7 +224,7 @@
         h('div', { class: 'ojc-setup-foot' },
           h('button', { type: 'button', id: 'ojc-setup-back', onclick: () => { step--; render(); } }, 'Back'),
           h('button', { type: 'button', id: 'ojc-setup-next', class: 'is-primary', onclick: () => { if (step < LAST) { step++; render(); } else done(true); } }, 'Next'))));
-    node.addEventListener('keydown', (e) => { if (e.key === 'Escape') done(false); });
+    node.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !document.getElementById('ojc-resume')) done(false); });
     document.body.appendChild(node);
     render();
   }

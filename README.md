@@ -53,6 +53,14 @@ filled, edit freely), the least you'd take, and your instant no's. A word one pi
 hidden by another pick. Finish replaces only what you answered, and offers Undo. ⚙ Settings has the
 same presets under *＋ Add words for…*.
 
+**Words from your resume.** On the *What are you hunting?* screen, and in ⚙ as `📄 From my resume`, paste
+your resume or pick the file (.pdf, .docx or .txt). The extension checks it against the job words it
+knows (the presets, and the skill tags OnlineJobs.ph puts on the posts you have seen) and offers only
+the ones that are in your resume **and** in real posts, each with how many posts use it:
+`QuickBooks · 101 posts`, `Xero · 54 posts`. They come ticked, except general skills like English;
+untick any, then Add. A word you add takes a clashing block word off your hide list (and says so), the
+same rule the presets follow. No AI and no upload: the file is read on your computer and not kept.
+
 <img src="docs/img/setup.gif" alt="First-run setup: picking General VA and Customer Support, then New to online work, the filled-in word lists with the matching guide, a minimum, and the instant no's" width="760">
 
 ### One bar that says what it did
@@ -264,11 +272,13 @@ door for keeping the same lists on two machines, or for a backup in a notes app.
   and no other host is ever contacted. The optional resume-fit bridge talks only to your own machine
   (`dashboardUrl`).
 - **Local state.** Settings, the cached rates, the remembered verdict for each listing, your own calls
-  (`myJobs`, with your notes and where you applied), the visit times and the re-post sightings live in `chrome.storage.local`; compare pins live in
+  (`myJobs`, with your notes and where you applied), the visit times, the re-post sightings and the skill tags of
+  posts you have seen (`jobTags`, 60 days) live in `chrome.storage.local`; compare pins live in
   the tab's `sessionStorage`; the listing pages a run read are cached in IndexedDB, in the site's own
   origin. Pay insights, suggestions, risk scores and *At a glance* are computed from that, on this device.
   There is no server, no account, and no analytics. A backup (⚙ → Advanced) is a file saved to your own
-  computer; nothing is uploaded. See `SECURITY.md`.
+  computer; nothing is uploaded. A resume you paste or pick for *Words from your resume* is read in the page and
+  never stored or sent. See `SECURITY.md`.
 - **One kind of write, on your click.** Everything above only reads. A lowball's tag and `⚫ Review N lowball`
   send OnlineJobs.ph's own *Salary too low* report (the same request as the site's REPORT button) from
   your signed-in tab, under your account: one listing at a time, only when you press Report for it, at most
@@ -344,6 +354,10 @@ without a reload. Its label checks read `labels.js`, so a rename cannot drift fr
 | `detail-text.js` / `detail.js` | What to highlight on a listing's page, and the figures bar that applies it (W4) |
 | `detail-actions.js` | `💾 Save` / `✓ I applied` / `✕ Not for me` / `📋 My jobs` under the figures bar on a listing's own page (W21.2), and the line with when and where you applied and your note (D77) |
 | `apply-ask.js` | *Did you apply?* (D76): copying from a post, opening its link or pressing Apply arms one question, asked when you come back to the tab; Yes files it as Applied with where, then offers a note |
+| `resume-read.js` / `resume-pdf.js` | A resume's text from .txt, .docx (a zip, unpacked by the browser) or .pdf (each string decoded through its font's character table, letter widths for the spaces), with no library (D80) |
+| `resume-words.js` | Which known job words (presets plus the site's skill tags) are in a resume and in posts seen, with counts; general skills unticked. Pure |
+| `skill-tags.js` | Keeps the title and skill tags of every post the board shows (`jobTags`), and gathers the posts seen for the resume picker |
+| `resume-ui.js` | The *Words from your resume* window, opened from setup and from ⚙'s `📄 From my resume` |
 | `backup-file.js` / `backup.js` | Back up everything and restore it (D79): the file's shape and its checks (pure, `test-backup.js`), and the ⚙ buttons that read and replace `chrome.storage.local` and the saved posts |
 | `chip.js` | The status bar at the top of the results: the filter pills, the hidden breakdown with *Peek at hidden*, *Read posts* and ⚙ (D45/D46) |
 | `labels.js` | Every word the extension shows, in one table (D43). `test-labels.js` fails if a retired word is shown anywhere |
@@ -381,6 +395,7 @@ without a reload. Its label checks read `labels.js`, so a rename cannot drift fr
 | `test-per-hour.js` | Node tests for `per-hour.js`: stated hours only, the hourly-first line, prices for the whole job |
 | `test-labels.js` / `test-setup.js` / `test-myjobs.js` / `test-triage.js` | Node tests for the words, the first-run setup, the `myJobs` reducer (with where you applied and reposts) and triage (suggestions, visits) |
 | `test-backup.js` | Node tests for the backup file: the round trip, what the restore question says, and every refusal |
+| `test-resume.js` / `tests/fixtures/resume` | Node tests for reading resumes and picking words, on real files of one made-up person: PDFs from Chrome and from another maker (standard font, embedded font, compressed object stream), a scan, a locked PDF, a .docx |
 | `test-insights.js` / `test-trust.js` / `test-glance.js` | Node tests for pay insights, the trust tags (risk, re-posts, schedule) and At a glance |
 | `test-paysort.js` / `test-dashboard.js` | Node tests for the pay sort and the resume-fit bridge |
 | `test-pager.js` | Node tests for the pagination URL/offset maths and the stop conditions |

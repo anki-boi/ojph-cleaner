@@ -154,6 +154,38 @@
       restored: 'Restored. Reloading the page…',
       failed: (why) => `Restore failed: ${why}.`,
     },
+    /** Words from your resume (D80): the picker in setup and in ⚙. */
+    resume: {
+      btn: '📄 From my resume', setupBtn: '📄 Fill these from my resume',
+      title: 'Words from your resume',
+      intro: 'Paste your resume, or pick the file. Only job words that are in your resume and in real posts are offered, and nothing is added until you press Add.',
+      pastePh: 'Paste your resume here…',
+      file: '📄 Choose a file (.pdf, .docx, .txt)',
+      find: 'Find my words',
+      reading: (name) => `Reading ${name}…`,
+      read: (name, n) => `Read ${n} words from ${name}.`,
+      looking: 'Looking for job words…',
+      found: (n, posts) => `${n} job word${n === 1 ? '' : 's'} from your resume, and how many of the ${posts} posts seen on this computer use each. Untick any you don't want.`,
+      none: (posts) => posts
+        ? `None of the job words in the ${posts} posts seen on this computer are in this resume. Browse a few searches or press Read posts, then try again.`
+        : 'No posts seen on this computer yet. Open a search, then try again.',
+      posts: (n) => `${n} post${n === 1 ? '' : 's'}`,
+      generalTip: 'A general skill most posts ask for: it would mark most jobs green, so it is not ticked',
+      add: (n) => (n ? `Add ${n} word${n === 1 ? '' : 's'}` : 'Add'),
+      cancel: 'Cancel', close: 'Close',
+      addedPanel: (n, unblocked = []) => `Added ${n} word${n === 1 ? '' : 's'} from your resume` +
+        (unblocked.length ? `, and took ${unblocked.map(w => `"${w}"`).join(', ')} off Never show me` : '') + '. Check them, then Save',
+      addedSetup: (n, unblocked = []) => `Added ${n} word${n === 1 ? '' : 's'} from your resume` +
+        (unblocked.length ? `, and took ${unblocked.map(w => `"${w}"`).join(', ')} off the hide list` : '') + '.',
+      privacy: 'Your resume stays on this computer and is not saved. Only the words you add are kept.',
+      err: {
+        encrypted: 'This PDF is locked with a password. Open it, copy all the text, and paste it here.',
+        'no text': 'No text found in this file (a scanned picture, perhaps). Open it, copy all the text, and paste it here.',
+        'old Word file': 'This is an old .doc file. Save it as .docx or PDF, or paste the text here.',
+        'too big': 'That file is too big for a resume (over 15 MB).',
+        other: 'Could not read this file. Open it, copy all the text, and paste it here.',
+      },
+    },
     /** The CSV chooser (D75). */
     exportPick: {
       title: 'Export which listings?',

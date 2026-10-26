@@ -191,3 +191,9 @@
 .ojc-maker a:focus-visible, .ojc-maker-hide:focus-visible { outline: 2px solid #ffb547; outline-offset: 2px; }
 .ojc-maker-hide { border: 0; background: none; color: #9a9184; font: 12px system-ui, sans-serif; cursor: pointer; padding: 2px 4px; }
 .ojc-maker-hide:hover { color: #f5f1eb; text-decoration: underline; }
+
+/* ── The bar's fixed layout (D82): Read posts and Stop take the same width, so swapping them moves nothing ── */
+#ojc-chip #ojc-scan { min-width: 92px; text-align: center; }
+#ojc-chip .ojc-newcount { font-variant-numeric: tabular-nums; }
+#ojc-chip #ojc-chip-total { font-variant-numeric: tabular-nums; }
+@media (max-width: 520px) { .ojc-bar-row { grid-template-columns: 1fr; } .ojc-bar-main { justify-content: flex-end; } }

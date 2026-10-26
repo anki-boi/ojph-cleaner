@@ -197,21 +197,21 @@
 
   // ── the bar's buttons ───────────────────────────────────────────────────
   const bar = self.OJCChip;
-  bar?.addAction({ id: 'ojc-btn-suggest', order: 1,
+  bar?.addAction({ id: 'ojc-btn-suggest', order: 8,
     text: () => { const g = suggestion(); return g ? `Block "${g.word}"?` : ''; },
     hidden: () => !suggestion(),
     title: 'seen in most of the jobs you passed on, and almost none you kept — click to block it',
     onClick: () => { const g = suggestion(); if (g) block(g.word); } });
-  bar?.addAction({ id: 'ojc-btn-suggest-x', order: 2, text: '✕', title: 'not this word — never suggest it again',
+  bar?.addAction({ id: 'ojc-btn-suggest-x', order: 9, text: '✕', title: 'not this word — never suggest it again',
     hidden: () => !suggestion(), onClick: () => { const g = suggestion(); if (g) dismiss(g.word); } });
-  bar?.addAction({ id: 'ojc-btn-streak', order: 4,
+  bar?.addAction({ id: 'ojc-btn-streak', order: 6,
     text: () => { const g = Number(api.getSettings().weeklyApplyGoal) || 0, s = M.streak(jobs, Date.now()); return `${s.days ? '🔥 ' + s.days + 'd · ' : '📨 '}${s.week}/${g}`; },
     hidden: () => !(Number(api.getSettings().weeklyApplyGoal) > 0),
     title: 'your streak (days in a row with an application) and applications this week against your weekly goal — click for My jobs',
     onClick: () => window.open(chrome.runtime.getURL('jobs.html'), '_blank') });
-  bar?.addAction({ id: 'ojc-btn-swipe', order: 5, text: '🃏 Swipe', title: 'go through the board one card at a time (keyboard: ← pass, → save, ↑ applied)',
+  bar?.addAction({ id: 'ojc-btn-swipe', order: 1, text: '🃏 Swipe', title: 'go through the board one card at a time (keyboard: ← pass, → save, ↑ applied)',
     onClick: () => self.OJCSwipe?.open() });
-  bar?.addAction({ id: 'ojc-btn-myjobs', order: 6,
+  bar?.addAction({ id: 'ojc-btn-myjobs', order: 2,
     text: () => { const c = M.counts(jobs); const n = c.saved + c.applied + c.interview + c.offer; return n ? `📋 My jobs ${n}` : '📋 My jobs'; },
     title: 'everything you saved and applied to, with follow-up reminders',
     onClick: () => window.open(chrome.runtime.getURL('jobs.html'), '_blank') });

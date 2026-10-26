@@ -105,7 +105,7 @@
   }
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && node) close(); });
 
-  self.OJCChip?.addAction({ id: 'ojc-btn-compare', order: 3, text: () => `📌 Compare ${pins.length}`,
+  self.OJCChip?.addAction({ id: 'ojc-btn-compare', order: 5, text: () => `📌 Compare ${pins.length}`,
     hidden: () => !pins.length, title: 'see your pinned jobs side by side', onClick: open });
   self.OJCCompare = { open, close, pins: () => pins.slice() };
 })();

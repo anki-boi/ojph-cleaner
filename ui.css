@@ -17,10 +17,10 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, .18);
 }
 #ojc-chip.ojc-floating { position: fixed; top: auto; bottom: 16px; right: 16px; left: 16px; max-width: 900px; margin: 0 auto; z-index: 2147483000; }
-.ojc-bar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 7px 8px; }
+.ojc-bar-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 5px 10px; padding: 7px 8px 5px; }
 .ojc-pills { display: flex; flex-wrap: wrap; gap: 5px; }
-.ojc-spacer { flex: 1 1 8px; }
-.ojc-extra { display: contents; }
+.ojc-bar-left, .ojc-bar-main, .ojc-extra { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.ojc-bar-main { flex-wrap: nowrap; } .ojc-bar-left { padding: 0 8px 7px; }
 #ojc-chip button {
   border: 0;
   border-radius: 999px;

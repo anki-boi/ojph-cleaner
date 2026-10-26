@@ -267,7 +267,7 @@
   }
 
   self.OJCChip?.addAction({
-    id: 'ojc-report-low', order: 5,
+    id: 'ojc-report-low', order: 7,
     text: () => L.low.bulk(openCards().length),
     title: L.low.bulkTip,
     hidden: () => busy || !!review || !openCards().length,

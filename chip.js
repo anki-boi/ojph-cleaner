@@ -5,8 +5,13 @@
  * (docs/img/list-chip.png). It is now one slim bar, sticky inside the site's own results column, so it scrolls
  * with the board and never covers a card:
  *
- *   [Everything] [⭐ Top picks 14] [🤔 Maybe 2] [💚 Liked 3] [⚫ Lowball 4]   🙈 3 hidden ▾      Read posts  ⚙
+ *   🃏 Swipe  📋 My jobs  ☆ Save  …the buttons that come and go, at the end              Read posts  ⚙
+ *   [Everything] [⭐ Top picks 14] [🤔 Maybe 2] [💚 Liked 3] [⚫ Lowball 4]   🙈 3 hidden ▾   ● 5 new
  *   ▓▓▓▓▓▓░░░░ Reading posts 12 of 40 · 1 better · 0 worse
+ *
+ * Fixed places (D82): the first line holds the tools (the ones always there first, so a button that comes and goes
+ * never shifts them) and Read posts / ⚙ in the top-right corner, which nothing moves. The filters wrap on the line
+ * below, where a new count only makes the bar taller, so no button is ever pushed out from under the pointer.
  *
  * Two controls that never share a word (D46): the pills choose what you LOOK at; `N hidden ▾` opens the
  * reasons and `Peek at hidden`, which shows what the rules took away. The old panel had a view called "All"
@@ -64,14 +69,19 @@
     hiddenBtn.append(L.icon.hidden + ' ', total, caret);
 
     const fresh = el('span', 'ojc-newcount');   // D54: how many cards are new since your last visit
-    const spacer = el('span', 'ojc-spacer');
-    const extra = el('span', 'ojc-extra');   // buttons other modules register (swipe, my jobs, …)
+    const extra = el('div', 'ojc-extra');   // buttons other modules register (swipe, my jobs, …)
     const scan = button('ojc-scan', 'ojc-act');
     const gear = button('ojc-gear', 'ojc-act ojc-icon', '⚙');
     gear.setAttribute('aria-label', L.btn.settings);
     // The installed version, so a reload that picked up a change is visible at a glance.
     gear.title = `${L.btn.settings} · v${chrome.runtime?.getManifest?.().version || '?'}`;
-    row.append(pills, hiddenBtn, fresh, spacer, extra, scan, gear);
+    // D82: a fixed layout. The top line is the tools, then Read posts / Stop and ⚙ holding the top-right corner; the
+    // filters have the line below, where wrapping only makes the bar taller. One wrapping line used to push Stop and
+    // ⚙ down to a new line the moment a count or a button appeared, mid-click.
+    const left = el('div', 'ojc-bar-left'), main = el('div', 'ojc-bar-main');
+    left.append(pills, hiddenBtn, fresh);
+    main.append(scan, gear);
+    row.append(extra, main);
 
     const pop = el('div', 'ojc-pop');
     pop.id = 'ojc-hidden-pop';
@@ -88,7 +98,7 @@
     note.id = 'ojc-note';
     status.append(progress, note);
 
-    bar.append(row, pop, status);
+    bar.append(row, left, pop, status);
     hiddenBtn.onclick = () => { popOpen = !popOpen; ui && paintPop(); };
     ui = { bar, viewBtns, hiddenBtn, total, caret, fresh, extra, scan, gear, pop, list, toggle, status, progress, fill, note, extraBtns: {} };
     return ui;

@@ -117,11 +117,11 @@
   });
 
   const bar = self.OJCChip;
-  bar?.addAction({ id: 'ojc-btn-savesearch', order: 7,
+  bar?.addAction({ id: 'ojc-btn-savesearch', order: 3,
     text: () => (saved().includes(here()) ? '★ Saved' : '☆ Save'),
     title: 'save this search, so 🔎 can check it together with your others (click again to forget it)',
     onClick: toggleSave });
-  bar?.addAction({ id: 'ojc-btn-check', order: 8,
+  bar?.addAction({ id: 'ojc-btn-check', order: 4,
     text: () => (run ? `Stop · ${run.done}/${run.of}` : `🔎 ${others().length}`),
     hidden: () => !run && !others().length,
     title: 'add the new listings from your other saved searches to this board (one request at a time, capped)',

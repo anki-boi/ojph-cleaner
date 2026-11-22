@@ -6,3 +6,6 @@ _gate.mjs
 
 # store build output
 dist/
+
+# Obsidian vault workspace state
+.obsidian/
